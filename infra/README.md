@@ -148,7 +148,7 @@ dev_ip_address = "TU_IP_AQUI"
 >
 > **Después de cada push a main**, recupera tu acceso ejecutando:
 > ```bash
-> terraform apply -var="dev_ip_address=$(curl -s ifconfig.me)"
+> terraform apply -var="dev_ip_address=$(curl -s ifconfig.me)" -target=azurerm_postgresql_flexible_server_firewall_rule.dev_ip -auto-approve
 > ```
 
 ### Paso 2: Ver el plan
