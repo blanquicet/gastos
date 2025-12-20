@@ -1,0 +1,210 @@
+:root {
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Arial, sans-serif;
+  color: #111827;
+}
+
+body {
+  margin: 0;
+  padding: 24px;
+  padding-left: max(24px, env(safe-area-inset-left));
+  padding-right: max(24px, env(safe-area-inset-right));
+  background: #f6f7f9;
+}
+
+html, body {
+  width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+*, *::before, *::after {
+  box-sizing: inherit;
+}
+
+.card {
+  max-width: 680px;
+  margin: 0 auto;
+  background: #fff;
+  padding: 20px;
+  border-radius: 14px;
+  box-shadow: 0 10px 28px rgba(0,0,0,.08);
+}
+
+.header h1 { margin: 0 0 6px; font-size: 22px; }
+.subtitle { margin: 0 0 14px; color: #4b5563; font-size: 13px; }
+
+.grid {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.col-span-2 { grid-column: 1 / -1; }
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  width: 100%;
+}
+
+.field { display: grid; gap: 6px; }
+.field span { font-size: 13px; }
+.hint { color: #6b7280; font-size: 12px; }
+
+input, textarea, select, button {
+  font: inherit;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #d0d7de;
+  background: #fff;
+}
+
+textarea { resize: vertical; }
+
+button {
+  cursor: pointer;
+  border: 0;
+  background: #111827;
+  color: #fff;
+  padding: 10px 14px;
+  border-radius: 10px;
+}
+
+button:disabled { opacity: .6; cursor: not-allowed; }
+
+button.secondary {
+  background: #eef2ff;
+  color: #111827;
+  border: 1px solid #d0d7de;
+}
+
+button.ghost {
+  background: transparent;
+  color: #374151;
+  border: 1px dashed #d0d7de;
+}
+
+.inline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.spacer { flex: 1; }
+
+.hidden { display: none !important; }
+
+.section {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 12px;
+  background: #fafafa;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.sectionHeader h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #374151;
+}
+
+.participantsList {
+  display: grid;
+  gap: 10px;
+}
+
+.participantRow {
+  display: grid;
+  grid-template-columns: 1fr 110px 40px;
+  gap: 10px;
+  align-items: center;
+}
+
+.participantRow .pctWrap {
+  display: grid;
+  gap: 4px;
+}
+
+.participantRow input[type="number"] {
+  text-align: right;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 12px;
+  color: #374151;
+}
+
+.actionsRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.note {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.footer {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: stretch;
+}
+
+#submitBtn {
+  width: 100%;
+}
+
+.status { margin: 0; font-size: 13px; }
+.status.ok { color: #0a7a2f; }
+.status.err { color: #b4231a; }
+
+
+/* Adaptaciones para pantallas grandes (desktop) */
+@media (min-width: 769px) {
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+
+  .col-span-2 {
+    grid-column: 1 / -1;
+  }
+}
+
+select {
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* Mejoras generales de legibilidad táctil */
+input, select, textarea, button {
+  font-size: 16px; /* evita zoom automático en iOS al enfocar */
+}
