@@ -1,7 +1,7 @@
 // Auth configuration - auto-detect local vs production
 // Use empty string for same-origin requests (works with cookies)
-const API_URL = window.location.hostname === "localhost" 
-  ? "" 
+const API_URL = window.location.hostname === "localhost"
+  ? ""
   : "https://api.gastos.blanquicet.com.co";
 
 // Auth state
@@ -341,13 +341,13 @@ function togglePasswordVisibility(e) {
   const targetId = button.dataset.target;
   const input = document.getElementById(targetId);
   const eyeIcon = button.querySelector(".eye-icon");
-  
+
   if (!input || !eyeIcon) return;
 
   const isPassword = input.type === "password";
   input.type = isPassword ? "text" : "password";
   button.setAttribute("aria-label", isPassword ? "Ocultar contraseña" : "Mostrar contraseña");
-  
+
   // Toggle between eye and eye-off icon
   if (isPassword) {
     // Show eye-off (password is visible)
@@ -386,7 +386,7 @@ function validateEmail(input) {
   if (!input) return true;
 
   const email = input.value.trim();
-  
+
   // Don't validate empty field (required attribute handles that)
   if (email === "") {
     input.classList.remove("valid", "invalid");
@@ -394,7 +394,7 @@ function validateEmail(input) {
   }
 
   const isValid = EMAIL_REGEX.test(email);
-  
+
   if (isValid) {
     input.classList.remove("invalid");
     input.classList.add("valid");
@@ -411,7 +411,7 @@ function validateEmail(input) {
  */
 function checkPasswordStrength() {
   const password = registerPassword.value;
-  
+
   if (!password || password.length === 0) {
     passwordStrength.classList.add("hidden");
     return;
@@ -423,16 +423,16 @@ function checkPasswordStrength() {
   const hasUpperCase = /[A-Z]/.test(password);
   const hasNumber = /[0-9]/.test(password);
   const hasSpecialChar = /[^a-zA-Z0-9]/.test(password);
-  
+
   // Basic requirements: 8+ chars + lowercase + uppercase + (number OR symbol)
   const meetsBasicRequirements = hasMinLength && hasLowerCase && hasUpperCase && (hasNumber || hasSpecialChar);
-  
+
   let strength = 0;
-  
+
   // Only count points if basic requirements are met
   if (meetsBasicRequirements) {
     strength = 2; // Start at "Aceptable" level
-    
+
     // Additional points for making it stronger
     if (password.length >= 12) strength++; // Longer password
     if (hasNumber && hasSpecialChar) strength++; // Both numbers AND special chars
@@ -444,12 +444,12 @@ function checkPasswordStrength() {
   // Determine strength level
   const strengthBar = passwordStrength.querySelector(".strength-bar-fill");
   const strengthText = passwordStrength.querySelector(".strength-text");
-  
+
   passwordStrength.classList.remove("hidden");
-  
+
   // Remove all strength classes
   strengthBar.classList.remove("weak", "acceptable", "good", "strong");
-  
+
   if (strength === 0) {
     strengthBar.classList.add("weak");
     strengthText.textContent = "Débil";

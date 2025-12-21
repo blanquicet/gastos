@@ -725,7 +725,7 @@ Connecting the movement registration form to the authenticated backend and migra
 
 ## 16) First message for a new Claude chat
 
-### For implementing pending auth features:
+### For implementing pending auth features
 
 Use the context from `.github/CLAUDE_AUTH_PHASE.md` section 14 to implement:
 

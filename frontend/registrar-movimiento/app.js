@@ -226,11 +226,11 @@ function onTipoChange() {
 
   // FAMILIAR: hide all pagador fields, show payment method
   const isFamiliar = tipo === "FAMILIAR";
-  
+
   // PAGO_DEUDA: show pagador + tomador row
   const isPagoDeuda = tipo === "PAGO_DEUDA";
   pagadorTomadorRow.classList.toggle("hidden", !isPagoDeuda);
-  
+
   // COMPARTIDO: show pagador solo
   const isCompartido = tipo === "COMPARTIDO";
   pagadorWrap.classList.toggle("hidden", !isCompartido);

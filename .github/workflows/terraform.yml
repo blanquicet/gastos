@@ -75,22 +75,22 @@ jobs:
         with:
           script: |
             const output = `### Terraform Plan 📋
-            
+
             #### Format Check 🖌 \`${{ steps.fmt.outcome }}\`
             #### Initialization ⚙️ \`${{ steps.init.outcome }}\`
             #### Validation 🤖 \`${{ steps.validate.outcome }}\`
             #### Plan 📖 \`${{ steps.plan.outcome }}\`
-            
+
             <details><summary>Show Plan</summary>
-            
+
             \`\`\`terraform
             ${{ steps.plan.outputs.stdout }}
             \`\`\`
-            
+
             </details>
-            
+
             *Pushed by: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
-            
+
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
