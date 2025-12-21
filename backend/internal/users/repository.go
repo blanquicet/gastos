@@ -21,15 +21,16 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 }
 
 // Create creates a new user.
-func (r *Repository) Create(ctx context.Context, email, passwordHash string) (*auth.User, error) {
+func (r *Repository) Create(ctx context.Context, email, name, passwordHash string) (*auth.User, error) {
 	var user auth.User
 	err := r.pool.QueryRow(ctx, `
-		INSERT INTO users (email, password_hash)
-		VALUES ($1, $2)
-		RETURNING id, email, password_hash, created_at, updated_at
-	`, email, passwordHash).Scan(
+		INSERT INTO users (email, name, password_hash)
+		VALUES ($1, $2, $3)
+		RETURNING id, email, name, password_hash, created_at, updated_at
+	`, email, name, passwordHash).Scan(
 		&user.ID,
 		&user.Email,
+		&user.Name,
 		&user.PasswordHash,
 		&user.CreatedAt,
 		&user.UpdatedAt,
@@ -44,12 +45,13 @@ func (r *Repository) Create(ctx context.Context, email, passwordHash string) (*a
 func (r *Repository) GetByID(ctx context.Context, id string) (*auth.User, error) {
 	var user auth.User
 	err := r.pool.QueryRow(ctx, `
-		SELECT id, email, password_hash, created_at, updated_at
+		SELECT id, email, name, password_hash, created_at, updated_at
 		FROM users
 		WHERE id = $1
 	`, id).Scan(
 		&user.ID,
 		&user.Email,
+		&user.Name,
 		&user.PasswordHash,
 		&user.CreatedAt,
 		&user.UpdatedAt,
@@ -67,12 +69,13 @@ func (r *Repository) GetByID(ctx context.Context, id string) (*auth.User, error)
 func (r *Repository) GetByEmail(ctx context.Context, email string) (*auth.User, error) {
 	var user auth.User
 	err := r.pool.QueryRow(ctx, `
-		SELECT id, email, password_hash, created_at, updated_at
+		SELECT id, email, name, password_hash, created_at, updated_at
 		FROM users
 		WHERE email = $1
 	`, email).Scan(
 		&user.ID,
 		&user.Email,
+		&user.Name,
 		&user.PasswordHash,
 		&user.CreatedAt,
 		&user.UpdatedAt,

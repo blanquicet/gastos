@@ -8,15 +8,15 @@ If any suggestion conflicts with this document, this document wins.
 
 ## 1) Current phase goal
 
-**IMPORTANT: This phase is AUTH ONLY.**
+**IMPORTANT: This phase is AUTH ONLY.** ✅ COMPLETED
 
-- Implement authentication and session management.
-- Force login before registering movements.
-- Keep the existing **Excel + n8n** pipeline unchanged.
-- Do **not** migrate movements to a database yet.
-- Use **Azure PostgreSQL** for authentication data.
-- Do **not** introduce Supabase (managed or self-hosted) in this phase.
-- n8n will disappear later, but **not** now.
+- ✅ Implement authentication and session management.
+- ✅ Force login before registering movements.
+- ✅ Keep the existing **Excel + n8n** pipeline unchanged.
+- ✅ Do **not** migrate movements to a database yet.
+- ✅ Use **Azure PostgreSQL** for authentication data.
+- ✅ Do **not** introduce Supabase (managed or self-hosted) in this phase.
+- ⏳ n8n will disappear later, but **not** now.
 
 ---
 
@@ -167,13 +167,15 @@ Movements remain in Excel via n8n.
 - Connection string: read from environment variable `DATABASE_URL`
 - SSL: required and enforced (Azure PostgreSQL requirement)
 
-### 8.2 Minimal schema (conceptual)
+### 8.2 Minimal schema (implemented)
 
 - users
   - id (uuid, primary key)
   - email (text, unique, not null)
+  - name (text, not null)
   - password_hash (text, not null)
   - created_at (timestamptz)
+  - updated_at (timestamptz)
 
 - sessions
   - id (uuid, primary key)
@@ -187,17 +189,27 @@ Movements remain in Excel via n8n.
   - token_hash (text)
   - expires_at (timestamptz)
   - used_at (timestamptz)
+  - created_at (timestamptz)
 
 ---
 
-## 9) Security requirements
+## 9) Security requirements (implemented)
 
-- Password hashing: argon2id preferred (bcrypt acceptable)
+- Password hashing: argon2id (implemented via golang.org/x/crypto/argon2)
 - Tokens stored hashed, never plaintext
-- Constant-time comparisons
+- Constant-time comparisons for token validation
 - No auth logic in n8n
 - No secrets in frontend
-- Basic rate limiting on auth endpoints
+- Rate limiting on auth endpoints:
+  - Login/Register: 5 requests per minute per IP
+  - Password reset: 3 requests per minute per IP
+- Session cookies:
+
+  - HttpOnly: true (always - prevents JavaScript access)
+  - Secure: environment-dependent (true in production, false in local dev)
+  - SameSite: Lax
+  - Duration: 30 days
+- Email validation requires full domain format (user\@domain.com)
 
 ---
 
@@ -275,18 +287,105 @@ All ARM_* secrets configured for Service Principal `github-actions-gastos`.
 
 ---
 
-## 13) What's next: Go backend
+## 13) Implementation Status ✅ COMPLETED
 
-The backend skeleton needs to be created following the structure in section 3.
+The authentication system is fully implemented and functional.
 
-Priority order:
+### 13.1 Backend Implementation
 
-1. Create `backend/` folder structure with `go.mod`
-2. Create SQL migrations for auth tables (users, sessions, password_resets)
-3. Implement basic HTTP server with health endpoint
-4. Implement auth endpoints (register, login, logout, me)
-5. Add session middleware
-6. Create `deploy-api.yml` workflow
+**Structure:**
+
+- ✅ `backend/` folder with Go module
+- ✅ SQL migrations (4 total):
+  - 001_create_users
+  - 002_create_sessions
+  - 003_create_password_resets
+  - 004_add_name_to_users
+- ✅ HTTP server with structured routing
+- ✅ All auth endpoints implemented and tested
+- ✅ Session-based authentication working
+- ✅ Rate limiting on auth endpoints
+
+**Endpoints implemented:**
+
+- `GET /health` - Health check
+- `POST /auth/register` - User registration (requires email, name, password)
+- `POST /auth/login` - User login
+- `POST /auth/logout` - User logout
+- `GET /me` - Get current user info
+- `POST /auth/forgot-password` - Request password reset
+- `POST /auth/reset-password` - Reset password with token
+
+**Key features:**
+
+- Argon2id password hashing
+- 30-day persistent sessions
+- Rate limiting (5 req/min for login/register, 3 req/min for password reset)
+- CORS configured for local development and production
+- Static file serving for local development
+
+### 13.2 Frontend Implementation
+
+**Features:**
+
+- Login/register forms with form switching
+- Real-time password match validation
+- Password strength indicator (Débil, Regular, Buena, Fuerte)
+- Email validation with visual feedback
+- Password visibility toggle (eye icon)
+- Loading states on form submission
+- Auto-focus on form fields
+- Responsive design (mobile-first)
+- Name field required for better UX in movement tables
+
+**User flow:**
+
+1. User lands on login page
+2. Can switch to registration
+3. Registers with name, email, and strong password
+4. Automatically logged in after registration
+5. Session persists for 30 days
+6. Name displayed in app header
+
+### 13.3 Deployment
+
+**Backend:**
+
+- ✅ Deployed to Azure Container Apps
+- ✅ Custom domain: `api.gastos.blanquicet.com.co`
+- ✅ CI/CD via `.github/workflows/deploy-api.yml`
+- ✅ Environment variables configured in Azure
+
+**Frontend:**
+
+- ✅ Deployed to Azure Static Web Apps
+- ✅ Custom domain: `gastos.blanquicet.com.co`
+- ✅ CI/CD via `.github/workflows/deploy-swa.yml`
+
+**Database:**
+
+- ✅ Azure PostgreSQL Flexible Server
+- ✅ Migrations applied to production
+- ✅ Connection from backend working
+- ✅ SSL required and enforced
+
+### 13.4 Local Development Setup
+
+**Prerequisites:**
+
+- Docker & Docker Compose (for PostgreSQL)
+- Go 1.21+
+- golang-migrate CLI
+
+**Setup:**
+
+1. `docker compose up -d` - Start local PostgreSQL
+2. `cd backend && cp .env.example .env` - Configure backend
+3. `migrate -path ./migrations -database "$DB_URL" up` - Run migrations
+4. `go run cmd/api/main.go` - Start backend on port 8080
+5. Access `http://localhost:8080` - Backend serves frontend
+
+Full setup guide available in `DEVELOPMENT.md`.
 
 ---
 

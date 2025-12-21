@@ -35,18 +35,23 @@ func NewService(
 // RegisterInput contains the data needed to register a new user.
 type RegisterInput struct {
 	Email    string
+	Name     string
 	Password string
 }
 
 // Validate validates the registration input.
 func (i *RegisterInput) Validate() error {
 	i.Email = strings.TrimSpace(strings.ToLower(i.Email))
+	i.Name = strings.TrimSpace(i.Name)
 
 	if i.Email == "" {
 		return errors.New("email is required")
 	}
 	if !strings.Contains(i.Email, "@") {
 		return errors.New("invalid email format")
+	}
+	if i.Name == "" {
+		return errors.New("name is required")
 	}
 	if len(i.Password) < 8 {
 		return errors.New("password must be at least 8 characters")
@@ -76,7 +81,7 @@ func (s *Service) Register(ctx context.Context, input RegisterInput) (*Session, 
 	}
 
 	// Create user
-	user, err := s.users.Create(ctx, input.Email, passwordHash)
+	user, err := s.users.Create(ctx, input.Email, input.Name, passwordHash)
 	if err != nil {
 		return nil, err
 	}

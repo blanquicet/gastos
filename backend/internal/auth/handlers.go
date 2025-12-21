@@ -28,6 +28,7 @@ func NewHandler(service *Service, cookieName string, secure bool, logger *slog.L
 // RegisterRequest is the request body for registration.
 type RegisterRequest struct {
 	Email    string `json:"email"`
+	Name     string `json:"name"`
 	Password string `json:"password"`
 }
 
@@ -41,6 +42,7 @@ type LoginRequest struct {
 type UserResponse struct {
 	ID    string `json:"id"`
 	Email string `json:"email"`
+	Name  string `json:"name"`
 }
 
 // ForgotPasswordRequest is the request body for forgot password.
@@ -69,6 +71,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 
 	session, err := h.service.Register(r.Context(), RegisterInput{
 		Email:    req.Email,
+		Name:     req.Name,
 		Password: req.Password,
 	})
 	if err != nil {
@@ -142,6 +145,7 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, UserResponse{
 		ID:    user.ID,
 		Email: user.Email,
+		Name:  user.Name,
 	}, http.StatusOK)
 }
 

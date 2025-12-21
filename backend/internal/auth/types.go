@@ -19,6 +19,7 @@ var (
 type User struct {
 	ID           string
 	Email        string
+	Name         string
 	PasswordHash string
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
@@ -44,7 +45,7 @@ type PasswordReset struct {
 
 // UserRepository defines the interface for user persistence.
 type UserRepository interface {
-	Create(ctx context.Context, email, passwordHash string) (*User, error)
+	Create(ctx context.Context, email, name, passwordHash string) (*User, error)
 	GetByID(ctx context.Context, id string) (*User, error)
 	GetByEmail(ctx context.Context, email string) (*User, error)
 	UpdatePassword(ctx context.Context, id, passwordHash string) error

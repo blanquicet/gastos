@@ -9,7 +9,7 @@ let currentUser = null;
 
 // DOM elements (will be set after DOM loads)
 let authContainer, appContainer, loginForm, registerForm;
-let loginEmail, loginPassword, registerEmail, registerPassword, registerConfirm;
+let loginEmail, loginPassword, registerName, registerEmail, registerPassword, registerConfirm;
 let loginError, registerError, logoutBtn, userEmailDisplay;
 let showRegisterLink, showLoginLink;
 let loginBtn, registerBtn, passwordMatchHint, passwordStrength;
@@ -28,6 +28,7 @@ async function initAuth() {
   registerForm = document.getElementById("registerForm");
   loginEmail = document.getElementById("loginEmail");
   loginPassword = document.getElementById("loginPassword");
+  registerName = document.getElementById("registerName");
   registerEmail = document.getElementById("registerEmail");
   registerPassword = document.getElementById("registerPassword");
   registerConfirm = document.getElementById("registerConfirm");
@@ -151,11 +152,12 @@ async function handleRegister(e) {
   e.preventDefault();
   clearErrors();
 
+  const name = registerName.value.trim();
   const email = registerEmail.value.trim();
   const password = registerPassword.value;
   const confirm = registerConfirm.value;
 
-  if (!email || !password) {
+  if (!name || !email || !password) {
     showError(registerError, "Por favor completa todos los campos");
     return;
   }
@@ -185,7 +187,7 @@ async function handleRegister(e) {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, name, password }),
     });
 
     const data = await response.json();
@@ -236,9 +238,9 @@ function showAuth() {
 function showApp() {
   authContainer.classList.add("hidden");
   appContainer.classList.remove("hidden");
-  
+
   if (userEmailDisplay && currentUser) {
-    userEmailDisplay.textContent = currentUser.email;
+    userEmailDisplay.textContent = currentUser.name;
   }
 }
 
@@ -262,13 +264,14 @@ function showRegisterForm() {
   loginForm.classList.add("hidden");
   registerForm.classList.remove("hidden");
   clearErrors();
+  registerName.value = "";
   registerEmail.value = "";
   registerPassword.value = "";
   registerConfirm.value = "";
   passwordMatchHint.classList.add("hidden");
   passwordStrength.classList.add("hidden");
-  // Auto-focus on email field
-  setTimeout(() => registerEmail.focus(), 100);
+  // Auto-focus on name field
+  setTimeout(() => registerName.focus(), 100);
 }
 
 /**
