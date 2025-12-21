@@ -223,7 +223,7 @@ function renderCategorySelect() {
 function updateSubmitButton(isCompartido) {
   if (isCompartido) {
     submitBtn.disabled = true;
-    submitBtn.textContent = "Gastos compartidos próximamente...";
+    submitBtn.textContent = "Dividir gasto próximamente...";
     submitBtn.style.opacity = "0.5";
     submitBtn.style.cursor = "not-allowed";
   } else {
@@ -509,7 +509,7 @@ function readForm() {
   }
 
   if (tipo === "COMPARTIDO") {
-    throw new Error("Gastos compartidos aún no están implementados. Próximamente...");
+    throw new Error("Dividir gasto aún no está implementado. Próximamente...");
   }
 
   if (tipo === "PAGO_DEUDA") {
