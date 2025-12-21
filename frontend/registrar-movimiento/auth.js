@@ -12,7 +12,10 @@ let authContainer, appContainer, loginForm, registerForm;
 let loginEmail, loginPassword, registerEmail, registerPassword, registerConfirm;
 let loginError, registerError, logoutBtn, userEmailDisplay;
 let showRegisterLink, showLoginLink;
-let loginBtn, registerBtn, passwordMatchHint;
+let loginBtn, registerBtn, passwordMatchHint, passwordStrength;
+
+// Email validation regex - requires format: text@text.text
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
  * Initialize auth system
@@ -37,6 +40,7 @@ async function initAuth() {
   loginBtn = document.getElementById("loginBtn");
   registerBtn = document.getElementById("registerBtn");
   passwordMatchHint = document.getElementById("passwordMatch");
+  passwordStrength = document.getElementById("passwordStrength");
 
   // Set up event listeners
   loginForm?.addEventListener("submit", handleLogin);
@@ -52,8 +56,15 @@ async function initAuth() {
   });
 
   // Password match validation
-  registerPassword?.addEventListener("input", checkPasswordMatch);
+  registerPassword?.addEventListener("input", () => {
+    checkPasswordStrength();
+    checkPasswordMatch();
+  });
   registerConfirm?.addEventListener("input", checkPasswordMatch);
+
+  // Email validation
+  loginEmail?.addEventListener("blur", () => validateEmail(loginEmail));
+  registerEmail?.addEventListener("blur", () => validateEmail(registerEmail));
 
   // Toggle password visibility
   document.querySelectorAll(".toggle-password").forEach((btn) => {
@@ -100,6 +111,11 @@ async function handleLogin(e) {
     return;
   }
 
+  if (!EMAIL_REGEX.test(email)) {
+    showError(loginError, "Por favor ingresa un email válido (ej: usuario@ejemplo.com)");
+    return;
+  }
+
   // Set loading state
   setButtonLoading(loginBtn, true);
 
@@ -141,6 +157,11 @@ async function handleRegister(e) {
 
   if (!email || !password) {
     showError(registerError, "Por favor completa todos los campos");
+    return;
+  }
+
+  if (!EMAIL_REGEX.test(email)) {
+    showError(registerError, "Por favor ingresa un email válido (ej: usuario@ejemplo.com)");
     return;
   }
 
@@ -245,6 +266,7 @@ function showRegisterForm() {
   registerPassword.value = "";
   registerConfirm.value = "";
   passwordMatchHint.classList.add("hidden");
+  passwordStrength.classList.add("hidden");
   // Auto-focus on email field
   setTimeout(() => registerEmail.focus(), 100);
 }
@@ -340,6 +362,84 @@ function setButtonLoading(button, loading) {
   } else {
     button.disabled = false;
     button.classList.remove("loading");
+  }
+}
+
+/**
+ * Validate email format and show visual feedback
+ */
+function validateEmail(input) {
+  if (!input) return true;
+
+  const email = input.value.trim();
+  
+  // Don't validate empty field (required attribute handles that)
+  if (email === "") {
+    input.classList.remove("valid", "invalid");
+    return true;
+  }
+
+  const isValid = EMAIL_REGEX.test(email);
+  
+  if (isValid) {
+    input.classList.remove("invalid");
+    input.classList.add("valid");
+  } else {
+    input.classList.remove("valid");
+    input.classList.add("invalid");
+  }
+
+  return isValid;
+}
+
+/**
+ * Check password strength and show visual indicator
+ */
+function checkPasswordStrength() {
+  const password = registerPassword.value;
+  
+  if (!password || password.length === 0) {
+    passwordStrength.classList.add("hidden");
+    return;
+  }
+
+  let strength = 0;
+  let feedback = "";
+
+  // Length check
+  if (password.length >= 8) strength++;
+  if (password.length >= 12) strength++;
+
+  // Character variety checks
+  if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength++; // Mixed case
+  if (/[0-9]/.test(password)) strength++; // Numbers
+  if (/[^a-zA-Z0-9]/.test(password)) strength++; // Special characters
+
+  // Determine strength level (0-5)
+  const strengthBar = passwordStrength.querySelector(".strength-bar-fill");
+  const strengthText = passwordStrength.querySelector(".strength-text");
+  
+  passwordStrength.classList.remove("hidden");
+  
+  // Remove all strength classes
+  strengthBar.classList.remove("weak", "fair", "good", "strong");
+  
+  if (strength <= 1) {
+    strengthBar.classList.add("weak");
+    strengthText.textContent = "Débil";
+    strengthBar.style.width = "25%";
+  } else if (strength === 2) {
+    strengthBar.classList.add("fair");
+    strengthText.textContent = "Regular";
+    strengthBar.style.width = "50%";
+  } else if (strength === 3 || strength === 4) {
+    strengthBar.classList.add("good");
+    strengthText.textContent = "Buena";
+    strengthBar.style.width = "75%";
+  } else {
+    strengthBar.classList.add("strong");
+    strengthText.textContent = "Fuerte";
+    strengthBar.style.width = "100%";
   }
 }
 

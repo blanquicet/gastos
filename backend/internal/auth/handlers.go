@@ -63,7 +63,7 @@ type ErrorResponse struct {
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.respondError(w, "invalid request body", http.StatusBadRequest)
+		h.respondError(w, "cuerpo de solicitud inválido", http.StatusBadRequest)
 		return
 	}
 
@@ -77,14 +77,14 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.setSessionCookie(w, session)
-	h.respondJSON(w, map[string]string{"message": "registered successfully"}, http.StatusCreated)
+	h.respondJSON(w, map[string]string{"message": "registrado exitosamente"}, http.StatusCreated)
 }
 
 // Login handles POST /auth/login
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.respondError(w, "invalid request body", http.StatusBadRequest)
+		h.respondError(w, "cuerpo de solicitud inválido", http.StatusBadRequest)
 		return
 	}
 
@@ -98,7 +98,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.setSessionCookie(w, session)
-	h.respondJSON(w, map[string]string{"message": "logged in successfully"}, http.StatusOK)
+	h.respondJSON(w, map[string]string{"message": "sesión iniciada exitosamente"}, http.StatusOK)
 }
 
 // Logout handles POST /auth/logout
@@ -106,7 +106,7 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie(h.cookieName)
 	if err != nil {
 		// No session cookie, just return success
-		h.respondJSON(w, map[string]string{"message": "logged out"}, http.StatusOK)
+		h.respondJSON(w, map[string]string{"message": "sesión cerrada"}, http.StatusOK)
 		return
 	}
 
@@ -116,14 +116,14 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.clearSessionCookie(w)
-	h.respondJSON(w, map[string]string{"message": "logged out"}, http.StatusOK)
+	h.respondJSON(w, map[string]string{"message": "sesión cerrada"}, http.StatusOK)
 }
 
 // Me handles GET /me
 func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie(h.cookieName)
 	if err != nil {
-		h.respondError(w, "unauthorized", http.StatusUnauthorized)
+		h.respondError(w, "no autorizado", http.StatusUnauthorized)
 		return
 	}
 
@@ -131,11 +131,11 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, ErrSessionExpired) || errors.Is(err, ErrUserNotFound) {
 			h.clearSessionCookie(w)
-			h.respondError(w, "unauthorized", http.StatusUnauthorized)
+			h.respondError(w, "no autorizado", http.StatusUnauthorized)
 			return
 		}
 		h.logger.Error("failed to get user", "error", err)
-		h.respondError(w, "internal server error", http.StatusInternalServerError)
+		h.respondError(w, "error interno del servidor", http.StatusInternalServerError)
 		return
 	}
 
@@ -149,7 +149,7 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	var req ForgotPasswordRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.respondError(w, "invalid request body", http.StatusBadRequest)
+		h.respondError(w, "cuerpo de solicitud inválido", http.StatusBadRequest)
 		return
 	}
 
@@ -169,7 +169,7 @@ func (h *Handler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.respondJSON(w, map[string]string{
-		"message": "if that email exists, a password reset link has been sent",
+		"message": "si ese email existe, se ha enviado un enlace de restablecimiento de contraseña",
 	}, http.StatusOK)
 }
 
@@ -177,7 +177,7 @@ func (h *Handler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	var req ResetPasswordRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.respondError(w, "invalid request body", http.StatusBadRequest)
+		h.respondError(w, "cuerpo de solicitud inválido", http.StatusBadRequest)
 		return
 	}
 
@@ -190,7 +190,7 @@ func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.respondJSON(w, map[string]string{"message": "password reset successfully"}, http.StatusOK)
+	h.respondJSON(w, map[string]string{"message": "contraseña restablecida exitosamente"}, http.StatusOK)
 }
 
 // Helper methods
@@ -232,15 +232,15 @@ func (h *Handler) respondError(w http.ResponseWriter, message string, status int
 func (h *Handler) handleServiceError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, ErrUserExists):
-		h.respondError(w, "email already registered", http.StatusConflict)
+		h.respondError(w, "Email ya registrado", http.StatusConflict)
 	case errors.Is(err, ErrInvalidCredentials):
-		h.respondError(w, "invalid email or password", http.StatusUnauthorized)
+		h.respondError(w, "Email o contraseña inválidos", http.StatusUnauthorized)
 	case errors.Is(err, ErrTokenExpired):
-		h.respondError(w, "token expired or invalid", http.StatusBadRequest)
+		h.respondError(w, "Token expirado o inválido", http.StatusBadRequest)
 	case errors.Is(err, ErrTokenUsed):
-		h.respondError(w, "token already used", http.StatusBadRequest)
+		h.respondError(w, "Token ya usado", http.StatusBadRequest)
 	case errors.Is(err, ErrUserNotFound):
-		h.respondError(w, "user not found", http.StatusNotFound)
+		h.respondError(w, "Usuario no encontrado", http.StatusNotFound)
 	default:
 		// Check for validation errors (they're just regular errors with messages)
 		if err != nil {
@@ -251,7 +251,7 @@ func (h *Handler) handleServiceError(w http.ResponseWriter, err error) {
 			}
 		}
 		h.logger.Error("service error", "error", err)
-		h.respondError(w, "internal server error", http.StatusInternalServerError)
+		h.respondError(w, "Error interno del servidor", http.StatusInternalServerError)
 	}
 }
 
