@@ -220,6 +220,20 @@ function renderCategorySelect() {
   }
 }
 
+function updateSubmitButton(isCompartido) {
+  if (isCompartido) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Gastos compartidos próximamente...";
+    submitBtn.style.opacity = "0.5";
+    submitBtn.style.cursor = "not-allowed";
+  } else {
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Registrar";
+    submitBtn.style.opacity = "1";
+    submitBtn.style.cursor = "pointer";
+  }
+}
+
 
 function onTipoChange() {
   const tipo = tipoEl.value;
@@ -235,6 +249,9 @@ function onTipoChange() {
   const isCompartido = tipo === "COMPARTIDO";
   pagadorWrap.classList.toggle("hidden", !isCompartido);
   participantesWrap.classList.toggle("hidden", !isCompartido);
+
+  // Disable submit button for COMPARTIDO (not implemented yet)
+  updateSubmitButton(isCompartido);
 
   // Payment method
   if (isFamiliar) {
@@ -489,6 +506,10 @@ function readForm() {
   const requiresMethod = tipo === "FAMILIAR" || PRIMARY_USERS.includes(pagador);
   if (requiresMethod && !metodo) {
     throw new Error("Método de pago es obligatorio.");
+  }
+
+  if (tipo === "COMPARTIDO") {
+    throw new Error("Gastos compartidos aún no están implementados. Próximamente...");
   }
 
   if (tipo === "PAGO_DEUDA") {
