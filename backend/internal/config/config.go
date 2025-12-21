@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -25,6 +26,9 @@ type Config struct {
 	// n8n configuration
 	N8NWebhookURL string
 	N8NAPIKey     string
+
+	// Static files (for local development)
+	StaticDir string
 }
 
 // Load reads configuration from environment variables.
@@ -50,10 +54,13 @@ func Load() (*Config, error) {
 	// Cookie secure flag - default to true for production
 	sessionCookieSecure := os.Getenv("SESSION_COOKIE_SECURE") != "false"
 
-	// Allowed origins for CORS
+	// Allowed origins for CORS (comma-separated)
 	allowedOrigins := []string{"https://gastos.blanquicet.com.co"}
 	if origins := os.Getenv("ALLOWED_ORIGINS"); origins != "" {
-		allowedOrigins = []string{origins}
+		allowedOrigins = strings.Split(origins, ",")
+		for i := range allowedOrigins {
+			allowedOrigins[i] = strings.TrimSpace(allowedOrigins[i])
+		}
 	}
 
 	// n8n configuration
@@ -64,6 +71,9 @@ func Load() (*Config, error) {
 
 	n8nAPIKey := os.Getenv("N8N_API_KEY")
 
+	// Static directory for serving frontend in development
+	staticDir := os.Getenv("STATIC_DIR")
+
 	return &Config{
 		ServerAddr:          serverAddr,
 		DatabaseURL:         databaseURL,
@@ -73,5 +83,6 @@ func Load() (*Config, error) {
 		AllowedOrigins:      allowedOrigins,
 		N8NWebhookURL:       n8nWebhookURL,
 		N8NAPIKey:           n8nAPIKey,
+		StaticDir:           staticDir,
 	}, nil
 }

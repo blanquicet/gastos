@@ -8,9 +8,77 @@
 </head>
 
 <body>
-  <main class="card">
+  <!-- Auth Container (Login/Register) -->
+  <div id="authContainer" class="card">
     <header class="header">
-      <h1>Registrar movimiento</h1>
+      <h1>Gastos</h1>
+      <p class="subtitle">Inicia sesión para continuar</p>
+    </header>
+
+    <!-- Login Form -->
+    <form id="loginForm" class="auth-form">
+      <div class="grid">
+        <label class="field col-span-2">
+          <span>Email</span>
+          <input type="email" id="loginEmail" placeholder="tu@email.com" required />
+        </label>
+
+        <label class="field col-span-2">
+          <span>Contraseña</span>
+          <input type="password" id="loginPassword" placeholder="••••••••" required />
+        </label>
+      </div>
+
+      <p id="loginError" class="error-message hidden"></p>
+
+      <div class="footer">
+        <button type="submit">Iniciar sesión</button>
+        <p class="auth-switch">
+          ¿No tienes cuenta? <a href="#" id="showRegister">Regístrate</a>
+        </p>
+      </div>
+    </form>
+
+    <!-- Register Form -->
+    <form id="registerForm" class="auth-form hidden">
+      <div class="grid">
+        <label class="field col-span-2">
+          <span>Email</span>
+          <input type="email" id="registerEmail" placeholder="tu@email.com" required />
+        </label>
+
+        <label class="field col-span-2">
+          <span>Contraseña</span>
+          <input type="password" id="registerPassword" placeholder="Mínimo 8 caracteres" required />
+        </label>
+
+        <label class="field col-span-2">
+          <span>Confirmar contraseña</span>
+          <input type="password" id="registerConfirm" placeholder="••••••••" required />
+        </label>
+      </div>
+
+      <p id="registerError" class="error-message hidden"></p>
+
+      <div class="footer">
+        <button type="submit">Registrarse</button>
+        <p class="auth-switch">
+          ¿Ya tienes cuenta? <a href="#" id="showLogin">Inicia sesión</a>
+        </p>
+      </div>
+    </form>
+  </div>
+
+  <!-- App Container (Movement Form) -->
+  <main id="appContainer" class="card hidden">
+    <header class="header">
+      <div class="header-row">
+        <h1>Registrar movimiento</h1>
+        <div class="user-info">
+          <span id="userEmail" class="user-email"></span>
+          <button type="button" id="logoutBtn" class="logout-btn">Salir</button>
+        </div>
+      </div>
       <p class="subtitle">Gasto familiar, gasto compartido o pago de deuda.</p>
     </header>
 
@@ -109,6 +177,7 @@
     </form>
   </main>
 
+  <script src="./auth.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>

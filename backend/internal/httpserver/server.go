@@ -84,6 +84,14 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 	mux.Handle("POST /auth/forgot-password", rateLimitReset(http.HandlerFunc(authHandler.ForgotPassword)))
 	mux.Handle("POST /auth/reset-password", rateLimitReset(http.HandlerFunc(authHandler.ResetPassword)))
 
+	// Serve static files in development mode
+	if cfg.StaticDir != "" {
+		logger.Info("serving static files", "dir", cfg.StaticDir)
+		fs := http.FileServer(http.Dir(cfg.StaticDir))
+		// Use pattern with trailing slash to match all paths
+		mux.Handle("/", fs)
+	}
+
 	// Apply middleware
 	var handler http.Handler = mux
 	handler = middleware.Logging(logger)(handler)

@@ -11,9 +11,13 @@ import (
 
 	"github.com/blanquicet/gastos/backend/internal/config"
 	"github.com/blanquicet/gastos/backend/internal/httpserver"
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	// Load .env file if present (for local development)
+	_ = godotenv.Load()
+
 	// Initialize structured logger
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,

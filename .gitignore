@@ -1,0 +1,32 @@
+# Environment files
+.env
+*.env.local
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Go
+/backend/gastos-api
+
+# Node
+node_modules/
+
+# Python
+__pycache__/
+*.pyc
