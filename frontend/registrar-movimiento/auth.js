@@ -12,6 +12,7 @@ let authContainer, appContainer, loginForm, registerForm;
 let loginEmail, loginPassword, registerEmail, registerPassword, registerConfirm;
 let loginError, registerError, logoutBtn, userEmailDisplay;
 let showRegisterLink, showLoginLink;
+let loginBtn, registerBtn, passwordMatchHint;
 
 /**
  * Initialize auth system
@@ -33,6 +34,9 @@ async function initAuth() {
   userEmailDisplay = document.getElementById("userEmail");
   showRegisterLink = document.getElementById("showRegister");
   showLoginLink = document.getElementById("showLogin");
+  loginBtn = document.getElementById("loginBtn");
+  registerBtn = document.getElementById("registerBtn");
+  passwordMatchHint = document.getElementById("passwordMatch");
 
   // Set up event listeners
   loginForm?.addEventListener("submit", handleLogin);
@@ -45,6 +49,15 @@ async function initAuth() {
   showLoginLink?.addEventListener("click", (e) => {
     e.preventDefault();
     showLoginForm();
+  });
+
+  // Password match validation
+  registerPassword?.addEventListener("input", checkPasswordMatch);
+  registerConfirm?.addEventListener("input", checkPasswordMatch);
+
+  // Toggle password visibility
+  document.querySelectorAll(".toggle-password").forEach((btn) => {
+    btn.addEventListener("click", togglePasswordVisibility);
   });
 
   // Check if user is already logged in
@@ -87,6 +100,9 @@ async function handleLogin(e) {
     return;
   }
 
+  // Set loading state
+  setButtonLoading(loginBtn, true);
+
   try {
     const response = await fetch(`${API_URL}/auth/login`, {
       method: "POST",
@@ -107,6 +123,8 @@ async function handleLogin(e) {
   } catch (error) {
     console.error("Login failed:", error);
     showError(loginError, "Error de conexión. Intenta de nuevo.");
+  } finally {
+    setButtonLoading(loginBtn, false);
   }
 }
 
@@ -136,6 +154,9 @@ async function handleRegister(e) {
     return;
   }
 
+  // Set loading state
+  setButtonLoading(registerBtn, true);
+
   try {
     const response = await fetch(`${API_URL}/auth/register`, {
       method: "POST",
@@ -157,6 +178,8 @@ async function handleRegister(e) {
   } catch (error) {
     console.error("Register failed:", error);
     showError(registerError, "Error de conexión. Intenta de nuevo.");
+  } finally {
+    setButtonLoading(registerBtn, false);
   }
 }
 
@@ -207,6 +230,8 @@ function showLoginForm() {
   clearErrors();
   loginEmail.value = "";
   loginPassword.value = "";
+  // Auto-focus on email field
+  setTimeout(() => loginEmail.focus(), 100);
 }
 
 /**
@@ -219,6 +244,9 @@ function showRegisterForm() {
   registerEmail.value = "";
   registerPassword.value = "";
   registerConfirm.value = "";
+  passwordMatchHint.classList.add("hidden");
+  // Auto-focus on email field
+  setTimeout(() => registerEmail.focus(), 100);
 }
 
 /**
@@ -237,6 +265,82 @@ function showError(element, message) {
 function clearErrors() {
   loginError?.classList.add("hidden");
   registerError?.classList.add("hidden");
+}
+
+/**
+ * Check if passwords match and show visual feedback
+ */
+function checkPasswordMatch() {
+  const password = registerPassword.value;
+  const confirm = registerConfirm.value;
+  const confirmField = registerConfirm.closest(".password-field");
+
+  // Only show feedback if user has started typing confirmation
+  if (confirm.length === 0) {
+    passwordMatchHint.classList.add("hidden");
+    confirmField.classList.remove("valid", "invalid");
+    return;
+  }
+
+  if (password === confirm) {
+    passwordMatchHint.textContent = "✓ Las contraseñas coinciden";
+    passwordMatchHint.classList.remove("hidden", "no-match");
+    passwordMatchHint.classList.add("match");
+    confirmField.classList.remove("invalid");
+    confirmField.classList.add("valid");
+  } else {
+    passwordMatchHint.textContent = "✗ Las contraseñas no coinciden";
+    passwordMatchHint.classList.remove("hidden", "match");
+    passwordMatchHint.classList.add("no-match");
+    confirmField.classList.remove("valid");
+    confirmField.classList.add("invalid");
+  }
+}
+
+/**
+ * Toggle password visibility
+ */
+function togglePasswordVisibility(e) {
+  const button = e.currentTarget;
+  const targetId = button.dataset.target;
+  const input = document.getElementById(targetId);
+  const eyeIcon = button.querySelector(".eye-icon");
+  
+  if (!input || !eyeIcon) return;
+
+  const isPassword = input.type === "password";
+  input.type = isPassword ? "text" : "password";
+  button.setAttribute("aria-label", isPassword ? "Ocultar contraseña" : "Mostrar contraseña");
+  
+  // Toggle between eye and eye-off icon
+  if (isPassword) {
+    // Show eye-off (password is visible)
+    eyeIcon.innerHTML = `
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+      <line x1="1" y1="1" x2="23" y2="23"></line>
+    `;
+  } else {
+    // Show eye (password is hidden)
+    eyeIcon.innerHTML = `
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+      <circle cx="12" cy="12" r="3"></circle>
+    `;
+  }
+}
+
+/**
+ * Set loading state on submit button
+ */
+function setButtonLoading(button, loading) {
+  if (!button) return;
+
+  if (loading) {
+    button.disabled = true;
+    button.classList.add("loading");
+  } else {
+    button.disabled = false;
+    button.classList.remove("loading");
+  }
 }
 
 // Initialize auth when DOM is ready
