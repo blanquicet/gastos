@@ -12,7 +12,7 @@ If any suggestion conflicts with this document, this document wins.
 
 - ✅ Implement authentication and session management.
 - ✅ Force login before registering movements.
-- ✅ Keep the existing **Excel + n8n** pipeline unchanged.
+- ✅ Keep the existing **Google Sheets + n8n** pipeline unchanged.
 - ✅ Do **not** migrate movements to a database yet.
 - ✅ Use **Azure PostgreSQL** for authentication data.
 - ✅ Do **not** introduce Supabase (managed or self-hosted) in this phase.
@@ -105,7 +105,7 @@ Frontend must only talk to the backend API.
 ## 5) Existing system (must remain working)
 
 - n8n runs on a VM behind Caddy.
-- n8n writes movements to an Excel / Google Sheets ledger.
+- n8n writes movements to a Google Sheets ledger.
 - This pipeline must remain unchanged during the auth phase.
 
 Transition goal:
@@ -158,7 +158,7 @@ All protected endpoints must use auth middleware.
 **Decision: Use Azure Database for PostgreSQL (Flexible Server).**
 
 This database is used **only** for authentication data in this phase.
-Movements remain in Excel via n8n.
+Movements remain in Google Sheets via n8n.
 
 ### 8.1 Driver and tooling (decided)
 
@@ -240,7 +240,7 @@ Login performance improved from ~5-10 seconds to <1 second while maintaining str
 
 Do not:
 
-- Migrate Excel to DB
+- Migrate Google Sheets to DB
 - Add Supabase
 - Add RLS
 - Add roles or permissions
@@ -742,7 +742,7 @@ Once email verification is implemented, the auth phase will be complete.
 
 **Current focus should shift to:**
 
-Connecting the movement registration form to the authenticated backend and migrating from Excel + n8n to database storage.
+Connecting the movement registration form to the authenticated backend and migrating from Google Sheets + n8n to database storage.
 
 ---
 

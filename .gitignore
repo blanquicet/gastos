@@ -1,6 +1,15 @@
 # Environment files
 .env
 *.env.local
+*.env.production
+
+# Secrets and credentials
+*.key
+*.pem
+*.p12
+*.pfx
+secrets/
+credentials/
 
 # IDE
 .idea/

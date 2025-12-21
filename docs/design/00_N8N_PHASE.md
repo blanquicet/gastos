@@ -8,13 +8,13 @@
 **Architecture:**
 
 - Authentication: PostgreSQL (see `01_AUTH_PHASE.md`)
-- Movement storage: n8n → Excel/Google Sheets (this document)
+- Movement storage: n8n → Google Sheets (this document)
 
 **Relationship to other phases:**
 
 - See `01_AUTH_PHASE.md` for authentication implementation
 - See `FUTURE_VISION.md` for long-term product direction
-- Phase 2 will migrate movements from Excel to PostgreSQL
+- Phase 2 will migrate movements from Google Sheets to PostgreSQL
 
 ---
 
@@ -254,7 +254,7 @@ This document describes **Phase 0: n8n Movement Registration**.
 
 **Current implementation status:**
 - ✅ Authentication moved to PostgreSQL (Phase 1)
-- ✅ Movement registration still uses n8n → Excel
+- ✅ Movement registration still uses n8n → Google Sheets
 - ⏳ Movement migration to PostgreSQL pending (Phase 2)
 
 **Related documentation:**

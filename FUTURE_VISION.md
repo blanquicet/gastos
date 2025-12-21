@@ -1,4 +1,4 @@
-# FUTURE_VISION.md — Product Vision & Long-Term Roadmap
+# Product Vision & Long-Term Roadmap
 
 This document describes the long-term vision of the project.
 It is meant to provide context to humans and AI assistants about
@@ -10,9 +10,7 @@ This is a product and architectural vision.
 If there is a conflict between this file and an implementation detail,
 this file describes the direction, not the immediate constraint.
 
-----------------------------------------------------------------
-1. PRODUCT VISION
-----------------------------------------------------------------
+## 1. PRODUCT VISION
 
 The product is a personal and family finance app focused on:
 
@@ -28,9 +26,7 @@ It is about everyday financial relationships.
 The core idea is:
 “Money between people should be simple, transparent, and calm.”
 
-----------------------------------------------------------------
-2. CORE PROBLEMS WE SOLVE
-----------------------------------------------------------------
+## 2. CORE PROBLEMS WE SOLVE
 
 1) Shared expenses
 
@@ -59,9 +55,7 @@ The core idea is:
     - Setting monthly budgets
     - Seeing progress clearly (under / on track / exceeded)
 
-----------------------------------------------------------------
-3. TARGET USER
-----------------------------------------------------------------
+## 3. TARGET USER
 
 Primary user:
 
@@ -82,11 +76,9 @@ The tone must always feel:
 - non-judgmental
 - simple
 
-----------------------------------------------------------------
-4. LONG-TERM FEATURE AREAS
-----------------------------------------------------------------
+## 4. LONG-TERM FEATURE AREAS
 
-4.1 Shared expenses & debts
+### 4.1 Shared expenses & debts
 
 - Movements with participants
 - Internal users and external contacts
@@ -94,21 +86,21 @@ The tone must always feel:
 - Explicit debt payments
 - Clear monthly summaries
 
-4.2 Categories & reporting
+### 4.2 Categories & reporting
 
 - Custom categories per family
 - Monthly and historical breakdowns
 - Comparisons over time
 - Visual summaries
 
-4.3 Budgets
+### 4.3 Budgets
 
 - Monthly budgets per category
 - Progress indicators
 - Over/under tracking
 - Simple alerts (non intrusive)
 
-4.4 Credit cards & cash reality
+### 4.4 Credit cards & cash reality
 
 Primary question to answer:
 “Given what I spent with my credit card this month,
@@ -121,16 +113,17 @@ Scope:
 - Compare against available cash
 - Monthly clarity (not daily forecasting)
 
-4.5 Accounts (future)
+### 4.5 Accounts (future)
 
 - Cash
 - Bank accounts
 - Credit cards
 - Abstracted as sources of money or debt
 
-4.6 Events (shared contexts)
+### 4.6 Events (shared contexts)
 
 Events represent temporary shared financial contexts:
+
 - Trips, vacations, parties, shared projects
 - Group expenses with multiple people over a period
 - Can include household members AND external contacts
@@ -170,17 +163,19 @@ Event Lifecycle:
    - Unregistered contacts: manual tracking only
 
 Event Rules:
+
 - Events overlay on top of regular finances
 - Event expenses also count toward monthly budgets/categories
 - Events provide an additional lens, not separate accounting
 - Multiple events can run simultaneously
 - Events can be reopened if needed
 
-4.7 User Types & Contact Management
+### 4.7 User Types & Contact Management
 
 The app distinguishes between two types of people:
 
 Household Members (Internal Users):
+
 - Registered users who share finances completely
 - Live together and split most/all expenses
 - Full visibility into the family's finances
@@ -188,11 +183,13 @@ Household Members (Internal Users):
 - Examples: you and your partner, roommates
 
 External Contacts:
+
 - People outside your household with whom you have transactions
 - Can be registered users (have their own account) or not
 - Examples: siblings, parents, friends, travel companions
 
 External Contacts WITH account (Linked Users):
+
 - They have their own family in the app
 - When you add a movement involving them:
   → They receive a notification
@@ -207,6 +204,7 @@ External Contacts WITH account (Linked Users):
 - They never see your household's internal expenses
 
 External Contacts WITHOUT account (Unregistered):
+
 - Exist only as records in your family
 - Cannot see movements in real-time
 - You manually share event summaries (screenshot)
@@ -214,19 +212,19 @@ External Contacts WITHOUT account (Unregistered):
 - Useful for: one-off trips, infrequent contacts
 
 Contact Upgrade Flow:
+
 - When an unregistered contact creates an account
 - System detects existing movements by email/phone
 - Offers to link historical data to their account
 - User accepts → past movements become visible to them
 - Debt balances sync from that point forward
 
-----------------------------------------------------------------
-5. MULTI-TENANCY & DATA OWNERSHIP
-----------------------------------------------------------------
+## 5. MULTI-TENANCY & DATA OWNERSHIP
 
 Core entities:
 
 Family:
+
 - Represents a household (not extended family)
 - Has 1+ household members (internal users)
 - Has 0+ external contacts (with or without accounts)
@@ -234,17 +232,20 @@ Family:
 - Data isolation: families never see each other's internal data
 
 Household Members:
+
 - Authenticated users
 - Belong to exactly one family (in current scope)
 - Full visibility within their family
 - Can be simultaneously an external contact in other families
 
 External Contacts:
+
 - Belong to a family (the one who added them)
 - Optional: linked to a registered user in another family
 - If linked → creates bidirectional relationship
 
 Cross-family Visibility:
+
 - Jose (Family A) creates movement with Maria (Family B)
 - Maria receives in-app notification
 - Movement appears in Maria's app under "External Transactions"
@@ -253,6 +254,7 @@ Cross-family Visibility:
 - Debt balance updates for both automatically
 
 Data Privacy Rules:
+
 - Users only see their own family's internal movements
 - Users see external movements where they are participants
 - No user can browse or search another family's data
@@ -261,9 +263,7 @@ Data Privacy Rules:
 All families share the same database.
 Isolation is logical, not physical.
 
-----------------------------------------------------------------
-6. AI ASSISTANT (FUTURE)
-----------------------------------------------------------------
+## 6. AI ASSISTANT (FUTURE)
 
 The AI assistant is a conversational interface over trusted data.
 
@@ -291,9 +291,7 @@ The AI translates natural language into:
 It is not a chatbot.
 It is an interface to financial truth.
 
-----------------------------------------------------------------
-7. PHILOSOPHY
-----------------------------------------------------------------
+## 7. PHILOSOPHY
 
 - Clarity over complexity
 - Trust over cleverness
@@ -303,9 +301,7 @@ It is an interface to financial truth.
 The app should feel like:
 “Let’s make things clear and move on with life.”
 
-----------------------------------------------------------------
-8. NON-GOALS
-----------------------------------------------------------------
+## 8. NON-GOALS
 
 - No heavy accounting terminology
 - No forced financial ideology
@@ -313,16 +309,16 @@ The app should feel like:
 - No invasive notifications
 - No dependency on third-party platforms for core logic
 
-----------------------------------------------------------------
-9. EVOLUTION PATH (HIGH LEVEL)
-----------------------------------------------------------------
+## 9. EVOLUTION PATH (HIGH LEVEL)
 
 Phase 1 (Current - Auth):
+
 - Authentication
 - User management
 - Session handling
 
 Phase 2 (Next - Core Finance):
+
 - Family creation
 - Household members
 - External contacts (unregistered)
@@ -331,6 +327,7 @@ Phase 2 (Next - Core Finance):
 - Manual clarity
 
 Phase 3 (Shared Finance):
+
 - External contacts (registered, linked)
 - Cross-family notifications
 - Bidirectional debt sync
@@ -338,6 +335,7 @@ Phase 3 (Shared Finance):
 - Events (basic)
 
 Phase 4 (Events & Consolidation):
+
 - Event lifecycle (open, active, close)
 - Event consolidation (like Splitwise)
 - Mixed participants (registered + unregistered)
@@ -345,29 +343,30 @@ Phase 4 (Events & Consolidation):
 - Budgets
 
 Phase 5 (Credit & Cash Reality):
+
 - Credit card tracking
 - Cash reality checks
 - Payment cycle awareness
 - Accounts abstraction
 
 Phase 6 (Intelligence):
+
 - Reporting & analytics
 - Month-over-month comparisons
 - Spending insights
 - AI conversational layer
 
-----------------------------------------------------------------
-10. DEBT SETTLEMENT & CONFIRMATION FLOWS
-----------------------------------------------------------------
+## 10. DEBT SETTLEMENT & CONFIRMATION FLOWS
 
 The app supports different settlement flows based on whether
 the other person has an account or not.
 
-10.1 Settlement with Registered Users (Bidirectional)
+### 10.1 Settlement with Registered Users (Bidirectional)
 
 Scenario: Jose owes Maria $100
 
 Option A - Jose initiates payment:
+
 1. Jose creates movement type "PAGO_DEUDA"
    - Pagador: Jose
    - Contraparte: Maria
@@ -378,6 +377,7 @@ Option A - Jose initiates payment:
 5. If Maria disputes → Jose receives notification → must resolve
 
 Option B - Maria initiates payment receipt:
+
 1. Maria creates movement type "PAGO_DEUDA"
    - Pagador: Jose (she marks him as payer)
    - Contraparte: Maria
@@ -388,13 +388,14 @@ Option B - Maria initiates payment receipt:
 5. If Jose disputes → Maria receives notification → must resolve
 
 Confirmation Rules:
+
 - Both parties must confirm for debt to clear
 - Until confirmation, debt remains "pending settlement"
 - Either party can add notes/comments
 - System prevents duplicate settlements
 - History preserved for audit
 
-10.2 Settlement with Unregistered Contacts
+### 10.2 Settlement with Unregistered Contacts
 
 Scenario: Jose owes Papá $50 (Papá has no account)
 
@@ -408,13 +409,15 @@ Scenario: Jose owes Papá $50 (Papá has no account)
 5. Jose can add notes for his own reference
 
 For event settlements:
+
 - Generate consolidated summary
 - Share screenshot showing "Papá paid $50"
 - Mark as settled in Jose's app only
 
-10.3 Dispute Resolution
+### 10.3 Dispute Resolution
 
 If users disagree on amounts:
+
 - Both see "disputed" status
 - Can add comments
 - Can attach photos/receipts
@@ -424,15 +427,14 @@ If users disagree on amounts:
 
 The app is a tool for clarity, not enforcement.
 
-----------------------------------------------------------------
-11. NOTIFICATIONS & REAL-TIME SYNC
-----------------------------------------------------------------
+## 11. NOTIFICATIONS & REAL-TIME SYNC
 
 The app uses notifications to keep cross-family transactions synchronized.
 
-11.1 When to Notify
+### 11.1 When to Notify
 
 You receive notifications when:
+
 - Someone adds a movement involving you (as participant or debtor)
 - Someone marks a debt payment involving you
 - Someone requests payment confirmation
@@ -441,13 +443,15 @@ You receive notifications when:
 - Someone comments on a shared movement
 
 You do NOT receive notifications for:
+
 - Other people's internal household movements
 - Events you're not part of
 - Other families' activity
 
-11.2 Notification Content
+### 11.2 Notification Content
 
 Each notification includes:
+
 - Who triggered it (name, photo if available)
 - What happened (movement created, payment marked, etc.)
 - Amount involved
@@ -455,14 +459,16 @@ Each notification includes:
 - Timestamp
 
 Notifications are:
+
 - Non-invasive (no pressure)
 - Informational (help maintain clarity)
 - Actionable (can respond directly)
 - Grouped by event/context when relevant
 
-11.3 Synchronization
+### 11.3 Synchronization
 
 When cross-family movements occur:
+
 - Created in Family A → immediately visible in Family B
 - Updated by Family A → syncs to Family B in real-time
 - Confirmed by Family B → updates both families
@@ -470,6 +476,7 @@ When cross-family movements occur:
 - Offline support: syncs when back online
 
 Privacy:
+
 - Only the specific movement syncs
 - No access to other family's data
 - No leakage of internal expenses
