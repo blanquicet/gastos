@@ -12,11 +12,12 @@ import (
 	"golang.org/x/crypto/argon2"
 )
 
-// Argon2 parameters (OWASP recommended)
+// Argon2 parameters (optimized for Container Apps with limited resources)
+// Based on OWASP recommendations for interactive systems
 const (
-	argon2Time    = 1
-	argon2Memory  = 64 * 1024 // 64 MB
-	argon2Threads = 4
+	argon2Time    = 2          // Iterations
+	argon2Memory  = 19 * 1024  // 19 MB (OWASP recommended for interactive systems)
+	argon2Threads = 1          // Single thread (better for limited CPU)
 	argon2KeyLen  = 32
 	saltLen       = 16
 )
