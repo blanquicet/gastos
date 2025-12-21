@@ -1,6 +1,20 @@
-# Gastos - Expense Tracking Web App
+# 00_N8N_PHASE.md — Movement Registration with n8n Backend
 
-> Personal expense-tracking web app deployed on **Azure Static Web Apps (SWA)** integrated with an **n8n webhook backend** that writes to a Google Sheets/Excel-like ledger.
+> **Current Status:** ✅ ACTIVE for movements registration
+>
+> This phase describes the n8n-based movement registration system.
+> This is the **current implementation** for recording movements until Phase 2 migration.
+
+**Architecture:**
+
+- Authentication: PostgreSQL (see `01_AUTH_PHASE.md`)
+- Movement storage: n8n → Excel/Google Sheets (this document)
+
+**Relationship to other phases:**
+
+- See `01_AUTH_PHASE.md` for authentication implementation
+- See `FUTURE_VISION.md` for long-term product direction
+- Phase 2 will migrate movements from Excel to PostgreSQL
 
 ---
 
@@ -13,6 +27,9 @@
 ---
 
 ## 🏗️ Current Deployment / Infrastructure
+
+**Important:** This describes the n8n integration for movements only.
+For authentication infrastructure, see `01_AUTH_PHASE.md`.
 
 ### Frontend: Azure Static Web Apps (SWA)
 
@@ -179,6 +196,11 @@ registrar-movimiento/
 
 ## 🔐 Autenticación
 
+**Note:** This section describes the legacy n8n API key approach.
+For the current session-based authentication system, see `01_AUTH_PHASE.md`.
+
+The n8n webhook still uses API key authentication for server-to-server calls.
+
 ### En el Frontend
 
 El API key se gestiona mediante **GitHub Secrets** para no exponerlo en el código fuente:
@@ -226,11 +248,24 @@ El API key se gestiona mediante **GitHub Secrets** para no exponerlo en el códi
 
 ---
 
-## 🤖 Instrucciones para Claude
+## 🤖 Documentation Context
 
-- Hacer ediciones **mínimas y seguras**
-- Mantener nombres, endpoints y auth header **exactamente como se especifican**
-- Proveer cambios estilo patch o ediciones archivo por archivo
-- **No introducir frameworks**; mantener vanilla HTML/CSS/JS
-- Asegurar que CORS preflight funcione con `X-API-Key`
-- **NUNCA** incluir el valor real del API key en el código; usar placeholder `__X_API_KEY__`
+This document describes **Phase 0: n8n Movement Registration**.
+
+**Current implementation status:**
+- ✅ Authentication moved to PostgreSQL (Phase 1)
+- ✅ Movement registration still uses n8n → Excel
+- ⏳ Movement migration to PostgreSQL pending (Phase 2)
+
+**Related documentation:**
+- `01_AUTH_PHASE.md` - Current auth implementation with Go backend + PostgreSQL
+- `FUTURE_VISION.md` - Long-term product vision and roadmap
+- Phase 2 (planned) - Migrate movements to PostgreSQL, implement families/contacts
+
+**Editing guidelines:**
+- Make **minimal and safe** edits
+- Maintain exact names, endpoints, and auth headers
+- Provide changes as patches or file-by-file edits
+- **Do not introduce frameworks**; maintain vanilla HTML/CSS/JS
+- Ensure CORS preflight works with `X-API-Key`
+- **NEVER** include actual API key values in code; use placeholder `__X_API_KEY__`
