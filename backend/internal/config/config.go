@@ -23,10 +23,6 @@ type Config struct {
 	// CORS configuration
 	AllowedOrigins []string
 
-	// n8n configuration
-	N8NWebhookURL string
-	N8NAPIKey     string
-
 	// Static files (for local development)
 	StaticDir string
 }
@@ -55,21 +51,14 @@ func Load() (*Config, error) {
 	sessionCookieSecure := os.Getenv("SESSION_COOKIE_SECURE") != "false"
 
 	// Allowed origins for CORS (comma-separated)
-	allowedOrigins := []string{"https://gastos.blanquicet.com.co"}
+	// Must be set via ALLOWED_ORIGINS environment variable
+	var allowedOrigins []string
 	if origins := os.Getenv("ALLOWED_ORIGINS"); origins != "" {
 		allowedOrigins = strings.Split(origins, ",")
 		for i := range allowedOrigins {
 			allowedOrigins[i] = strings.TrimSpace(allowedOrigins[i])
 		}
 	}
-
-	// n8n configuration
-	n8nWebhookURL := os.Getenv("N8N_WEBHOOK_URL")
-	if n8nWebhookURL == "" {
-		n8nWebhookURL = "https://n8n.blanquicet.com.co/webhook/movimientos/reportar"
-	}
-
-	n8nAPIKey := os.Getenv("N8N_API_KEY")
 
 	// Static directory for serving frontend in development
 	staticDir := os.Getenv("STATIC_DIR")
@@ -81,8 +70,6 @@ func Load() (*Config, error) {
 		SessionCookieName:   sessionCookieName,
 		SessionCookieSecure: sessionCookieSecure,
 		AllowedOrigins:      allowedOrigins,
-		N8NWebhookURL:       n8nWebhookURL,
-		N8NAPIKey:           n8nAPIKey,
 		StaticDir:           staticDir,
 	}, nil
 }
