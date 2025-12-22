@@ -36,6 +36,9 @@ cd gastos
 ### 2. Iniciar PostgreSQL
 
 ```bash
+# Ir al directorio backend
+cd backend
+
 # Iniciar PostgreSQL en Docker
 docker compose up -d
 
@@ -54,7 +57,7 @@ Esto crea:
 ### 3. Configurar el backend
 
 ```bash
-cd backend
+# Ya estamos en el directorio backend/
 
 # Copiar el archivo de ejemplo (ya tiene valores que funcionan)
 cp .env.example .env
@@ -226,7 +229,8 @@ psql "$DB_URL"
 # O usando docker exec
 docker exec -it gastos-postgres psql -U gastos -d gastos
 
-# Ver logs de PostgreSQL
+# Ver logs de PostgreSQL (desde directorio backend/)
+cd backend
 docker compose logs -f postgres
 
 # Detener PostgreSQL
@@ -263,7 +267,8 @@ migrate -path ./migrations -database "$DB_URL" up
 **Solución:**
 
 ```bash
-# Ver logs
+# Ver logs (desde directorio backend/)
+cd backend
 docker compose logs postgres
 
 # Reiniciar
@@ -318,7 +323,7 @@ go run cmd/api/main.go
 
 Antes de hacer push:
 
-- [ ] PostgreSQL corriendo (`docker compose ps`)
+- [ ] PostgreSQL corriendo (desde `backend/`: `docker compose ps`)
 - [ ] Variable `DB_URL` exportada (ver sección "Ejecutar la Aplicación")
 - [ ] Migraciones aplicadas una vez (`migrate -path ./migrations -database "$DB_URL" version`)
 - [ ] Backend inicia sin errores en puerto 8080
