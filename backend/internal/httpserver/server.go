@@ -101,12 +101,12 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 		mux.HandleFunc("POST /movements", movementsHandler.RecordMovement)
 	}
 
-	// Serve static files in development mode
+	// Serve static files in development mode with SPA fallback
 	if cfg.StaticDir != "" {
 		logger.Info("serving static files", "dir", cfg.StaticDir)
-		fs := http.FileServer(http.Dir(cfg.StaticDir))
+		spaHandler := spaFileServer(cfg.StaticDir)
 		// Use pattern with trailing slash to match all paths
-		mux.Handle("/", fs)
+		mux.Handle("/", spaHandler)
 	}
 
 	// Apply middleware
@@ -152,5 +152,34 @@ func handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{
 		"status": "healthy",
+	})
+}
+
+// spaFileServer creates an HTTP handler that serves static files with SPA fallback.
+// If a file is not found, it serves index.html to allow client-side routing.
+func spaFileServer(staticDir string) http.Handler {
+	fs := http.Dir(staticDir)
+	fileServer := http.FileServer(fs)
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+
+		// If path is root, serve index.html
+		if path == "/" || path == "" {
+			http.ServeFile(w, r, staticDir+"/index.html")
+			return
+		}
+
+		// Try to open the file to check if it exists
+		f, err := fs.Open(path)
+		if err != nil {
+			// File doesn't exist, serve index.html for SPA routing
+			http.ServeFile(w, r, staticDir+"/index.html")
+			return
+		}
+		f.Close()
+
+		// File exists, serve it normally
+		fileServer.ServeHTTP(w, r)
 	})
 }

@@ -3,12 +3,52 @@
   color: #111827;
 }
 
+/* Loading spinner */
+.loading-spinner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #f6f7f9;
+  z-index: 9999;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #e5e7eb;
+  border-top-color: #111827;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-spinner p {
+  margin-top: 16px;
+  color: #6b7280;
+  font-size: 14px;
+}
+
 body {
   margin: 0;
   padding: 24px;
   padding-left: max(24px, env(safe-area-inset-left));
   padding-right: max(24px, env(safe-area-inset-right));
   background: #f6f7f9;
+  min-height: 100vh;
+}
+
+/* Override padding for auth wrapper pages */
+body:has(.auth-wrapper) {
+  padding: 0;
 }
 
 html, body {
@@ -224,10 +264,99 @@ input, select, textarea, button {
   display: none !important;
 }
 
-.auth-form {
-  margin-top: 10px;
+/* Auth wrapper - centers login box */
+.auth-wrapper {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  padding-left: max(24px, env(safe-area-inset-left));
+  padding-right: max(24px, env(safe-area-inset-right));
+  background: #f6f7f9;
+  margin: -24px; /* Offset body padding */
 }
 
+/* Auth box - container for login/register forms */
+.auth-box {
+  width: 100%;
+  max-width: 420px;
+  background: #fff;
+  padding: 32px 24px;
+  border-radius: 16px;
+  box-shadow: 0 10px 28px rgba(0,0,0,.08);
+}
+
+/* Auth header */
+.auth-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.auth-header h1 {
+  margin: 0 0 8px;
+  font-size: 28px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.auth-header p {
+  margin: 0;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+/* Form group styling */
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 6px;
+  color: #374151;
+}
+
+.form-group input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.form-group .password-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.form-group .password-wrapper input {
+  padding-right: 44px;
+}
+
+/* Auth forms */
+.auth-box form {
+  margin-bottom: 0;
+}
+
+.auth-box form h2 {
+  margin: 0 0 20px;
+  font-size: 22px;
+  font-weight: 600;
+  color: #111827;
+  text-align: center;
+}
+
+/* Error message in auth forms */
+.error {
+  color: #b4231a;
+  background: #fef2f2;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  margin: 14px 0;
+}
+
+/* Legacy support */
 .error-message {
   color: #b4231a;
   background: #fef2f2;
@@ -237,11 +366,16 @@ input, select, textarea, button {
   margin: 10px 0;
 }
 
+.auth-form {
+  margin-top: 10px;
+}
+
 .auth-switch {
   text-align: center;
   font-size: 14px;
   color: #6b7280;
-  margin-top: 12px;
+  margin-top: 16px;
+  margin-bottom: 0;
 }
 
 .auth-switch a {
@@ -252,6 +386,49 @@ input, select, textarea, button {
 
 .auth-switch a:hover {
   text-decoration: underline;
+}
+
+/* Auth buttons */
+.auth-box .btn,
+.auth-box .btn-primary {
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 16px;
+  font-weight: 500;
+  margin-top: 6px;
+  margin-bottom: 6px;
+}
+
+/* Password match hint */
+.password-match {
+  display: block;
+  font-size: 12px;
+  margin-top: 6px;
+  font-weight: 500;
+}
+
+.password-match.match {
+  color: #10b981;
+}
+
+.password-match.no-match {
+  color: #ef4444;
+}
+
+/* Mobile responsiveness for auth */
+@media (max-width: 480px) {
+  .auth-wrapper {
+    padding: 16px;
+    margin: -24px;
+  }
+
+  .auth-box {
+    padding: 24px 20px;
+  }
+
+  .auth-header h1 {
+    font-size: 24px;
+  }
 }
 
 /* Header with user info */

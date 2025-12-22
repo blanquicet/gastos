@@ -1,8 +1,0 @@
-{
-  "routes": [
-    {
-      "route": "/registrar-movimiento",
-      "rewrite": "/index.html"
-    }
-  ]
-}
