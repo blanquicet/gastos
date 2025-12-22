@@ -16,6 +16,16 @@ Gastos is a web application designed to make money management between people sim
 
 The app emphasizes **clarity over complexity** and **trust over cleverness**.
 
+## Preview
+
+### Movement Registration
+
+Simple and clean interface for recording expenses and payments:
+
+<p align="center">
+  <img src="docs/images/registrar-movimiento.png" alt="Movement Registration Form" width="600">
+</p>
+
 ## Vision
 
 The long-term vision is to build a comprehensive personal finance tool that answers questions like:
@@ -44,7 +54,7 @@ Money between people should be simple, transparent, and calm.
 
 - Movement entry via web form
 - Integration with n8n webhook backend
-- Data stored in Excel/Google Sheets
+- Data stored in Google Sheets
 
 **Phase 1: Authentication** ✅ Complete
 
@@ -55,9 +65,7 @@ Money between people should be simple, transparent, and calm.
 **Next: Phase 2** ⏳ Planned
 
 - Implement families and external contacts
-- Migrate movements to PostgreSQL
-- Cross-family debt synchronization
-- Event management
+- Migrate movements from Google Sheets to PostgreSQL, integrated with Go API
 
 ## Architecture
 
