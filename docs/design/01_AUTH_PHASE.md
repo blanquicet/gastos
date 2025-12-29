@@ -12,6 +12,7 @@ If any suggestion conflicts with this document, this document wins.
 
 - ✅ Implement authentication and session management.
 - ✅ Force login before registering movements.
+- ✅ Password reset flow (forgot password + email delivery).
 - ✅ Keep the existing **Google Sheets + n8n** pipeline unchanged.
 - ✅ Do **not** migrate movements to a database yet.
 - ✅ Use **Azure PostgreSQL** for authentication data.
@@ -633,14 +634,14 @@ Full setup guide available in `DEVELOPMENT.md`.
 
 ## 14) Pending Auth Features (Not Yet Implemented)
 
-### 14.1 Password Reset Flow (Backend Complete, Frontend Pending)
+### 14.1 Password Reset Flow ✅ COMPLETED AND DEPLOYED
 
 **Status:**
 
-- ✅ Backend endpoints implemented and working
+- ✅ Backend endpoints implemented and deployed to production
 - ✅ Database schema ready (`password_resets` table)
-- ❌ Frontend UI not connected
-- ❌ Email sending not implemented
+- ✅ Frontend UI implemented and deployed
+- ✅ Email sending implemented with Resend (production) and Mailtrap (local testing)
 
 **Backend endpoints already available:**
 
@@ -667,14 +668,16 @@ Full setup guide available in `DEVELOPMENT.md`.
    - **Configuration:** Environment variable-based provider selection
    - **Documentation:** See `backend/README.md` and `docs/DEVELOPMENT.md`
 
-2. **Frontend Implementation** ❌ PENDING
+2. **Frontend Implementation** ✅ COMPLETED
 
-   - Add "Forgot Password?" link in login form
-   - Create forgot password form (email input)
-   - Create reset password page (`/reset-password?token=xxx`)
-   - Form with new password + confirmation
-   - Call backend endpoints
-   - Show success/error messages
+   - ✅ "Forgot Password?" link in login form (`/login`)
+   - ✅ Forgot password form at `/forgot-password` (email input)
+   - ✅ Reset password page at `/reset-password?token=xxx`
+   - ✅ Form with new password + confirmation validation
+   - ✅ Backend endpoints integration
+   - ✅ Success/error messages in Spanish
+   - ✅ Auto-redirect after successful reset (10 seconds)
+   - ✅ Centralized API_URL configuration
 
 3. **Email Template** ✅ DONE
 
@@ -725,22 +728,27 @@ Full setup guide available in `DEVELOPMENT.md`.
    - Local: Use `noop` or Mailtrap (SMTP)
    - Production: GitHub Secrets → Terraform → Azure Container Apps
 
-5. **Testing** ✅ READY FOR TESTING
+5. **Testing** ✅ TESTED AND VERIFIED
 
-   - Token generation ✅ (already implemented)
-   - Email delivery ✅ (implemented with all three providers)
-   - Token expiration ✅ (1 hour, already implemented)
-   - Token invalidation ✅ (after use, already implemented)
-   - See testing guide in `docs/DEVELOPMENT.md`
+   - ✅ Token generation (verified in production)
+   - ✅ Email delivery with Resend (production)
+   - ✅ Email delivery with Mailtrap (local testing)
+   - ✅ Token expiration (1 hour)
+   - ✅ Token invalidation after use
+   - ✅ Password confirmation validation (server-side)
+   - ✅ Non-existent email handling (security: no enumeration)
+   - ✅ Security: tokens not logged (only email tracking)
+   - ✅ Security: WARN logs for non-existent email attempts
+   - ✅ Complete flow tested in production
 
-**Estimated effort for remaining work:** 1-2 hours (frontend UI only)
+**Estimated effort for remaining work:** None - fully implemented and deployed! ✅
 
-**Next Steps:**
-- Add `EMAIL_API_KEY` to GitHub Secrets
-- Configure Resend account (sign up at resend.com)
-- (Optional) Verify custom domain in Resend for better deliverability
-- (Optional) Add DNS records to Cloudflare if using custom domain
-- Implement frontend password reset UI
+**Deployed Components:**
+- ✅ Backend API running on Azure Container Apps
+- ✅ Frontend UI deployed on Azure Static Web Apps
+- ✅ Resend email service configured with GitHub Secrets
+- ✅ Production tested and verified
+- ✅ Security hardening completed (no token logging, enumeration prevention)
 
 
 ### 14.2 Email Verification (Not Implemented)
