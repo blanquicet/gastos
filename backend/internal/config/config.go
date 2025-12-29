@@ -25,15 +25,15 @@ type Config struct {
 	AllowedOrigins []string
 
 	// Email configuration
-	EmailProvider      string
-	EmailFromAddress   string
-	EmailFromName      string
-	EmailBaseURL       string
-	SMTPHost           string
-	SMTPPort           int
-	SMTPUsername       string
-	SMTPPassword       string
-	SendGridAPIKey     string
+	EmailProvider    string
+	EmailFromAddress string
+	EmailFromName    string
+	EmailBaseURL     string
+	EmailAPIKey      string // Generic API key for email providers (SendGrid, Resend, etc.)
+	SMTPHost         string
+	SMTPPort         int
+	SMTPUsername     string
+	SMTPPassword     string
 
 	// n8n configuration (for movement registration during migration period)
 	N8NWebhookURL string
@@ -108,8 +108,8 @@ func Load() (*Config, error) {
 	smtpUsername := os.Getenv("SMTP_USERNAME")
 	smtpPassword := os.Getenv("SMTP_PASSWORD")
 
-	// SendGrid configuration (for production)
-	sendGridAPIKey := os.Getenv("SENDGRID_API_KEY")
+	// Email provider API key (generic for SendGrid, Resend, etc.)
+	emailAPIKey := os.Getenv("EMAIL_API_KEY")
 
 	// n8n configuration (for movement registration during migration period)
 	n8nWebhookURL := os.Getenv("N8N_WEBHOOK_URL")
@@ -129,11 +129,11 @@ func Load() (*Config, error) {
 		EmailFromAddress:    emailFromAddress,
 		EmailFromName:       emailFromName,
 		EmailBaseURL:        emailBaseURL,
+		EmailAPIKey:         emailAPIKey,
 		SMTPHost:            smtpHost,
 		SMTPPort:            smtpPort,
 		SMTPUsername:        smtpUsername,
 		SMTPPassword:        smtpPassword,
-		SendGridAPIKey:      sendGridAPIKey,
 		N8NWebhookURL:       n8nWebhookURL,
 		N8NAPIKey:           n8nAPIKey,
 		StaticDir:           staticDir,

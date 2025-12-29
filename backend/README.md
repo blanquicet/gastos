@@ -7,7 +7,7 @@ Go API backend for the Gastos application, handling authentication, sessions, an
 - **Language:** Go 1.24+
 - **Database:** PostgreSQL 16
 - **Auth:** Session-based with HttpOnly cookies
-- **Email:** SMTP (dev) / SendGrid (production)
+- **Email:** SMTP (dev) / Resend (production)
 - **Deployment:** Azure Container Apps
 
 ## Project Structure
@@ -19,7 +19,7 @@ backend/
 ├── internal/
 │   ├── auth/          # Authentication logic
 │   ├── config/        # Configuration management
-│   ├── email/         # Email service (SMTP, SendGrid)
+│   ├── email/         # Email service (SMTP, Resend)
 │   ├── httpserver/    # HTTP server setup
 │   ├── middleware/    # HTTP middleware
 │   ├── movements/     # Movements registration (n8n proxy)
@@ -100,19 +100,19 @@ EMAIL_FROM_NAME=Gastos
 EMAIL_BASE_URL=http://localhost:8080
 ```
 
-### Production: SendGrid
+### Production: Resend
 
 Recommended for production deployments.
 
 #### Setup
 
-1. **Create SendGrid Account**
-   - Sign up at [sendgrid.com](https://sendgrid.com) (free tier: 100 emails/day)
+1. **Create Resend Account**
+   - Sign up at [resend.com](https://resend.com) (free tier: 3,000 emails/month)
 
 2. **Generate API Key**
-   - Go to Settings → API Keys
-   - Create API Key with "Mail Send" permission
-   - Copy the key (shown only once!)
+   - Go to API Keys section in dashboard
+   - Create API Key
+   - Copy the key (starts with `re_...`)
 
 3. **Add API Key to GitHub Secrets**
 
@@ -120,58 +120,30 @@ Recommended for production deployments.
 
    - Go to GitHub repository → Settings → Secrets and variables → Actions
    - Click "New repository secret"
-   - Name: `SENDGRID_API_KEY`
-   - Value: `SG.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`
+   - Name: `EMAIL_API_KEY`
+   - Value: `re_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx`
    - Click "Add secret"
 
 4. **Terraform Will Automatically Configure Azure**
 
    The `.github/workflows/terraform.yml` workflow automatically:
-   - Reads `SENDGRID_API_KEY` from GitHub Secrets
-   - Passes it to Terraform via `TF_VAR_sendgrid_api_key`
-   - Creates a secret in Azure Container Apps
+   - Reads `EMAIL_API_KEY` from GitHub Secrets
+   - Passes it to Terraform via `TF_VAR_email_api_key`
+   - Creates `email-api-key` secret in Azure Container Apps
    - Sets all email environment variables
 
-   If you need to manually configure (not recommended):
+5. **Verify Sender Domain (Optional)**
 
-   ```bash
-   # Add secret to Container Apps
-   az containerapp secret set \
-     --name gastos-api \
-     --resource-group gastos-rg \
-     --secrets sendgrid-api-key="$SENDGRID_API_KEY"
+   Resend allows sending from your verified domain for better deliverability:
 
-   # Update environment variables to reference the secret
-   az containerapp update \
-     --name gastos-api \
-     --resource-group gastos-rg \
-     --set-env-vars \
-       EMAIL_PROVIDER=sendgrid \
-       SENDGRID_API_KEY=secretref:sendgrid-api-key \
-       EMAIL_FROM_ADDRESS=noreply@gastos.blanquicet.com.co \
-       EMAIL_FROM_NAME=Gastos \
-       EMAIL_BASE_URL=https://gastos.blanquicet.com.co
-   ```
+   - Go to Domains section in Resend dashboard
+   - Add your domain (`blanquicet.com.co`)
+   - Add DNS records to Cloudflare (DKIM, SPF, DMARC)
+   - Resend will provide specific records for verification
 
-5. **Verify Sender Identity**
-   - **Single Sender Verification** (Quick, for testing):
-     - Go to Settings → Sender Authentication → Single Sender Verification
-     - Add `noreply@gastos.blanquicet.com.co`
-     - Verify via email link
+   Note: You can send emails immediately without domain verification, but verifying improves deliverability.
 
-   - **Domain Authentication** (Recommended for production):
-     - Go to Settings → Sender Authentication → Authenticate Your Domain
-     - Follow DNS setup instructions for `blanquicet.com.co`
-     - Add CNAME records to Cloudflare DNS:
-
-       ```
-       s1._domainkey.blanquicet.com.co → s1.domainkey.uXXXXXXX.wlXXX.sendgrid.net
-       s2._domainkey.blanquicet.com.co → s2.domainkey.uXXXXXXX.wlXXX.sendgrid.net
-       ```
-
-     - Wait for verification (can take 24-48 hours)
-
-5. **Test Email Sending**
+6. **Test Email Sending**
 
 ```bash
 # Trigger password reset
@@ -179,7 +151,7 @@ curl -X POST http://localhost:8080/auth/forgot-password \
   -H "Content-Type: application/json" \
   -d '{"email":"your-test@email.com"}'
 
-# Check SendGrid Activity Dashboard for delivery status
+# Check Resend Activity Dashboard for delivery status
 ```
 
 ## API Endpoints
@@ -219,7 +191,7 @@ POST /movements           # Proxy to n8n (requires n8n configuration)
 | `ALLOWED_ORIGINS` | CORS allowed origins (comma-separated) | - |
 | `STATIC_DIR` | Static files directory (for local dev) | - |
 | **Email Configuration** | | |
-| `EMAIL_PROVIDER` | Email provider: `noop`, `smtp`, `sendgrid` | `noop` |
+| `EMAIL_PROVIDER` | Email provider: `noop`, `smtp`, `resend` | `noop` |
 | `EMAIL_FROM_ADDRESS` | Sender email address | `noreply@gastos.blanquicet.com.co` |
 | `EMAIL_FROM_NAME` | Sender name | `Gastos` |
 | `EMAIL_BASE_URL` | Frontend base URL for email links | `http://localhost:8080` |
@@ -228,8 +200,8 @@ POST /movements           # Proxy to n8n (requires n8n configuration)
 | `SMTP_PORT` | SMTP server port | `587` |
 | `SMTP_USERNAME` | SMTP authentication username | - |
 | `SMTP_PASSWORD` | SMTP authentication password | - |
-| **SendGrid Configuration** | | |
-| `SENDGRID_API_KEY` | SendGrid API key | - |
+| **Email Provider API Key** | | |
+| `EMAIL_API_KEY` | Email service API key (Resend, SendGrid, etc.) | - |
 | **n8n Configuration** | | |
 | `N8N_WEBHOOK_URL` | n8n webhook URL (for movements) | - |
 | `N8N_API_KEY` | n8n API key | - |
@@ -293,20 +265,21 @@ telnet $SMTP_HOST $SMTP_PORT
 # Server will log SMTP errors with detailed information
 ```
 
-### Email not sending (SendGrid)
+### Email not sending
 
 ```bash
-# Verify API key
-echo $SENDGRID_API_KEY | cut -c1-10
-# Should output: SG.xxxxxxx
+# Verify API key is set
+echo $EMAIL_API_KEY | cut -c1-10
+# Resend keys start with: re_
+# SendGrid keys start with: SG.
 
-# Check SendGrid Activity Dashboard
-https://app.sendgrid.com/email_activity
+# Check Resend dashboard (if using Resend)
+https://resend.com/emails
 
 # Common issues:
 # - API key invalid or expired
-# - Sender not verified
-# - Daily limit reached (100 emails/day on free tier)
+# - Domain not verified (optional for Resend)
+# - Daily/monthly limit reached
 ```
 
 ### Database connection issues

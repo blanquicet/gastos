@@ -651,17 +651,19 @@ Full setup guide available in `DEVELOPMENT.md`.
 
 1. **Email Service Integration** ✅ DONE
 
-   - **Decision:** SendGrid (instead of Azure Communication Services)
+   - **Decision:** Resend (recommended production provider)
    - **Rationale:**
-     - Simpler setup (no Terraform changes needed)
-     - Better Go SDK and documentation
-     - Easier custom domain configuration
-     - Same free tier (100 emails/day)
-     - Less Azure lock-in
+     - Better free tier (3,000 emails/month vs 100/day)
+     - Simpler setup than Azure Communication Services
+     - Excellent Go SDK and documentation
+     - Modern, developer-friendly API
+     - No DNS complexity for initial setup
+     - Provider-agnostic implementation
    - **Implementations:**
      - `NoOpSender`: Logs emails to console (development)
      - `SMTPSender`: SMTP for local testing (Mailtrap, Gmail)
-     - `SendGridSender`: Production email delivery
+     - `ResendSender`: Production email delivery (recommended)
+     - `SendGridSender`: Alternative production option
    - **Configuration:** Environment variable-based provider selection
    - **Documentation:** See `backend/README.md` and `docs/DEVELOPMENT.md`
 
@@ -707,19 +709,19 @@ Full setup guide available in `DEVELOPMENT.md`.
    ```bash
    # Add to GitHub repository secrets:
    # Repository → Settings → Secrets → Actions
-   # Name: SENDGRID_API_KEY
-   # Value: SG.your-api-key-here
+   # Name: EMAIL_API_KEY
+   # Value: re_your-resend-api-key
 
    # Terraform automatically configures Container Apps with:
-   EMAIL_PROVIDER=sendgrid
-   SENDGRID_API_KEY=secretref:sendgrid-api-key  # From GitHub Secret
+   EMAIL_PROVIDER=resend
+   EMAIL_API_KEY=secretref:email-api-key  # From GitHub Secret
    EMAIL_FROM_ADDRESS=noreply@gastos.blanquicet.com.co
    EMAIL_FROM_NAME=Gastos
    EMAIL_BASE_URL=https://gastos.blanquicet.com.co
    ```
 
    **⚠️ Security Note:**
-   - Never commit `SENDGRID_API_KEY` to `.env` or code!
+   - Never commit `EMAIL_API_KEY` to `.env` or code!
    - Local: Use `noop` or Mailtrap (SMTP)
    - Production: GitHub Secrets → Terraform → Azure Container Apps
 
@@ -734,11 +736,10 @@ Full setup guide available in `DEVELOPMENT.md`.
 **Estimated effort for remaining work:** 1-2 hours (frontend UI only)
 
 **Next Steps:**
-- Add `SENDGRID_API_KEY` to GitHub Secrets
-- Configure SendGrid account for production
-- Verify custom domain in SendGrid
-- Add DNS records to Cloudflare
-- Configure Azure Container Apps environment variables
+- Add `EMAIL_API_KEY` to GitHub Secrets
+- Configure Resend account (sign up at resend.com)
+- (Optional) Verify custom domain in Resend for better deliverability
+- (Optional) Add DNS records to Cloudflare if using custom domain
 - Implement frontend password reset UI
 
 
@@ -865,20 +866,20 @@ Verify user email addresses to prevent fake accounts and improve security.
 
 ### 14.3 Email Service Infrastructure ✅ IMPLEMENTED
 
-**Implemented solution: SendGrid with SMTP fallback**
+**Implemented solution: Provider-agnostic email with Resend**
 
-**Why SendGrid:**
+**Why Resend:**
 
-- Simpler setup than Azure Communication Services (no Terraform needed)
-- Better Go SDK and documentation
-- Easier custom domain setup
-- Free tier: 100 emails/day (same as Azure)
-- Better deliverability and email reputation
-- Less vendor lock-in
+- Better free tier: 3,000 emails/month (vs 100/day for SendGrid/Azure)
+- Simpler setup than Azure Communication Services
+- Excellent Go SDK and documentation
+- Modern, developer-friendly API
+- Good deliverability and email reputation
+- No vendor lock-in (provider-agnostic implementation)
 
 **Implementation:**
 
-Three email providers implemented:
+Email providers implemented (easily extensible):
 
 1. **NoOpSender** (default for development)
    - Logs emails to console
@@ -893,67 +894,64 @@ Three email providers implemented:
      - Gmail (with App Password)
      - Any corporate SMTP server
 
-3. **SendGridSender** (for production)
+3. **ResendSender** (recommended for production)
    - Production-ready email delivery
-   - Detailed delivery analytics
-   - Custom domain support
-   - High deliverability
+   - 3,000 emails/month free tier
+   - Simple API
+   - Good deliverability
+
+4. **SendGridSender** (alternative production option)
+   - Also supported as fallback
+   - 100 emails/day free tier
 
 **Configuration:**
 
 Provider selection via environment variable:
 
 ```bash
-EMAIL_PROVIDER=noop      # Development (logs only)
-EMAIL_PROVIDER=smtp      # Local testing (SMTP)
-EMAIL_PROVIDER=sendgrid  # Production (SendGrid)
+EMAIL_PROVIDER=noop    # Development (logs only)
+EMAIL_PROVIDER=smtp    # Local testing (SMTP)
+EMAIL_PROVIDER=resend  # Production (Resend - recommended)
+EMAIL_PROVIDER=sendgrid # Production (SendGrid - alternative)
 ```
 
-**SendGrid Setup for Production:**
+**Resend Setup for Production:**
 
-1. **Create SendGrid Account**
+1. **Create Resend Account**
    ```bash
-   # Sign up at sendgrid.com (free tier)
+   # Sign up at resend.com (free tier: 3,000 emails/month)
    ```
 
 2. **Generate API Key**
    ```bash
-   # Settings → API Keys → Create API Key
-   # Permission: Mail Send (Full Access)
-   # Copy the key (shown only once!)
+   # Go to API Keys section
+   # Create new API Key
+   # Copy the key (starts with re_...)
    ```
 
-3. **Configure Environment**
+3. **Add to GitHub Secrets**
    ```bash
-   EMAIL_PROVIDER=sendgrid
-   SENDGRID_API_KEY=SG.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   # Repository → Settings → Secrets → Actions
+   # Name: EMAIL_API_KEY
+   # Value: re_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   ```
+
+4. **Terraform Handles the Rest**
+   ```bash
+   # Automatically configures:
+   EMAIL_PROVIDER=resend
+   EMAIL_API_KEY=secretref:email-api-key
    EMAIL_FROM_ADDRESS=noreply@gastos.blanquicet.com.co
    EMAIL_FROM_NAME=Gastos
    EMAIL_BASE_URL=https://gastos.blanquicet.com.co
    ```
 
-4. **Domain Authentication (Recommended)**
-   - Go to Settings → Sender Authentication → Authenticate Your Domain
-   - Follow DNS setup for `blanquicet.com.co`
-   - Add CNAME records to Cloudflare:
-     ```
-     s1._domainkey.blanquicet.com.co → s1.domainkey.uXXXXXXX.wlXXX.sendgrid.net
-     s2._domainkey.blanquicet.com.co → s2.domainkey.uXXXXXXX.wlXXX.sendgrid.net
-     ```
-   - Verification takes 24-48 hours
-
-5. **Add to Container Apps** (via Azure Portal or Terraform)
-   ```bash
-   az containerapp update \
-     --name gastos-api \
-     --resource-group gastos-rg \
-     --set-env-vars \
-       EMAIL_PROVIDER=sendgrid \
-       SENDGRID_API_KEY=secretref:sendgrid-api-key \
-       EMAIL_FROM_ADDRESS=noreply@gastos.blanquicet.com.co \
-       EMAIL_FROM_NAME=Gastos \
-       EMAIL_BASE_URL=https://gastos.blanquicet.com.co
-   ```
+5. **Domain Verification (Optional)**
+   - Go to Domains section in Resend dashboard
+   - Add `blanquicet.com.co`
+   - Add DNS records to Cloudflare (DKIM, SPF, DMARC)
+   - Resend provides specific records
+   - Note: Can send emails immediately without verification
 
 **Alternative: Azure Communication Services** (not implemented)
 

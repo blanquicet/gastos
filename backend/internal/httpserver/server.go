@@ -44,15 +44,15 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 
 	// Create email sender
 	emailCfg := &email.Config{
-		Provider:       cfg.EmailProvider,
-		SMTPHost:       cfg.SMTPHost,
-		SMTPPort:       cfg.SMTPPort,
-		SMTPUsername:   cfg.SMTPUsername,
-		SMTPPassword:   cfg.SMTPPassword,
-		SendGridAPIKey: cfg.SendGridAPIKey,
-		FromAddress:    cfg.EmailFromAddress,
-		FromName:       cfg.EmailFromName,
-		BaseURL:        cfg.EmailBaseURL,
+		Provider:     cfg.EmailProvider,
+		SMTPHost:     cfg.SMTPHost,
+		SMTPPort:     cfg.SMTPPort,
+		SMTPUsername: cfg.SMTPUsername,
+		SMTPPassword: cfg.SMTPPassword,
+		APIKey:       cfg.EmailAPIKey,
+		FromAddress:  cfg.EmailFromAddress,
+		FromName:     cfg.EmailFromName,
+		BaseURL:      cfg.EmailBaseURL,
 	}
 	emailSender, err := email.NewSender(emailCfg, logger)
 	if err != nil {

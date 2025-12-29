@@ -33,7 +33,7 @@ func (s *NoOpSender) SendPasswordReset(ctx context.Context, to, token string) er
 
 // Config holds email service configuration.
 type Config struct {
-	// Provider: "noop", "smtp", or "sendgrid"
+	// Provider: "noop", "smtp", "sendgrid", or "resend"
 	Provider string
 
 	// SMTP configuration (for local development)
@@ -42,8 +42,8 @@ type Config struct {
 	SMTPUsername string
 	SMTPPassword string
 
-	// SendGrid configuration (for production)
-	SendGridAPIKey string
+	// API key for email providers (SendGrid, Resend, etc.)
+	APIKey string
 
 	// Common configuration
 	FromAddress string
@@ -66,14 +66,21 @@ func NewSender(cfg *Config, logger *slog.Logger) (Sender, error) {
 		return NewSMTPSender(cfg, logger), nil
 
 	case "sendgrid":
-		if cfg.SendGridAPIKey == "" {
-			return nil, fmt.Errorf("SendGrid API key is required")
+		if cfg.APIKey == "" {
+			return nil, fmt.Errorf("email provider API key is required")
 		}
 		logger.Info("using SendGrid email sender")
 		return NewSendGridSender(cfg, logger), nil
 
+	case "resend":
+		if cfg.APIKey == "" {
+			return nil, fmt.Errorf("email provider API key is required")
+		}
+		logger.Info("using Resend email sender")
+		return NewResendSender(cfg, logger), nil
+
 	default:
-		return nil, fmt.Errorf("unknown email provider: %s (valid: noop, smtp, sendgrid)", cfg.Provider)
+		return nil, fmt.Errorf("unknown email provider: %s (valid: noop, smtp, sendgrid, resend)", cfg.Provider)
 	}
 }
 

@@ -21,7 +21,7 @@ type SendGridSender struct {
 // NewSendGridSender creates a new SendGrid email sender.
 func NewSendGridSender(cfg *Config, logger *slog.Logger) *SendGridSender {
 	return &SendGridSender{
-		apiKey:   cfg.SendGridAPIKey,
+		apiKey:   cfg.APIKey,
 		from:     cfg.FromAddress,
 		fromName: cfg.FromName,
 		baseURL:  cfg.BaseURL,

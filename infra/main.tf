@@ -210,6 +210,11 @@ resource "azurerm_container_app" "api" {
       }
 
       env {
+        name        = "EMAIL_API_KEY"
+        secret_name = "email-api-key"
+      }
+
+      env {
         name  = "EMAIL_FROM_ADDRESS"
         value = var.email_from_address
       }
@@ -243,10 +248,10 @@ resource "azurerm_container_app" "api" {
   }
 
   dynamic "secret" {
-    for_each = var.sendgrid_api_key != "" ? [1] : []
+    for_each = var.email_api_key != "" ? [1] : []
     content {
-      name  = "sendgrid-api-key"
-      value = var.sendgrid_api_key
+      name  = "email-api-key"
+      value = var.email_api_key
     }
   }
 

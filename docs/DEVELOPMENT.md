@@ -399,7 +399,7 @@ curl -X POST http://localhost:8080/auth/forgot-password \
    - Verás el email HTML con el link de reseteo
    - El link funciona en localhost
 
-**Nota:** Para producción, se usa SendGrid configurado automáticamente via Terraform y GitHub Secrets. Ver `backend/README.md` para detalles.
+**Nota:** Para producción, se usa Resend configurado automáticamente via Terraform y GitHub Secrets. Ver `backend/README.md` para detalles.
 
 ---
 

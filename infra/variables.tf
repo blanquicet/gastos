@@ -70,13 +70,13 @@ variable "n8n_api_key" {
 }
 
 variable "email_provider" {
-  description = "Email provider: noop, smtp, or sendgrid (set via TF_VAR_email_provider in CI/CD)"
+  description = "Email provider: noop, smtp, sendgrid, or resend"
   type        = string
   default     = "noop"
 }
 
-variable "sendgrid_api_key" {
-  description = "SendGrid API key for production email (set via TF_VAR_sendgrid_api_key in CI/CD)"
+variable "email_api_key" {
+  description = "Email service API key (for sendgrid or resend)"
   type        = string
   sensitive   = true
   default     = ""
