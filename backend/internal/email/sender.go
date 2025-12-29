@@ -30,3 +30,51 @@ func (s *NoOpSender) SendPasswordReset(ctx context.Context, to, token string) er
 	fmt.Printf("\n=== PASSWORD RESET EMAIL ===\nTo: %s\nToken: %s\n============================\n\n", to, token)
 	return nil
 }
+
+// Config holds email service configuration.
+type Config struct {
+	// Provider: "noop", "smtp", or "sendgrid"
+	Provider string
+
+	// SMTP configuration (for local development)
+	SMTPHost     string
+	SMTPPort     int
+	SMTPUsername string
+	SMTPPassword string
+
+	// SendGrid configuration (for production)
+	SendGridAPIKey string
+
+	// Common configuration
+	FromAddress string
+	FromName    string
+	BaseURL     string // Frontend URL for reset links
+}
+
+// NewSender creates an email sender based on the provider configuration.
+func NewSender(cfg *Config, logger *slog.Logger) (Sender, error) {
+	switch cfg.Provider {
+	case "noop", "":
+		logger.Info("using no-op email sender (emails will be logged only)")
+		return NewNoOpSender(logger), nil
+
+	case "smtp":
+		if cfg.SMTPHost == "" || cfg.SMTPPort == 0 {
+			return nil, fmt.Errorf("SMTP configuration incomplete: host and port required")
+		}
+		logger.Info("using SMTP email sender", "host", cfg.SMTPHost, "port", cfg.SMTPPort)
+		return NewSMTPSender(cfg, logger), nil
+
+	case "sendgrid":
+		if cfg.SendGridAPIKey == "" {
+			return nil, fmt.Errorf("SendGrid API key is required")
+		}
+		logger.Info("using SendGrid email sender")
+		return NewSendGridSender(cfg, logger), nil
+
+	default:
+		return nil, fmt.Errorf("unknown email provider: %s (valid: noop, smtp, sendgrid)", cfg.Provider)
+	}
+}
+
+

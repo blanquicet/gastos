@@ -7,11 +7,17 @@ import (
 	"time"
 )
 
+// EmailSender defines the interface for sending emails.
+type EmailSender interface {
+	SendPasswordReset(ctx context.Context, to, token string) error
+}
+
 // Service handles authentication business logic.
 type Service struct {
 	users         UserRepository
 	sessions      SessionRepository
 	passwordReset PasswordResetRepository
+	emailSender   EmailSender
 	sessionTTL    time.Duration
 	resetTokenTTL time.Duration
 }
@@ -21,12 +27,14 @@ func NewService(
 	users UserRepository,
 	sessions SessionRepository,
 	passwordReset PasswordResetRepository,
+	emailSender EmailSender,
 	sessionTTL time.Duration,
 ) *Service {
 	return &Service{
 		users:         users,
 		sessions:      sessions,
 		passwordReset: passwordReset,
+		emailSender:   emailSender,
 		sessionTTL:    sessionTTL,
 		resetTokenTTL: 1 * time.Hour, // Password reset tokens expire in 1 hour
 	}
@@ -222,6 +230,13 @@ func (s *Service) RequestPasswordReset(ctx context.Context, email string) (strin
 
 	_, err = s.passwordReset.Create(ctx, user.ID, tokenHash, expiresAt)
 	if err != nil {
+		return "", err
+	}
+
+	// Send password reset email
+	if err := s.emailSender.SendPasswordReset(ctx, email, token); err != nil {
+		// Log error but don't fail the request - token is already created
+		// User might try again and get a new token
 		return "", err
 	}
 

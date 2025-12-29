@@ -35,6 +35,11 @@ env:
   TF_VAR_allowed_origins: ${{ secrets.ALLOWED_ORIGINS }}
   TF_VAR_n8n_webhook_url: ${{ secrets.N8N_WEBHOOK_URL }}
   TF_VAR_n8n_api_key: ${{ secrets.N8N_API_KEY }}
+  TF_VAR_email_provider: "sendgrid"
+  TF_VAR_sendgrid_api_key: ${{ secrets.SENDGRID_API_KEY }}
+  TF_VAR_email_from_address: "noreply@gastos.blanquicet.com.co"
+  TF_VAR_email_from_name: "Gastos"
+  TF_VAR_email_base_url: "https://gastos.blanquicet.com.co"
   TF_VERSION: "1.5.7"
 
 jobs:

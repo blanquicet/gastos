@@ -647,16 +647,25 @@ Full setup guide available in `DEVELOPMENT.md`.
 - `POST /auth/forgot-password` - Request password reset
 - `POST /auth/reset-password` - Reset password with token
 
-**What needs to be done:**
+**What was implemented:**
 
-1. **Email Service Integration**
+1. **Email Service Integration** ✅ DONE
 
-   - Use Azure Communication Services Email (recommended for Azure deployment)
-   - Alternative: SendGrid, AWS SES, or SMTP service
-   - Store credentials in environment variables
-   - Implement email sender in `backend/internal/email/sender.go`
+   - **Decision:** SendGrid (instead of Azure Communication Services)
+   - **Rationale:**
+     - Simpler setup (no Terraform changes needed)
+     - Better Go SDK and documentation
+     - Easier custom domain configuration
+     - Same free tier (100 emails/day)
+     - Less Azure lock-in
+   - **Implementations:**
+     - `NoOpSender`: Logs emails to console (development)
+     - `SMTPSender`: SMTP for local testing (Mailtrap, Gmail)
+     - `SendGridSender`: Production email delivery
+   - **Configuration:** Environment variable-based provider selection
+   - **Documentation:** See `backend/README.md` and `docs/DEVELOPMENT.md`
 
-2. **Frontend Implementation**
+2. **Frontend Implementation** ❌ PENDING
 
    - Add "Forgot Password?" link in login form
    - Create forgot password form (email input)
@@ -665,38 +674,73 @@ Full setup guide available in `DEVELOPMENT.md`.
    - Call backend endpoints
    - Show success/error messages
 
-3. **Email Template**
+3. **Email Template** ✅ DONE
 
    - Subject: "Restablecer contraseña - Gastos"
-   - Body: HTML template with reset link
+   - HTML template with Spanish content
    - Link format: `https://gastos.blanquicet.com.co/reset-password?token={token}`
-   - Include expiration notice (1 hour)
+   - Includes expiration notice (1 hour)
+   - Responsive design for mobile/desktop
 
-4. **Environment Variables**
+4. **Environment Variables** ✅ DONE
 
+   **Local Development (.env):**
    ```bash
-   # Azure Communication Services
-   AZURE_COMMUNICATION_CONNECTION_STRING=...
-   EMAIL_FROM=noreply@gastos.blanquicet.com.co
+   # Development (no-op, logs only)
+   EMAIL_PROVIDER=noop
+   EMAIL_FROM_ADDRESS=noreply@gastos.blanquicet.com.co
+   EMAIL_FROM_NAME=Gastos
+   EMAIL_BASE_URL=http://localhost:8080
 
-   # Or SMTP (alternative)
-   SMTP_HOST=smtp.example.com
+   # Local testing with Mailtrap (SMTP)
+   EMAIL_PROVIDER=smtp
+   SMTP_HOST=sandbox.smtp.mailtrap.io
    SMTP_PORT=587
-   SMTP_USER=...
-   SMTP_PASS=...
-   EMAIL_FROM=noreply@gastos.blanquicet.com.co
+   SMTP_USERNAME=your-mailtrap-username
+   SMTP_PASSWORD=your-mailtrap-password
+   EMAIL_FROM_ADDRESS=noreply@gastos.blanquicet.com.co
+   EMAIL_FROM_NAME=Gastos
+   EMAIL_BASE_URL=http://localhost:8080
    ```
 
-5. **Testing**
+   **Production (GitHub Secrets + Terraform):**
+   ```bash
+   # Add to GitHub repository secrets:
+   # Repository → Settings → Secrets → Actions
+   # Name: SENDGRID_API_KEY
+   # Value: SG.your-api-key-here
 
-   - Test token generation
-   - Test email delivery
-   - Test token expiration (1 hour)
-   - Test token invalidation after use
+   # Terraform automatically configures Container Apps with:
+   EMAIL_PROVIDER=sendgrid
+   SENDGRID_API_KEY=secretref:sendgrid-api-key  # From GitHub Secret
+   EMAIL_FROM_ADDRESS=noreply@gastos.blanquicet.com.co
+   EMAIL_FROM_NAME=Gastos
+   EMAIL_BASE_URL=https://gastos.blanquicet.com.co
+   ```
 
-**Estimated effort:** 2-3 hours
+   **⚠️ Security Note:**
+   - Never commit `SENDGRID_API_KEY` to `.env` or code!
+   - Local: Use `noop` or Mailtrap (SMTP)
+   - Production: GitHub Secrets → Terraform → Azure Container Apps
 
-**GitHub Issue:** Create issue for tracking this work
+5. **Testing** ✅ READY FOR TESTING
+
+   - Token generation ✅ (already implemented)
+   - Email delivery ✅ (implemented with all three providers)
+   - Token expiration ✅ (1 hour, already implemented)
+   - Token invalidation ✅ (after use, already implemented)
+   - See testing guide in `docs/DEVELOPMENT.md`
+
+**Estimated effort for remaining work:** 1-2 hours (frontend UI only)
+
+**Next Steps:**
+- Add `SENDGRID_API_KEY` to GitHub Secrets
+- Configure SendGrid account for production
+- Verify custom domain in SendGrid
+- Add DNS records to Cloudflare
+- Configure Azure Container Apps environment variables
+- Implement frontend password reset UI
+
 
 ### 14.2 Email Verification (Not Implemented)
 
@@ -819,131 +863,113 @@ Verify user email addresses to prevent fake accounts and improve security.
 
 **Recommended approach:** Implement after password reset is working
 
-### 14.3 Email Service Infrastructure
+### 14.3 Email Service Infrastructure ✅ IMPLEMENTED
 
-**Common infrastructure needed for both features above.**
+**Implemented solution: SendGrid with SMTP fallback**
 
-**Recommended solution: Azure Communication Services Email**
+**Why SendGrid:**
 
-**Why Azure Communication Services:**
+- Simpler setup than Azure Communication Services (no Terraform needed)
+- Better Go SDK and documentation
+- Easier custom domain setup
+- Free tier: 100 emails/day (same as Azure)
+- Better deliverability and email reputation
+- Less vendor lock-in
 
-- Native Azure integration
-- Free tier available (100 emails/day)
-- Reliable delivery
-- Easy to configure with existing Azure setup
-- SMTP interface available if needed
+**Implementation:**
 
-**Setup steps:**
+Three email providers implemented:
 
-1. **Create Azure Communication Services resource**
+1. **NoOpSender** (default for development)
+   - Logs emails to console
+   - No actual email sending
+   - Perfect for local development
 
+2. **SMTPSender** (for local testing)
+   - Standard SMTP protocol
+   - Works with any SMTP server
+   - Recommended for local email testing:
+     - Mailtrap (fake SMTP server)
+     - Gmail (with App Password)
+     - Any corporate SMTP server
+
+3. **SendGridSender** (for production)
+   - Production-ready email delivery
+   - Detailed delivery analytics
+   - Custom domain support
+   - High deliverability
+
+**Configuration:**
+
+Provider selection via environment variable:
+
+```bash
+EMAIL_PROVIDER=noop      # Development (logs only)
+EMAIL_PROVIDER=smtp      # Local testing (SMTP)
+EMAIL_PROVIDER=sendgrid  # Production (SendGrid)
+```
+
+**SendGrid Setup for Production:**
+
+1. **Create SendGrid Account**
    ```bash
-   az communication create \
-     --name gastos-communication \
-     --resource-group gastos-rg \
-     --location global
+   # Sign up at sendgrid.com (free tier)
    ```
 
-2. **Configure Email Domain**
-
-   - Option A: Use Azure subdomain (azurecomm.net)
-   - Option B: Custom domain (gastos.blanquicet.com.co)
-     - Requires DNS configuration (SPF, DKIM)
-     - Better for production
-
-3. **Get connection string**
-
+2. **Generate API Key**
    ```bash
-   az communication list-key \
-     --name gastos-communication \
-     --resource-group gastos-rg
+   # Settings → API Keys → Create API Key
+   # Permission: Mail Send (Full Access)
+   # Copy the key (shown only once!)
    ```
 
-4. **Add to Terraform** (`infra/main.tf`)
-
-   ```hcl
-   resource "azurerm_communication_service" "gastos" {
-     name                = "gastos-communication"
-     resource_group_name = azurerm_resource_group.main.name
-     data_location       = "United States"
-   }
-
-   output "communication_connection_string" {
-     value     = azurerm_communication_service.gastos.primary_connection_string
-     sensitive = true
-   }
-   ```
-
-5. **Add to backend** (`backend/internal/email/sender.go`)
-
-   ```go
-   package email
-
-   import (
-       "context"
-       "fmt"
-   )
-
-   type Sender interface {
-       SendPasswordReset(ctx context.Context, to, token string) error
-       SendEmailVerification(ctx context.Context, to, token string) error
-   }
-
-   type AzureCommunicationSender struct {
-       connectionString string
-       fromAddress     string
-       baseURL         string
-   }
-
-   func NewAzureCommunicationSender(connStr, from, baseURL string) *AzureCommunicationSender {
-       return &AzureCommunicationSender{
-           connectionString: connStr,
-           fromAddress:     from,
-           baseURL:         baseURL,
-       }
-   }
-
-   func (s *AzureCommunicationSender) SendPasswordReset(ctx context.Context, to, token string) error {
-       resetLink := fmt.Sprintf("%s/reset-password?token=%s", s.baseURL, token)
-       // Implement Azure Communication Services email sending
-       // See: https://learn.microsoft.com/en-us/azure/communication-services/quickstarts/email/send-email
-       return nil
-   }
-
-   func (s *AzureCommunicationSender) SendEmailVerification(ctx context.Context, to, token string) error {
-       verifyLink := fmt.Sprintf("%s/verify-email?token=%s", s.baseURL, token)
-       // Implement verification email
-       return nil
-   }
-   ```
-
-6. **Environment variables for backend**
-
+3. **Configure Environment**
    ```bash
-   AZURE_COMMUNICATION_CONNECTION_STRING=endpoint=https://...
-   EMAIL_FROM=noreply@gastos.blanquicet.com.co
-   BASE_URL=https://gastos.blanquicet.com.co
+   EMAIL_PROVIDER=sendgrid
+   SENDGRID_API_KEY=SG.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   EMAIL_FROM_ADDRESS=noreply@gastos.blanquicet.com.co
+   EMAIL_FROM_NAME=Gastos
+   EMAIL_BASE_URL=https://gastos.blanquicet.com.co
    ```
 
-7. **Add to Container Apps configuration**
+4. **Domain Authentication (Recommended)**
+   - Go to Settings → Sender Authentication → Authenticate Your Domain
+   - Follow DNS setup for `blanquicet.com.co`
+   - Add CNAME records to Cloudflare:
+     ```
+     s1._domainkey.blanquicet.com.co → s1.domainkey.uXXXXXXX.wlXXX.sendgrid.net
+     s2._domainkey.blanquicet.com.co → s2.domainkey.uXXXXXXX.wlXXX.sendgrid.net
+     ```
+   - Verification takes 24-48 hours
 
+5. **Add to Container Apps** (via Azure Portal or Terraform)
    ```bash
    az containerapp update \
      --name gastos-api \
      --resource-group gastos-rg \
      --set-env-vars \
-       AZURE_COMMUNICATION_CONNECTION_STRING=secretref:azure-communication-cs \
-       EMAIL_FROM=noreply@gastos.blanquicet.com.co \
-       BASE_URL=https://gastos.blanquicet.com.co
+       EMAIL_PROVIDER=sendgrid \
+       SENDGRID_API_KEY=secretref:sendgrid-api-key \
+       EMAIL_FROM_ADDRESS=noreply@gastos.blanquicet.com.co \
+       EMAIL_FROM_NAME=Gastos \
+       EMAIL_BASE_URL=https://gastos.blanquicet.com.co
    ```
 
-**Cost estimate:** Free tier covers development/low usage
+**Alternative: Azure Communication Services** (not implemented)
 
-**Alternative (if needed): SendGrid**
-
+If needed in the future, Azure Communication Services could be added:
+- Requires Terraform infrastructure setup
+- Native Azure integration
 - Free tier: 100 emails/day
-- Easier setup (no Azure dependency)
-- Go SDK available
+- See previous version of this document for implementation details
+
+**Cost:** Free tier sufficient for current usage (2 users, minimal password resets)
+
+**Documentation:**
+- `backend/README.md` - Detailed email setup guide
+- `docs/DEVELOPMENT.md` - Local testing with SMTP
+- `backend/.env.example` - Configuration examples
+
 
 ---
 

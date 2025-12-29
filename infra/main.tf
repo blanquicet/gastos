@@ -203,6 +203,31 @@ resource "azurerm_container_app" "api" {
         name  = "N8N_API_KEY"
         value = var.n8n_api_key
       }
+
+      env {
+        name  = "EMAIL_PROVIDER"
+        value = var.email_provider
+      }
+
+      env {
+        name        = "SENDGRID_API_KEY"
+        secret_name = "sendgrid-api-key"
+      }
+
+      env {
+        name  = "EMAIL_FROM_ADDRESS"
+        value = var.email_from_address
+      }
+
+      env {
+        name  = "EMAIL_FROM_NAME"
+        value = var.email_from_name
+      }
+
+      env {
+        name  = "EMAIL_BASE_URL"
+        value = var.email_base_url
+      }
     }
   }
 
@@ -220,6 +245,11 @@ resource "azurerm_container_app" "api" {
   secret {
     name  = "database-url"
     value = local.database_url
+  }
+
+  secret {
+    name  = "sendgrid-api-key"
+    value = var.sendgrid_api_key
   }
 
   tags = var.tags

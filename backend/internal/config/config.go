@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -22,6 +23,17 @@ type Config struct {
 
 	// CORS configuration
 	AllowedOrigins []string
+
+	// Email configuration
+	EmailProvider      string
+	EmailFromAddress   string
+	EmailFromName      string
+	EmailBaseURL       string
+	SMTPHost           string
+	SMTPPort           int
+	SMTPUsername       string
+	SMTPPassword       string
+	SendGridAPIKey     string
 
 	// n8n configuration (for movement registration during migration period)
 	N8NWebhookURL string
@@ -64,6 +76,41 @@ func Load() (*Config, error) {
 		}
 	}
 
+	// Email configuration
+	emailProvider := os.Getenv("EMAIL_PROVIDER")
+	if emailProvider == "" {
+		emailProvider = "noop" // Default to no-op for development
+	}
+
+	emailFromAddress := os.Getenv("EMAIL_FROM_ADDRESS")
+	if emailFromAddress == "" {
+		emailFromAddress = "noreply@gastos.blanquicet.com.co"
+	}
+
+	emailFromName := os.Getenv("EMAIL_FROM_NAME")
+	if emailFromName == "" {
+		emailFromName = "Gastos"
+	}
+
+	emailBaseURL := os.Getenv("EMAIL_BASE_URL")
+	if emailBaseURL == "" {
+		emailBaseURL = "http://localhost:8080" // Default for local dev
+	}
+
+	// SMTP configuration (for local development)
+	smtpHost := os.Getenv("SMTP_HOST")
+	smtpPort := 587 // Default SMTP port
+	if portStr := os.Getenv("SMTP_PORT"); portStr != "" {
+		if p, err := strconv.Atoi(portStr); err == nil {
+			smtpPort = p
+		}
+	}
+	smtpUsername := os.Getenv("SMTP_USERNAME")
+	smtpPassword := os.Getenv("SMTP_PASSWORD")
+
+	// SendGrid configuration (for production)
+	sendGridAPIKey := os.Getenv("SENDGRID_API_KEY")
+
 	// n8n configuration (for movement registration during migration period)
 	n8nWebhookURL := os.Getenv("N8N_WEBHOOK_URL")
 	n8nAPIKey := os.Getenv("N8N_API_KEY")
@@ -78,6 +125,15 @@ func Load() (*Config, error) {
 		SessionCookieName:   sessionCookieName,
 		SessionCookieSecure: sessionCookieSecure,
 		AllowedOrigins:      allowedOrigins,
+		EmailProvider:       emailProvider,
+		EmailFromAddress:    emailFromAddress,
+		EmailFromName:       emailFromName,
+		EmailBaseURL:        emailBaseURL,
+		SMTPHost:            smtpHost,
+		SMTPPort:            smtpPort,
+		SMTPUsername:        smtpUsername,
+		SMTPPassword:        smtpPassword,
+		SendGridAPIKey:      sendGridAPIKey,
 		N8NWebhookURL:       n8nWebhookURL,
 		N8NAPIKey:           n8nAPIKey,
 		StaticDir:           staticDir,

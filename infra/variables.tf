@@ -69,6 +69,37 @@ variable "n8n_api_key" {
   default     = ""
 }
 
+variable "email_provider" {
+  description = "Email provider: noop, smtp, or sendgrid (set via TF_VAR_email_provider in CI/CD)"
+  type        = string
+  default     = "noop"
+}
+
+variable "sendgrid_api_key" {
+  description = "SendGrid API key for production email (set via TF_VAR_sendgrid_api_key in CI/CD)"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "email_from_address" {
+  description = "Email sender address"
+  type        = string
+  default     = "noreply@gastos.blanquicet.com.co"
+}
+
+variable "email_from_name" {
+  description = "Email sender name"
+  type        = string
+  default     = "Gastos"
+}
+
+variable "email_base_url" {
+  description = "Base URL for email links (frontend URL)"
+  type        = string
+  default     = "https://gastos.blanquicet.com.co"
+}
+
 variable "tags" {
   description = "Tags to apply to all resources"
   type        = map(string)

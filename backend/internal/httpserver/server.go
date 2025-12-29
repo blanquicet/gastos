@@ -12,6 +12,7 @@ import (
 
 	"github.com/blanquicet/gastos/backend/internal/auth"
 	"github.com/blanquicet/gastos/backend/internal/config"
+	"github.com/blanquicet/gastos/backend/internal/email"
 	"github.com/blanquicet/gastos/backend/internal/middleware"
 	"github.com/blanquicet/gastos/backend/internal/movements"
 	"github.com/blanquicet/gastos/backend/internal/n8nclient"
@@ -41,6 +42,24 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 	}
 	logger.Info("connected to database")
 
+	// Create email sender
+	emailCfg := &email.Config{
+		Provider:       cfg.EmailProvider,
+		SMTPHost:       cfg.SMTPHost,
+		SMTPPort:       cfg.SMTPPort,
+		SMTPUsername:   cfg.SMTPUsername,
+		SMTPPassword:   cfg.SMTPPassword,
+		SendGridAPIKey: cfg.SendGridAPIKey,
+		FromAddress:    cfg.EmailFromAddress,
+		FromName:       cfg.EmailFromName,
+		BaseURL:        cfg.EmailBaseURL,
+	}
+	emailSender, err := email.NewSender(emailCfg, logger)
+	if err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("failed to create email sender: %w", err)
+	}
+
 	// Create repositories
 	userRepo := users.NewRepository(pool)
 	sessionRepo := sessions.NewRepository(pool)
@@ -51,6 +70,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 		userRepo,
 		sessionRepo,
 		passwordResetRepo,
+		emailSender,
 		cfg.SessionDuration,
 	)
 

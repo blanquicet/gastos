@@ -337,6 +337,72 @@ Antes de hacer push:
 
 ---
 
+## 📧 Testear Envío de Emails (Opcional)
+
+### Opción 1: Sin envío real (Default)
+
+Por defecto, los emails solo se loguean en la consola:
+
+```bash
+# En backend/.env
+EMAIL_PROVIDER=noop
+```
+
+Al solicitar recuperación de contraseña, verás en la consola:
+
+```
+=== PASSWORD RESET EMAIL ===
+To: usuario@example.com
+Token: abc123...
+============================
+```
+
+### Opción 2: Con Mailtrap (Recomendado para Testing Local)
+
+**Mailtrap** es un servicio gratuito que captura emails sin enviarlos realmente.
+
+1. **Crear cuenta en Mailtrap**:
+   - Ir a [mailtrap.io](https://mailtrap.io)
+   - Registrarse gratis
+   - Crear un inbox
+
+2. **Configurar backend/.env**:
+
+```bash
+EMAIL_PROVIDER=smtp
+SMTP_HOST=sandbox.smtp.mailtrap.io
+SMTP_PORT=587
+SMTP_USERNAME=tu-username-de-mailtrap
+SMTP_PASSWORD=tu-password-de-mailtrap
+EMAIL_FROM_ADDRESS=noreply@gastos.blanquicet.com.co
+EMAIL_FROM_NAME=Gastos
+EMAIL_BASE_URL=http://localhost:8080
+```
+
+3. **Reiniciar backend**:
+
+```bash
+# Ctrl+C para detener
+go run cmd/api/main.go
+```
+
+4. **Probar recuperación de contraseña**:
+
+```bash
+curl -X POST http://localhost:8080/auth/forgot-password \
+  -H "Content-Type: application/json" \
+  -d '{"email":"tu-email-registrado@example.com"}'
+```
+
+5. **Ver el email en Mailtrap**:
+   - Ir a tu inbox en Mailtrap
+   - Verás el email HTML con el link de reseteo
+   - El link funciona en localhost
+
+**Nota:** Para producción, se usa SendGrid configurado automáticamente via Terraform y GitHub Secrets. Ver `backend/README.md` para detalles.
+
+---
+
 ## 🚢 Próximos Pasos
 
 Una vez que todo funciona localmente:
