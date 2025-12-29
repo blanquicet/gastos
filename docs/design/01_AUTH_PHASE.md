@@ -926,11 +926,13 @@ EMAIL_PROVIDER=sendgrid # Production (SendGrid - alternative)
 **Resend Setup for Production:**
 
 1. **Create Resend Account**
+
    ```bash
    # Sign up at resend.com (free tier: 3,000 emails/month)
    ```
 
 2. **Generate API Key**
+
    ```bash
    # Go to API Keys section
    # Create new API Key
@@ -938,6 +940,7 @@ EMAIL_PROVIDER=sendgrid # Production (SendGrid - alternative)
    ```
 
 3. **Add to GitHub Secrets**
+
    ```bash
    # Using GitHub CLI (recommended)
    gh secret set EMAIL_API_KEY --body "re_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
@@ -948,6 +951,7 @@ EMAIL_PROVIDER=sendgrid # Production (SendGrid - alternative)
    ```
 
 4. **Terraform Handles the Rest**
+
    ```bash
    # Automatically configures:
    EMAIL_PROVIDER=resend
@@ -957,9 +961,9 @@ EMAIL_PROVIDER=sendgrid # Production (SendGrid - alternative)
    EMAIL_BASE_URL=https://gastos.blanquicet.com.co
    ```
 
-5. **Domain Verification (Optional)**
+5. **Domain Verification**
    - Go to Domains section in Resend dashboard
-   - Add `blanquicet.com.co`
+   - Add `gastos.blanquicet.com.co`
    - Add DNS records to Cloudflare (DKIM, SPF, DMARC)
    - Resend provides specific records
    - Note: Can send emails immediately without verification
@@ -967,6 +971,7 @@ EMAIL_PROVIDER=sendgrid # Production (SendGrid - alternative)
 **Alternative: Azure Communication Services** (not implemented)
 
 If needed in the future, Azure Communication Services could be added:
+
 - Requires Terraform infrastructure setup
 - Native Azure integration
 - Free tier: 100 emails/day
@@ -975,10 +980,10 @@ If needed in the future, Azure Communication Services could be added:
 **Cost:** Free tier sufficient for current usage (2 users, minimal password resets)
 
 **Documentation:**
+
 - `backend/README.md` - Detailed email setup guide
 - `docs/DEVELOPMENT.md` - Local testing with SMTP
 - `backend/.env.example` - Configuration examples
-
 
 ---
 
