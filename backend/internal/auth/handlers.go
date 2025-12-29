@@ -27,9 +27,10 @@ func NewHandler(service *Service, cookieName string, secure bool, logger *slog.L
 
 // RegisterRequest is the request body for registration.
 type RegisterRequest struct {
-	Email    string `json:"email"`
-	Name     string `json:"name"`
-	Password string `json:"password"`
+	Email           string `json:"email"`
+	Name            string `json:"name"`
+	Password        string `json:"password"`
+	PasswordConfirm string `json:"password_confirm"`
 }
 
 // LoginRequest is the request body for login.
@@ -52,8 +53,9 @@ type ForgotPasswordRequest struct {
 
 // ResetPasswordRequest is the request body for reset password.
 type ResetPasswordRequest struct {
-	Token       string `json:"token"`
-	NewPassword string `json:"new_password"`
+	Token               string `json:"token"`
+	NewPassword         string `json:"new_password"`
+	NewPasswordConfirm  string `json:"new_password_confirm"`
 }
 
 // ErrorResponse is a standard error response.
@@ -66,6 +68,12 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respondError(w, "cuerpo de solicitud inválido", http.StatusBadRequest)
+		return
+	}
+
+	// Validate password confirmation
+	if req.Password != req.PasswordConfirm {
+		h.respondError(w, "las contraseñas no coinciden", http.StatusBadRequest)
 		return
 	}
 
@@ -182,6 +190,12 @@ func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	var req ResetPasswordRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respondError(w, "cuerpo de solicitud inválido", http.StatusBadRequest)
+		return
+	}
+
+	// Validate password confirmation
+	if req.NewPassword != req.NewPasswordConfirm {
+		h.respondError(w, "las contraseñas no coinciden", http.StatusBadRequest)
 		return
 	}
 
