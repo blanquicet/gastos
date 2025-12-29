@@ -121,11 +121,6 @@ export function init() {
         
         // Clear form
         form.reset();
-
-        // Redirect to login after 5 seconds
-        setTimeout(() => {
-          router.navigate('/');
-        }, 5000);
       } else {
         errorDiv.textContent = data.error || 'Error al enviar el enlace';
         errorDiv.classList.remove('hidden');

@@ -245,10 +245,10 @@ export function init() {
         // Clear form
         form.reset();
 
-        // Redirect to login after 3 seconds
+        // Redirect to login after 10 seconds
         setTimeout(() => {
           router.navigate('/');
-        }, 3000);
+        }, 10000);
       } else {
         errorDiv.textContent = data.error || 'Error al restablecer la contraseña';
         errorDiv.classList.remove('hidden');
