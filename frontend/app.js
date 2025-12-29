@@ -8,6 +8,8 @@
 import router from './router.js';
 import { checkAuth } from './auth-utils.js';
 import * as LoginPage from './pages/login.js';
+import * as ForgotPasswordPage from './pages/forgot-password.js';
+import * as ResetPasswordPage from './pages/reset-password.js';
 import * as RegistrarMovimientoPage from './pages/registrar-movimiento.js';
 
 // Store current user globally
@@ -22,6 +24,18 @@ function initRouter() {
     const appEl = document.getElementById('app');
     appEl.innerHTML = LoginPage.render();
     LoginPage.setup();
+  });
+
+  router.route('/forgot-password', async () => {
+    const appEl = document.getElementById('app');
+    appEl.innerHTML = ForgotPasswordPage.render();
+    ForgotPasswordPage.init();
+  });
+
+  router.route('/reset-password', async () => {
+    const appEl = document.getElementById('app');
+    appEl.innerHTML = ResetPasswordPage.render();
+    ResetPasswordPage.init();
   });
 
   router.route('/registrar-movimiento', async () => {
@@ -45,17 +59,21 @@ function initRouter() {
     const loadingEl = document.getElementById('loading');
     if (loadingEl) loadingEl.style.display = 'none';
 
+    // Public routes that don't require authentication
+    const publicRoutes = ['/login', '/forgot-password', '/reset-password'];
+    const isPublicRoute = publicRoutes.includes(to);
+
     // Check authentication status
     const { authenticated } = await checkAuth();
 
-    // If authenticated and trying to access login, redirect to main page
-    if (to === '/login' && authenticated) {
+    // If authenticated and trying to access public route, redirect to main page
+    if (authenticated && isPublicRoute) {
       router.navigate('/registrar-movimiento');
       return false;
     }
 
     // If not authenticated and trying to access protected route, redirect to login
-    if (!authenticated && to !== '/login') {
+    if (!authenticated && !isPublicRoute) {
       router.navigate('/login');
       return false;
     }

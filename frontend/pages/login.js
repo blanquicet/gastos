@@ -67,6 +67,10 @@ export function render() {
           </button>
 
           <p class="auth-switch">
+            <a href="/forgot-password" id="forgotPasswordLink">¿Olvidaste tu contraseña?</a>
+          </p>
+
+          <p class="auth-switch">
             ¿No tienes cuenta?
             <a href="#" id="showRegister">Regístrate</a>
           </p>

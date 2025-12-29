@@ -357,6 +357,24 @@ input, select, textarea, button {
   margin: 14px 0;
 }
 
+/* Success message in auth forms */
+.success {
+  color: #065f46;
+  background: #d1fae5;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  margin: 14px 0;
+}
+
+/* Form description text */
+.form-description {
+  color: #6b7280;
+  font-size: 14px;
+  margin: -10px 0 20px 0;
+  line-height: 1.5;
+}
+
 /* Legacy support */
 .error-message {
   color: #b4231a;
