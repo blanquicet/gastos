@@ -26,9 +26,9 @@ env:
   IMAGE_NAME: ${{ github.repository }}/api
 
 jobs:
-  test:
+  unit-test:
     runs-on: ubuntu-latest
-    name: Test
+    name: Unit Tests
 
     services:
       postgres:
@@ -74,47 +74,16 @@ jobs:
           DATABASE_URL: postgres://gastos:gastos_test_password@localhost:5432/gastos_test?sslmode=disable
         run: go test -v -race ./...
 
-      - name: Start API server for integration tests
-        working-directory: backend
-        env:
-          DATABASE_URL: postgres://gastos:gastos_test_password@localhost:5432/gastos_test?sslmode=disable
-          RATE_LIMIT_ENABLED: "false"
-          SESSION_COOKIE_SECURE: "false"
-        run: |
-          go run cmd/api/main.go > /tmp/api-server.log 2>&1 &
-          echo $! > /tmp/api-server.pid
-          echo "Waiting for server to start..."
-          sleep 5
-          curl -f http://localhost:8080/health || (cat /tmp/api-server.log && exit 1)
-          echo "✅ API server started successfully"
-
-      - name: Run API integration tests
-        working-directory: backend/tests/api-integration
-        run: |
-          chmod +x test-api.sh
-          ./test-api.sh
-
-      - name: Show API server logs on failure
-        if: failure()
-        run: cat /tmp/api-server.log || echo "No logs available"
-
-      - name: Stop API server
-        if: always()
-        run: |
-          if [ -f /tmp/api-server.pid ]; then
-            kill $(cat /tmp/api-server.pid) || true
-            rm /tmp/api-server.pid
-          fi
-
-  build:
+  build-and-test:
     runs-on: ubuntu-latest
-    name: Build and Push
-    needs: test
+    name: Build and Test Docker Image
+    needs: unit-test
     permissions:
       contents: read
       packages: write
     outputs:
-      image_tag: ${{ steps.meta.outputs.tags }}
+      image_digest: ${{ steps.build.outputs.digest }}
+
     steps:
       - uses: actions/checkout@v4
 
@@ -137,25 +106,105 @@ jobs:
             type=sha,prefix=
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build and push
+      - name: Build and load Docker image
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: ./backend
-          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          no-cache: true
+          load: true
+          tags: gastos-api:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           build-args: |
             VERSION=${{ github.ref_name }}
             COMMIT=${{ github.sha }}
             BUILD_TIME=${{ github.event.head_commit.timestamp }}
-          # cache-from: type=gha
-          # cache-to: type=gha,mode=max
+
+      - name: Install golang-migrate
+        run: |
+          curl -L https://github.com/golang-migrate/migrate/releases/download/v4.17.0/migrate.linux-amd64.tar.gz | tar xvz
+          sudo mv migrate /usr/local/bin/
+          migrate -version
+
+      - name: Create docker-compose test file
+        run: |
+          cat > docker-compose.test.yml <<'EOF'
+          services:
+            postgres:
+              image: postgres:16
+              environment:
+                POSTGRES_USER: gastos
+                POSTGRES_PASSWORD: gastos_test_password
+                POSTGRES_DB: gastos_test
+              ports:
+                - "5432:5432"
+              healthcheck:
+                test: ["CMD-SHELL", "pg_isready -U gastos"]
+                interval: 5s
+                timeout: 5s
+                retries: 5
+
+            api:
+              image: gastos-api:test
+              depends_on:
+                postgres:
+                  condition: service_healthy
+              environment:
+                DATABASE_URL: postgres://gastos:gastos_test_password@postgres:5432/gastos_test?sslmode=disable
+                RATE_LIMIT_ENABLED: "false"
+                SESSION_COOKIE_SECURE: "false"
+              ports:
+                - "8080:8080"
+          EOF
+
+      - name: Start test environment
+        run: |
+          docker compose -f docker-compose.test.yml up -d
+          echo "Waiting for API to be healthy..."
+          timeout 60 bash -c 'until curl -f http://localhost:8080/health; do sleep 2; done'
+          echo "✅ API is healthy"
+
+      - name: Run migrations
+        env:
+          DATABASE_URL: postgres://gastos:gastos_test_password@localhost:5432/gastos_test?sslmode=disable
+        run: |
+          cd backend
+          migrate -path ./migrations -database "$DATABASE_URL" up
+          echo "✅ Migrations applied successfully"
+
+      - name: Run API integration tests
+        working-directory: backend/tests/api-integration
+        run: |
+          chmod +x test-api.sh
+          ./test-api.sh
+
+      - name: Show API logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.test.yml logs api
+
+      - name: Stop test environment
+        if: always()
+        run: docker compose -f docker-compose.test.yml down -v
+
+      - name: Push Docker image to registry
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=${{ github.ref_name }}
+            COMMIT=${{ github.sha }}
+            BUILD_TIME=${{ github.event.head_commit.timestamp }}
 
   deploy:
     runs-on: ubuntu-latest
     name: Deploy to Azure
-    needs: build
+    needs: build-and-test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     environment: production
     steps:

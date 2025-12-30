@@ -14,7 +14,7 @@ cd backend/tests/api-integration
 
 **Expected output:**
 
-```
+```bash
 ✅ All 17 tests completed!
 ```
 
