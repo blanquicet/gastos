@@ -128,7 +128,7 @@ async function testHouseholdManagement() {
     
     await page1.locator('#contact-name').fill('Maria External');
     await page1.locator('#contact-email').fill('maria@external.com');
-    await page1.locator('#contact-phone').fill('+57 300 123 4567');
+    await page1.locator('#contact-phone').fill('+573001234567');
     await page1.locator('#contact-notes').fill('Friend from work');
     
     await page1.getByRole('button', { name: 'Agregar', exact: true }).click();
