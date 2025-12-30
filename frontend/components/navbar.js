@@ -29,6 +29,12 @@ export function render(user, activeRoute = '/registrar-movimiento') {
       <a href="/registrar-movimiento" class="dropdown-item ${activeRoute === '/registrar-movimiento' ? 'active' : ''}" data-route="/registrar-movimiento">
         Registrar movimientos
       </a>
+      <a href="/metodos-pago" class="dropdown-item ${activeRoute === '/metodos-pago' ? 'active' : ''}" data-route="/metodos-pago">
+        Métodos de pago
+      </a>
+      <a href="/hogar" class="dropdown-item ${activeRoute === '/hogar' ? 'active' : ''}" data-route="/hogar">
+        Mi hogar
+      </a>
       <button id="dropdown-logout-btn" class="dropdown-item dropdown-logout">
         Salir
       </button>

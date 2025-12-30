@@ -14,6 +14,7 @@ import * as RegistrarMovimientoPage from './pages/registrar-movimiento.js';
 import * as ProfilePage from './pages/profile.js';
 import * as HouseholdCreatePage from './pages/household-create.js';
 import * as HouseholdPage from './pages/household.js';
+import * as PaymentMethodsPage from './pages/payment-methods.js';
 
 // Store current user globally
 let currentUser = null;
@@ -99,6 +100,21 @@ function initRouter() {
     const appEl = document.getElementById('app');
     appEl.innerHTML = HouseholdPage.render(user);
     HouseholdPage.setup();
+  });
+
+  router.route('/metodos-pago', async () => {
+    // Check if user is authenticated
+    const { authenticated, user } = await checkAuth();
+    
+    if (!authenticated) {
+      router.navigate('/login');
+      return;
+    }
+
+    currentUser = user;
+    const appEl = document.getElementById('app');
+    appEl.innerHTML = PaymentMethodsPage.render(user);
+    PaymentMethodsPage.setup();
   });
 
   // Auth guard - check before every route

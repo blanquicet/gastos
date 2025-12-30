@@ -259,6 +259,7 @@ function renderContactsList() {
             <div class="contact-name">
               ${contact.name}
               ${contact.is_registered ? '<span class="linked-badge">🔗 Registrado</span>' : ''}
+              ${!contact.is_active ? '<span class="inactive-badge">❌ Inactivo</span>' : ''}
             </div>
             <div class="contact-details">
               ${contact.email ? contact.email : ''}
@@ -266,6 +267,9 @@ function renderContactsList() {
             </div>
           </div>
           <div class="contact-actions">
+            <button class="btn-link text-sm" data-action="toggle-active" data-contact-id="${contact.id}" data-is-active="${contact.is_active}">
+              ${contact.is_active ? 'Desactivar' : 'Activar'}
+            </button>
             ${isOwner && contact.is_registered ? `<button class="btn-link text-sm" data-action="promote-contact" data-contact-id="${contact.id}">Promover a miembro</button>` : ''}
             <button class="btn-link text-sm" data-action="edit-contact" data-contact-id="${contact.id}">Editar</button>
             <button class="btn-link text-sm text-danger" data-action="delete-contact" data-contact-id="${contact.id}">Eliminar</button>
@@ -401,6 +405,7 @@ function setupEventHandlers() {
       else if (action === 'leave') await handleLeaveMember();
       else if (action === 'promote') await handlePromoteMember(userId);
       else if (action === 'demote') await handleDemoteMember(userId);
+      else if (action === 'toggle-active') await handleToggleContactActive(contactId, e.target.dataset.isActive === 'true');
       else if (action === 'promote-contact') await handlePromoteContact(contactId);
       else if (action === 'edit-contact') handleEditContact(contactId);
       else if (action === 'delete-contact') await handleDeleteContact(contactId);
@@ -880,6 +885,45 @@ async function handleUpdateContact(contactId) {
 /**
  * Handle delete contact
  */
+/**
+ * Handle toggle contact active/inactive
+ */
+async function handleToggleContactActive(contactId, currentIsActive) {
+  const contact = contacts.find(c => c.id === contactId);
+  if (!contact) return;
+
+  const newIsActive = !currentIsActive;
+  const actionText = newIsActive ? 'activar' : 'desactivar';
+  
+  if (!await showConfirmation(
+    `${actionText.charAt(0).toUpperCase() + actionText.slice(1)} contacto`,
+    `¿Estás seguro de ${actionText} a ${contact.name}?`,
+    actionText.charAt(0).toUpperCase() + actionText.slice(1)
+  )) return;
+
+  try {
+    const response = await fetch(`${API_URL}/households/${household.id}/contacts/${contactId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        name: contact.name,
+        is_active: newIsActive
+      })
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.error || `Error al ${actionText} contacto`);
+    }
+
+    showSuccess(`Contacto ${newIsActive ? 'activado' : 'desactivado'} correctamente`);
+    await loadHousehold();
+  } catch (error) {
+    await showError('Error', error.message);
+  }
+}
+
 async function handleDeleteContact(contactId) {
   if (!await showConfirmation('Eliminar contacto', '¿Estás seguro de eliminar este contacto?', 'Eliminar')) return;
 
