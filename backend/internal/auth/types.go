@@ -49,6 +49,7 @@ type UserRepository interface {
 	GetByID(ctx context.Context, id string) (*User, error)
 	GetByEmail(ctx context.Context, email string) (*User, error)
 	UpdatePassword(ctx context.Context, id, passwordHash string) error
+	Delete(ctx context.Context, id string) error
 }
 
 // SessionRepository defines the interface for session persistence.

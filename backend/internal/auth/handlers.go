@@ -289,3 +289,38 @@ func isValidationError(msg string) bool {
 	}
 	return false
 }
+
+// DeleteAccount handles account deletion requests.
+// DELETE /auth/account
+func (h *Handler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
+	// Get session from cookie
+	cookie, err := r.Cookie(h.cookieName)
+	if err != nil {
+		h.respondError(w, "No autenticado", http.StatusUnauthorized)
+		return
+	}
+
+	// Get user from session
+	user, err := h.service.GetUserBySession(r.Context(), cookie.Value)
+	if err != nil {
+		if errors.Is(err, ErrSessionExpired) {
+			h.clearSessionCookie(w)
+			h.respondError(w, "Sesión expirada", http.StatusUnauthorized)
+			return
+		}
+		h.handleServiceError(w, err)
+		return
+	}
+
+	// Delete the user account
+	if err := h.service.DeleteUser(r.Context(), user.ID); err != nil {
+		h.handleServiceError(w, err)
+		return
+	}
+
+	// Clear the session cookie
+	h.clearSessionCookie(w)
+
+	// Return success
+	w.WriteHeader(http.StatusNoContent)
+}

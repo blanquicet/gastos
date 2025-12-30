@@ -5,12 +5,13 @@
 set -e  # Exit on any error
 set -o pipefail  # Exit on pipe failure
 
-BASE_URL="http://localhost:8080"
+BASE_URL="${API_BASE_URL:-http://localhost:8080}"
 COOKIES_FILE="/tmp/gastos-cookies.txt"
 CARO_COOKIES_FILE="/tmp/gastos-cookies-caro.txt"
 JOSE_EMAIL="jose+$(date +%s%N)@test.com"
 CARO_EMAIL="caro+$(date +%s%N)@test.com"
 PASSWORD="Test1234!"
+CLEANUP="${CLEANUP:-false}"
 
 # Colors
 GREEN='\033[0;32m'
@@ -299,7 +300,47 @@ LEAVE_LAST=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
 [ "$LEAVE_LAST" = "400" ] || [ "$LEAVE_LAST" = "403" ] || [ "$LEAVE_LAST" = "409" ]
 echo -e "${GREEN}✓ Correctly prevented last owner from leaving${NC}\n"
 
-# Clean up
+run_test "Delete Account (Self-Delete)"
+# Register a temporary user for deletion test
+TEMP_EMAIL="temp+$(date +%s%N)@test.com"
+TEMP_COOKIES="/tmp/gastos-cookies-temp.txt"
+curl -s -c $TEMP_COOKIES -X POST $BASE_URL/auth/register \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"$TEMP_EMAIL\",\"name\":\"TempUser\",\"password\":\"$PASSWORD\",\"password_confirm\":\"$PASSWORD\"}" > /dev/null
+# Delete the account
+DELETE_ACCOUNT=$(curl -s -w "%{http_code}" -o /dev/null -X DELETE $BASE_URL/auth/account -b $TEMP_COOKIES)
+[ "$DELETE_ACCOUNT" = "204" ]
+# Verify user is deleted (session should be invalid)
+ME_AFTER_DELETE=$(curl -s -o /dev/null -w "%{http_code}" $BASE_URL/me -b $TEMP_COOKIES)
+[ "$ME_AFTER_DELETE" = "401" ]
+rm -f $TEMP_COOKIES
+echo -e "${GREEN}✓ Successfully deleted account and invalidated session${NC}\n"
+
+# ═══════════════════════════════════════════════════════════
+# CLEANUP (if requested)
+# ═══════════════════════════════════════════════════════════
+
+if [ "$CLEANUP" = "true" ]; then
+  echo -e "\n${YELLOW}🧹 Cleaning up test data...${NC}\n"
+
+  run_test "Delete Test Households"
+  # Delete households created during tests (some may already be deleted)
+  curl -s -X DELETE $BASE_URL/households/$HOUSEHOLD1_ID -b $COOKIES_FILE > /dev/null 2>&1 || true
+  curl -s -X DELETE $BASE_URL/households/$HOUSEHOLD2_ID -b $COOKIES_FILE > /dev/null 2>&1 || true
+  echo -e "${GREEN}✓ Deleted test households${NC}\n"
+
+  run_test "Delete Jose's Account"
+  DELETE_JOSE=$(curl -s -w "%{http_code}" -o /dev/null -X DELETE $BASE_URL/auth/account -b $COOKIES_FILE)
+  [ "$DELETE_JOSE" = "204" ]
+  echo -e "${GREEN}✓ Deleted Jose's account ($JOSE_EMAIL)${NC}\n"
+
+  run_test "Delete Caro's Account"
+  DELETE_CARO=$(curl -s -w "%{http_code}" -o /dev/null -X DELETE $BASE_URL/auth/account -b $CARO_COOKIES_FILE)
+  [ "$DELETE_CARO" = "204" ]
+  echo -e "${GREEN}✓ Deleted Caro's account ($CARO_EMAIL)${NC}\n"
+fi
+
+# Clean up cookie files
 rm -f $COOKIES_FILE $CARO_COOKIES_FILE
 
 echo -e "${GREEN}"

@@ -309,3 +309,16 @@ func (s *Service) ResetPassword(ctx context.Context, input ResetPasswordInput) e
 
 	return nil
 }
+
+// DeleteUser deletes a user account and all associated data.
+// This will cascade delete sessions, households where they're the creator,
+// household memberships, and other related data.
+func (s *Service) DeleteUser(ctx context.Context, userID string) error {
+	// Delete all sessions first
+	if err := s.sessions.DeleteByUserID(ctx, userID); err != nil {
+		return err
+	}
+
+	// Delete the user (cascades will handle the rest)
+	return s.users.Delete(ctx, userID)
+}

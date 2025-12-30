@@ -98,3 +98,15 @@ func (r *Repository) UpdatePassword(ctx context.Context, id, passwordHash string
 	`, passwordHash, time.Now(), id)
 	return err
 }
+
+// Delete deletes a user and all related data (cascades handle sessions, households, etc).
+func (r *Repository) Delete(ctx context.Context, id string) error {
+	result, err := r.pool.Exec(ctx, `DELETE FROM users WHERE id = $1`, id)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() == 0 {
+		return auth.ErrUserNotFound
+	}
+	return nil
+}
