@@ -314,10 +314,10 @@ func (r *Repository) CountOwners(ctx context.Context, householdID string) (int, 
 func (r *Repository) CreateContact(ctx context.Context, contact *Contact) (*Contact, error) {
 	var c Contact
 	err := r.pool.QueryRow(ctx, `
-		INSERT INTO contacts (household_id, name, email, phone, linked_user_id, notes)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id, household_id, name, email, phone, linked_user_id, notes, created_at, updated_at
-	`, contact.HouseholdID, contact.Name, contact.Email, contact.Phone, contact.LinkedUserID, contact.Notes).Scan(
+		INSERT INTO contacts (household_id, name, email, phone, linked_user_id, notes, is_active)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		RETURNING id, household_id, name, email, phone, linked_user_id, notes, is_active, created_at, updated_at
+	`, contact.HouseholdID, contact.Name, contact.Email, contact.Phone, contact.LinkedUserID, contact.Notes, contact.IsActive).Scan(
 		&c.ID,
 		&c.HouseholdID,
 		&c.Name,
@@ -325,6 +325,7 @@ func (r *Repository) CreateContact(ctx context.Context, contact *Contact) (*Cont
 		&c.Phone,
 		&c.LinkedUserID,
 		&c.Notes,
+		&c.IsActive,
 		&c.CreatedAt,
 		&c.UpdatedAt,
 	)
@@ -339,7 +340,7 @@ func (r *Repository) CreateContact(ctx context.Context, contact *Contact) (*Cont
 func (r *Repository) GetContact(ctx context.Context, id string) (*Contact, error) {
 	var c Contact
 	err := r.pool.QueryRow(ctx, `
-		SELECT id, household_id, name, email, phone, linked_user_id, notes, created_at, updated_at
+		SELECT id, household_id, name, email, phone, linked_user_id, notes, is_active, created_at, updated_at
 		FROM contacts
 		WHERE id = $1
 	`, id).Scan(
@@ -350,6 +351,7 @@ func (r *Repository) GetContact(ctx context.Context, id string) (*Contact, error
 		&c.Phone,
 		&c.LinkedUserID,
 		&c.Notes,
+		&c.IsActive,
 		&c.CreatedAt,
 		&c.UpdatedAt,
 	)
@@ -364,14 +366,33 @@ func (r *Repository) GetContact(ctx context.Context, id string) (*Contact, error
 }
 
 // UpdateContact updates a contact
-func (r *Repository) UpdateContact(ctx context.Context, contact *Contact) (*Contact, error) {
+func (r *Repository) UpdateContact(ctx context.Context, contact *Contact, isActive *bool) (*Contact, error) {
+	var query string
+	var args []interface{}
+	
+	if isActive != nil {
+		// Update including is_active
+		query = `
+			UPDATE contacts
+			SET name = $2, email = $3, phone = $4, linked_user_id = $5, notes = $6, is_active = $7, updated_at = NOW()
+			WHERE id = $1
+			RETURNING id, household_id, name, email, phone, linked_user_id, notes, is_active, created_at, updated_at
+		`
+		args = []interface{}{contact.ID, contact.Name, contact.Email, contact.Phone, contact.LinkedUserID, contact.Notes, *isActive}
+	} else {
+		// Update without changing is_active
+		query = `
+			UPDATE contacts
+			SET name = $2, email = $3, phone = $4, linked_user_id = $5, notes = $6, updated_at = NOW()
+			WHERE id = $1
+			RETURNING id, household_id, name, email, phone, linked_user_id, notes, is_active, created_at, updated_at
+		`
+		args = []interface{}{contact.ID, contact.Name, contact.Email, contact.Phone, contact.LinkedUserID, contact.Notes}
+	}
+	
 	var c Contact
-	err := r.pool.QueryRow(ctx, `
-		UPDATE contacts
-		SET name = $2, email = $3, phone = $4, linked_user_id = $5, notes = $6, updated_at = NOW()
-		WHERE id = $1
-		RETURNING id, household_id, name, email, phone, linked_user_id, notes, created_at, updated_at
-	`, contact.ID, contact.Name, contact.Email, contact.Phone, contact.LinkedUserID, contact.Notes).Scan(
+	var isActiveField bool
+	err := r.pool.QueryRow(ctx, query, args...).Scan(
 		&c.ID,
 		&c.HouseholdID,
 		&c.Name,
@@ -379,6 +400,7 @@ func (r *Repository) UpdateContact(ctx context.Context, contact *Contact) (*Cont
 		&c.Phone,
 		&c.LinkedUserID,
 		&c.Notes,
+		&isActiveField,
 		&c.CreatedAt,
 		&c.UpdatedAt,
 	)
@@ -407,7 +429,7 @@ func (r *Repository) DeleteContact(ctx context.Context, id string) error {
 // ListContacts retrieves all contacts for a household
 func (r *Repository) ListContacts(ctx context.Context, householdID string) ([]*Contact, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT id, household_id, name, email, phone, linked_user_id, notes, created_at, updated_at
+		SELECT id, household_id, name, email, phone, linked_user_id, notes, is_active, created_at, updated_at
 		FROM contacts
 		WHERE household_id = $1
 		ORDER BY name ASC
@@ -428,6 +450,7 @@ func (r *Repository) ListContacts(ctx context.Context, householdID string) ([]*C
 			&c.Phone,
 			&c.LinkedUserID,
 			&c.Notes,
+			&c.IsActive,
 			&c.CreatedAt,
 			&c.UpdatedAt,
 		)
@@ -449,7 +472,7 @@ func (r *Repository) ListContacts(ctx context.Context, householdID string) ([]*C
 func (r *Repository) FindContactByEmail(ctx context.Context, householdID, email string) (*Contact, error) {
 	var c Contact
 	err := r.pool.QueryRow(ctx, `
-		SELECT id, household_id, name, email, phone, linked_user_id, notes, created_at, updated_at
+		SELECT id, household_id, name, email, phone, linked_user_id, notes, is_active, created_at, updated_at
 		FROM contacts
 		WHERE household_id = $1 AND email = $2
 	`, householdID, email).Scan(
@@ -460,6 +483,7 @@ func (r *Repository) FindContactByEmail(ctx context.Context, householdID, email 
 		&c.Phone,
 		&c.LinkedUserID,
 		&c.Notes,
+		&c.IsActive,
 		&c.CreatedAt,
 		&c.UpdatedAt,
 	)

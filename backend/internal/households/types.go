@@ -81,6 +81,7 @@ type Contact struct {
 	Phone        *string    `json:"phone,omitempty"`
 	LinkedUserID *string    `json:"linked_user_id,omitempty"`
 	Notes        *string    `json:"notes,omitempty"`
+	IsActive     bool       `json:"is_active"`
 	CreatedAt    time.Time  `json:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`
 	
@@ -154,7 +155,7 @@ type HouseholdRepository interface {
 	// Contact management
 	CreateContact(ctx context.Context, contact *Contact) (*Contact, error)
 	GetContact(ctx context.Context, id string) (*Contact, error)
-	UpdateContact(ctx context.Context, contact *Contact) (*Contact, error)
+	UpdateContact(ctx context.Context, contact *Contact, isActive *bool) (*Contact, error)
 	DeleteContact(ctx context.Context, id string) error
 	ListContacts(ctx context.Context, householdID string) ([]*Contact, error)
 	FindContactByEmail(ctx context.Context, householdID, email string) (*Contact, error)

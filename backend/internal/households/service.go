@@ -385,6 +385,7 @@ func (s *Service) CreateContact(ctx context.Context, input *CreateContactInput) 
 		Email:       input.Email,
 		Phone:       input.Phone,
 		Notes:       input.Notes,
+		IsActive:    true, // New contacts are active by default
 	}
 
 	// Auto-link if email matches a registered user
@@ -408,6 +409,7 @@ type UpdateContactInput struct {
 	Email       *string
 	Phone       *string
 	Notes       *string
+	IsActive    *bool
 	UserID      string // User making the request
 }
 
@@ -479,6 +481,12 @@ func (s *Service) UpdateContact(ctx context.Context, input *UpdateContactInput) 
 		Notes:       input.Notes,
 	}
 
+	// Set IsActive if provided, otherwise keep existing value
+	if input.IsActive != nil {
+		// We'll need to get the existing value and update it in the repo
+		// For now, we'll handle this in the repository layer
+	}
+
 	// Auto-link if email matches a registered user
 	if input.Email != nil && *input.Email != "" {
 		user, err := s.userRepo.GetByEmail(ctx, *input.Email)
@@ -487,7 +495,7 @@ func (s *Service) UpdateContact(ctx context.Context, input *UpdateContactInput) 
 		}
 	}
 
-	return s.repo.UpdateContact(ctx, contact)
+	return s.repo.UpdateContact(ctx, contact, input.IsActive)
 }
 
 // DeleteContact deletes a contact (member or owner)

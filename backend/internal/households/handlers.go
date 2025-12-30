@@ -53,10 +53,11 @@ type CreateContactRequest struct {
 }
 
 type UpdateContactRequest struct {
-	Name  string  `json:"name"`
-	Email *string `json:"email,omitempty"`
-	Phone *string `json:"phone,omitempty"`
-	Notes *string `json:"notes,omitempty"`
+	Name     string  `json:"name"`
+	Email    *string `json:"email,omitempty"`
+	Phone    *string `json:"phone,omitempty"`
+	Notes    *string `json:"notes,omitempty"`
+	IsActive *bool   `json:"is_active,omitempty"`
 }
 
 type CreateInvitationRequest struct {
@@ -513,6 +514,7 @@ func (h *Handler) UpdateContact(w http.ResponseWriter, r *http.Request) {
 		Email:       req.Email,
 		Phone:       req.Phone,
 		Notes:       req.Notes,
+		IsActive:    req.IsActive,
 		UserID:      user.ID,
 	})
 	if err != nil {
