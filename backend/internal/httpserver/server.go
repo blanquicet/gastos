@@ -13,6 +13,7 @@ import (
 	"github.com/blanquicet/gastos/backend/internal/auth"
 	"github.com/blanquicet/gastos/backend/internal/config"
 	"github.com/blanquicet/gastos/backend/internal/email"
+	"github.com/blanquicet/gastos/backend/internal/households"
 	"github.com/blanquicet/gastos/backend/internal/middleware"
 	"github.com/blanquicet/gastos/backend/internal/movements"
 	"github.com/blanquicet/gastos/backend/internal/n8nclient"
@@ -64,6 +65,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 	userRepo := users.NewRepository(pool)
 	sessionRepo := sessions.NewRepository(pool)
 	passwordResetRepo := users.NewPasswordResetRepository(pool)
+	householdRepo := households.NewRepository(pool)
 
 	// Create auth service
 	authService := auth.NewService(
@@ -74,11 +76,22 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 		cfg.SessionDuration,
 	)
 
+	// Create household service
+	householdService := households.NewService(householdRepo, userRepo)
+
 	// Create auth handler
 	authHandler := auth.NewHandler(
 		authService,
 		cfg.SessionCookieName,
 		cfg.SessionCookieSecure,
+		logger,
+	)
+
+	// Create household handler
+	householdHandler := households.NewHandler(
+		householdService,
+		authService,
+		cfg.SessionCookieName,
 		logger,
 	)
 
@@ -116,6 +129,28 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 	mux.HandleFunc("GET /me", authHandler.Me)
 	mux.Handle("POST /auth/forgot-password", rateLimitReset(http.HandlerFunc(authHandler.ForgotPassword)))
 	mux.Handle("POST /auth/reset-password", rateLimitReset(http.HandlerFunc(authHandler.ResetPassword)))
+
+	// Household endpoints (all require authentication)
+	mux.HandleFunc("POST /households", householdHandler.CreateHousehold)
+	mux.HandleFunc("GET /households", householdHandler.ListHouseholds)
+	mux.HandleFunc("GET /households/{id}", householdHandler.GetHousehold)
+	mux.HandleFunc("PATCH /households/{id}", householdHandler.UpdateHousehold)
+	mux.HandleFunc("DELETE /households/{id}", householdHandler.DeleteHousehold)
+	mux.HandleFunc("POST /households/{id}/leave", householdHandler.LeaveHousehold)
+	
+	// Member management endpoints
+	mux.HandleFunc("POST /households/{id}/members", householdHandler.AddMember)
+	mux.HandleFunc("DELETE /households/{household_id}/members/{member_id}", householdHandler.RemoveMember)
+	mux.HandleFunc("PATCH /households/{household_id}/members/{member_id}/role", householdHandler.UpdateMemberRole)
+	
+	// Contact management endpoints
+	mux.HandleFunc("POST /households/{id}/contacts", householdHandler.CreateContact)
+	mux.HandleFunc("PATCH /households/{household_id}/contacts/{contact_id}", householdHandler.UpdateContact)
+	mux.HandleFunc("DELETE /households/{household_id}/contacts/{contact_id}", householdHandler.DeleteContact)
+	mux.HandleFunc("POST /households/{household_id}/contacts/{contact_id}/promote", householdHandler.PromoteContact)
+	
+	// Invitation endpoints
+	mux.HandleFunc("POST /households/{id}/invitations", householdHandler.CreateInvitation)
 
 	// Movement endpoints (proxy to n8n during migration period)
 	if movementsHandler != nil {
