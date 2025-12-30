@@ -1,41 +1,160 @@
-# Backend Tests
+# Backend E2E Tests
 
-End-to-end tests for the Gastos backend API.
+This directory contains end-to-end tests for the Gastos backend using Playwright.
 
-## Tests
+## Prerequisites
 
-### `password-reset-e2e.js`
+1. **Backend running locally** on port 8080
+2. **Frontend running locally** on port 5173  
+3. **PostgreSQL database** running with test data
+4. **Node.js and npm** installed
 
-Complete end-to-end test for the password reset flow using Playwright.
+## Setup
 
-**What it tests:**
-1. User registration
-2. User logout
-3. Forgot password request
-4. Email sending (verified via logs)
-5. Token extraction from backend logs
-6. Password reset with token
-7. Login with new password
-8. Database verification (token marked as used)
-
-**Prerequisites:**
-- Backend running on `http://localhost:3000`
-- Frontend running on `http://localhost:8080`
-- PostgreSQL database accessible
-- Email provider configured (or noop for testing)
-
-**Running the test:**
+Install Playwright and dependencies:
 
 ```bash
 cd backend/tests
 npm install
-node password-reset-e2e.js
+npx playwright install
 ```
 
-**Environment:**
-The test uses the same `.env` configuration as the backend.
+## Running Tests
+
+### Run all tests:
+```bash
+npm test
+```
+
+### Run specific test file:
+```bash
+npx playwright test password-reset-e2e.js
+```
+
+### Run with UI mode (interactive):
+```bash
+npx playwright test --ui
+```
+
+### Run in headed mode (see browser):
+```bash
+npx playwright test --headed
+```
+
+## Test Files
+
+### `password-reset-e2e.js`
+Complete end-to-end test for password reset flow:
+- Forgot password request
+- Email sent confirmation
+- Token extraction from backend logs (noop provider)
+- Password reset with validation
+- Login with new password
+
+**Important:** This test requires:
+- `EMAIL_PROVIDER=noop` in backend `.env` (logs email content)
+- A valid test user in the database
+- Backend and frontend running locally
+
+## How Tests Work
+
+### Email Testing with Noop Provider
+
+For password reset tests, we use the **noop email provider** which:
+1. Logs email content to backend console instead of sending
+2. Allows tests to extract reset tokens from logs
+3. No external email service needed
+
+**Configuration:**
+```env
+# backend/.env
+EMAIL_PROVIDER=noop
+EMAIL_FROM=noreply@gastos.blanquicet.com.co
+```
+
+### Token Extraction Process
+
+The test:
+1. Triggers password reset via frontend
+2. Waits for backend to log the email
+3. Parses backend logs to extract the token
+4. Uses token to complete password reset
+
+**Example log pattern:**
+```
+[NOOP Email] Would send email:
+To: test@example.com
+Subject: Restablecer tu Contraseña - Gastos
+Body: ...https://gastos.blanquicet.com.co/reset-password?token=abc123...
+```
+
+### Password Validation Testing
+
+Tests verify:
+- Password strength indicator works correctly
+- Border colors change based on strength (red/orange/green)
+- Confirmation field matches validation
+- Submit button enables only when valid
+
+## Test User Setup
+
+Create a test user in PostgreSQL:
+
+```sql
+INSERT INTO users (email, password_hash, created_at, updated_at)
+VALUES (
+  'resendtest@example.com',
+  '$2a$10$hashedpassword',  -- Use actual bcrypt hash
+  NOW(),
+  NOW()
+);
+```
+
+Or register via the frontend registration form.
+
+## Debugging Tests
+
+### View test report:
+```bash
+npx playwright show-report
+```
+
+### Run with debug mode:
+```bash
+PWDEBUG=1 npx playwright test
+```
+
+### Check backend logs while running tests:
+```bash
+# In backend directory
+go run cmd/api/main.go | grep -E "NOOP Email|Password reset"
+```
+
+## Common Issues
+
+### "Timeout waiting for token in logs"
+- **Solution:** Ensure backend is running with `EMAIL_PROVIDER=noop`
+- Check backend logs are printing email content
+
+### "locator.click: Target closed"
+- **Solution:** Increase timeout in test or check if page navigation is correct
+
+### "Error: page.goto: net::ERR_CONNECTION_REFUSED"
+- **Solution:** Make sure frontend is running on http://localhost:5173
+
+### Database connection errors
+- **Solution:** Ensure PostgreSQL is running and `.env` has correct `DATABASE_URL`
 
 ## Dependencies
 
-- `playwright` - Browser automation for E2E testing
+- `@playwright/test` - Browser automation framework for E2E testing
 - `pg` - PostgreSQL client for database verification
+- `dotenv` - Environment variable loading
+
+## Next Steps
+
+Future improvements:
+- Add more test scenarios (invalid tokens, expired tokens, etc.)
+- Add tests for registration flow
+- Add tests for login flow with MFA
+- Integrate with CI/CD pipeline

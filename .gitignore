@@ -1,7 +1,6 @@
-# Environment files
+# Environment files for testing and development
 .env
-*.env.local
-*.env.production
+backend/tests/test-results/
 
 # Secrets and credentials
 *.key

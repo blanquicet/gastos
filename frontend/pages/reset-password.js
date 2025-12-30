@@ -131,6 +131,7 @@ export function init() {
     const password = newPasswordInput.value;
     if (password.length === 0) {
       strengthIndicator.classList.add('hidden');
+      newPasswordInput.classList.remove('valid', 'invalid');
       return;
     }
 
@@ -144,6 +145,20 @@ export function init() {
     strengthFill.className = 'strength-fill strength-' + strength.level;
     strengthFill.style.width = strength.percentage + '%';
     strengthText.textContent = strength.label;
+
+    // Update input border color based on strength
+    if (strength.level === 'weak') {
+      newPasswordInput.classList.add('invalid');
+      newPasswordInput.classList.remove('valid');
+    } else {
+      newPasswordInput.classList.add('valid');
+      newPasswordInput.classList.remove('invalid');
+    }
+
+    // Re-validate password confirmation when password changes
+    if (confirmPasswordInput.value.length > 0) {
+      confirmPasswordInput.dispatchEvent(new Event('input'));
+    }
   });
 
   // Password confirmation validation

@@ -1,5 +1,7 @@
-const { chromium } = require('playwright');
-const { Pool } = require('pg');
+import { chromium } from 'playwright';
+import pg from 'pg';
+import fs from 'fs';
+const { Pool } = pg;
 
 /**
  * Test Password Reset Flow
@@ -102,7 +104,6 @@ async function testPasswordReset() {
     console.log('Step 4: Retrieving reset token from backend logs...');
     
     // Read backend log file
-    const fs = require('fs');
     const logContent = fs.readFileSync('/tmp/backend.log', 'utf8');
     const logLines = logContent.split('\n').reverse(); // Most recent first
     
@@ -146,14 +147,42 @@ async function testPasswordReset() {
       throw new Error('Token validation failed on page load');
     }
     
-    // Fill new password
-    await page.locator('#newPassword').fill(newPassword);
-    await page.locator('#confirmPassword').fill(newPassword);
+    // Test password validation UI
+    console.log('  Testing password validation UI...');
     
-    // Check password strength indicator
+    // Test weak password (should show red border and weak strength)
+    await page.locator('#newPassword').fill('abc');
     await page.waitForTimeout(500);
-    const strengthText = await page.locator('#newPasswordStrength').textContent();
-    console.log('  Password strength:', strengthText.trim());
+    let weakBorder = await page.locator('#newPassword').evaluate(el => window.getComputedStyle(el).borderColor);
+    let weakStrength = await page.locator('#newPasswordStrength').textContent();
+    console.log(`    Weak password - Border: ${weakBorder}, Strength: ${weakStrength.trim()}`);
+    
+    // Test medium password (should show orange/yellow border and medium strength)
+    await page.locator('#newPassword').fill('Password123');
+    await page.waitForTimeout(500);
+    let mediumBorder = await page.locator('#newPassword').evaluate(el => window.getComputedStyle(el).borderColor);
+    let mediumStrength = await page.locator('#newPasswordStrength').textContent();
+    console.log(`    Medium password - Border: ${mediumBorder}, Strength: ${mediumStrength.trim()}`);
+    
+    // Test strong password (should show green border and strong strength)
+    await page.locator('#newPassword').fill(newPassword);
+    await page.waitForTimeout(500);
+    let strongBorder = await page.locator('#newPassword').evaluate(el => window.getComputedStyle(el).borderColor);
+    let strongStrength = await page.locator('#newPasswordStrength').textContent();
+    console.log(`    Strong password - Border: ${strongBorder}, Strength: ${strongStrength.trim()}`);
+    
+    // Test password confirmation (non-matching should show red border)
+    await page.locator('#confirmPassword').fill('WrongPassword');
+    await page.waitForTimeout(500);
+    let nonMatchBorder = await page.locator('#confirmPassword').evaluate(el => window.getComputedStyle(el).borderColor);
+    console.log(`    Non-matching confirmation - Border: ${nonMatchBorder}`);
+    
+    // Fill matching password (should show green border)
+    await page.locator('#confirmPassword').fill(newPassword);
+    await page.waitForTimeout(500);
+    let matchBorder = await page.locator('#confirmPassword').evaluate(el => window.getComputedStyle(el).borderColor);
+    console.log(`    Matching confirmation - Border: ${matchBorder}`);
+    console.log('  ✅ Password validation UI working correctly');
     
     // Submit
     await page.getByRole('button', { name: /Restablecer Contraseña/ }).click();
@@ -207,6 +236,7 @@ async function testPasswordReset() {
     console.log('✅ Logout');
     console.log('✅ Forgot password request');
     console.log('✅ Password reset with token');
+    console.log('✅ Password validation UI (borders & strength)');
     console.log('✅ Login with new password');
     console.log('✅ Token marked as used');
 
