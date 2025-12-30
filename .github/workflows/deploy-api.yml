@@ -29,6 +29,22 @@ jobs:
   test:
     runs-on: ubuntu-latest
     name: Test
+    
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: gastos
+          POSTGRES_PASSWORD: gastos_test_password
+          POSTGRES_DB: gastos_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
     steps:
       - uses: actions/checkout@v4
 
@@ -38,9 +54,57 @@ jobs:
           go-version: '1.24'
           cache-dependency-path: backend/go.sum
 
-      - name: Run tests
+      - name: Install golang-migrate
+        run: |
+          curl -L https://github.com/golang-migrate/migrate/releases/download/v4.17.0/migrate.linux-amd64.tar.gz | tar xvz
+          sudo mv migrate /usr/local/bin/
+          migrate -version
+
+      - name: Run database migrations
         working-directory: backend
+        env:
+          DATABASE_URL: postgres://gastos:gastos_test_password@localhost:5432/gastos_test?sslmode=disable
+        run: |
+          migrate -path ./migrations -database "$DATABASE_URL" up
+          echo "✅ Migrations applied successfully"
+
+      - name: Run unit tests
+        working-directory: backend
+        env:
+          DATABASE_URL: postgres://gastos:gastos_test_password@localhost:5432/gastos_test?sslmode=disable
         run: go test -v -race ./...
+
+      - name: Start API server for integration tests
+        working-directory: backend
+        env:
+          DATABASE_URL: postgres://gastos:gastos_test_password@localhost:5432/gastos_test?sslmode=disable
+          RATE_LIMIT_ENABLED: "false"
+          SESSION_COOKIE_SECURE: "false"
+        run: |
+          go run cmd/api/main.go > /tmp/api-server.log 2>&1 &
+          echo $! > /tmp/api-server.pid
+          echo "Waiting for server to start..."
+          sleep 5
+          curl -f http://localhost:8080/health || (cat /tmp/api-server.log && exit 1)
+          echo "✅ API server started successfully"
+
+      - name: Run API integration tests
+        working-directory: backend/tests
+        run: |
+          chmod +x test-api.sh
+          ./test-api.sh
+
+      - name: Show API server logs on failure
+        if: failure()
+        run: cat /tmp/api-server.log || echo "No logs available"
+
+      - name: Stop API server
+        if: always()
+        run: |
+          if [ -f /tmp/api-server.pid ]; then
+            kill $(cat /tmp/api-server.pid) || true
+            rm /tmp/api-server.pid
+          fi
 
   build:
     runs-on: ubuntu-latest
