@@ -9,6 +9,7 @@
 
 import { logout, getMovementsApiUrl } from '../auth-utils.js';
 import router from '../router.js';
+import * as Navbar from '../components/navbar.js';
 
 // Configuration from app.js
 const DEFAULT_USERS = [
@@ -88,13 +89,8 @@ export function render(user) {
   return `
     <main class="card">
       <header class="header">
-        <div class="header-row">
-          <h1>Registrar movimiento</h1>
-          <div class="user-info">
-            <span class="user-email">${user.name}</span>
-            <button type="button" id="logoutBtn" class="logout-btn">Salir</button>
-          </div>
-        </div>
+        ${Navbar.render(user, '/registrar-movimiento')}
+        <h1>Registrar movimiento</h1>
         <p class="subtitle">Gasto del hogar, dividir gasto o pago de deuda.</p>
       </header>
 
@@ -216,7 +212,11 @@ export function setup() {
   const showAsValueEl = document.getElementById('showAsValue');
   const addParticipantBtn = document.getElementById('addParticipantBtn');
   const valorEl = document.getElementById('valor');
-  const logoutBtn = document.getElementById('logoutBtn');
+  const form = document.getElementById('movForm');
+  const addParticipantBtn = document.getElementById('addParticipantBtn');
+
+  // Initialize navbar
+  Navbar.setup();
 
   // Initialize selects
   renderUserSelect(pagadorEl, users, true);
@@ -258,19 +258,10 @@ export function setup() {
   
   addParticipantBtn.addEventListener('click', onAddParticipant);
   form.addEventListener('submit', onSubmit);
-  logoutBtn.addEventListener('click', handleLogout);
 
   // Initial UI
   onTipoChange();
   onPagadorChange();
-}
-
-/**
- * Handle logout button
- */
-async function handleLogout() {
-  await logout();
-  router.navigate('/login');
 }
 
 /**
