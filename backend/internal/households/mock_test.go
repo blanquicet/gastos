@@ -165,6 +165,7 @@ func (m *MockHouseholdRepository) CreateContact(ctx context.Context, contact *Co
 		Phone:        contact.Phone,
 		LinkedUserID: contact.LinkedUserID,
 		Notes:        contact.Notes,
+		IsActive:     contact.IsActive,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 		IsRegistered: contact.LinkedUserID != nil,
@@ -184,12 +185,17 @@ func (m *MockHouseholdRepository) GetContact(ctx context.Context, id string) (*C
 	return nil, ErrContactNotFound
 }
 
-func (m *MockHouseholdRepository) UpdateContact(ctx context.Context, contact *Contact) (*Contact, error) {
+func (m *MockHouseholdRepository) UpdateContact(ctx context.Context, contact *Contact, isActive *bool) (*Contact, error) {
 	for _, contacts := range m.contacts {
 		for i, c := range contacts {
 			if c.ID == contact.ID {
 				contact.UpdatedAt = time.Now()
 				contact.IsRegistered = contact.LinkedUserID != nil
+				if isActive != nil {
+					contact.IsActive = *isActive
+				} else {
+					contact.IsActive = c.IsActive // Keep existing value
+				}
 				contacts[i] = contact
 				return contact, nil
 			}
