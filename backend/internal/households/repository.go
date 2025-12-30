@@ -391,6 +391,7 @@ func (r *Repository) UpdateContact(ctx context.Context, contact *Contact, isActi
 	}
 	
 	var c Contact
+	var isActiveFromDB bool
 	err := r.pool.QueryRow(ctx, query, args...).Scan(
 		&c.ID,
 		&c.HouseholdID,
@@ -399,7 +400,7 @@ func (r *Repository) UpdateContact(ctx context.Context, contact *Contact, isActi
 		&c.Phone,
 		&c.LinkedUserID,
 		&c.Notes,
-		&c.IsActive,
+		&isActiveFromDB,
 		&c.CreatedAt,
 		&c.UpdatedAt,
 	)
@@ -409,6 +410,7 @@ func (r *Repository) UpdateContact(ctx context.Context, contact *Contact, isActi
 	if err != nil {
 		return nil, err
 	}
+	c.IsActive = isActiveFromDB
 	c.IsRegistered = c.LinkedUserID != nil
 	return &c, nil
 }
