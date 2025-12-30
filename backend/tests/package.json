@@ -8,7 +8,7 @@
     "test:password-reset": "node e2e/password-reset.js",
     "test:auth-validation": "node e2e/auth-validation.js",
     "test:household": "node e2e/household-management.js",
-    "test:validation": "node e2e/household-validation.js"
+    "test:household-validation": "node e2e/household-validation.js"
   },
   "dependencies": {
     "pg": "^8.16.3",

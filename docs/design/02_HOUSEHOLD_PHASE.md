@@ -1243,11 +1243,11 @@ When clicked, shows dropdown menu:
 **Run Tests:**
 ```bash
 cd backend/tests
-npm run test:password-reset    # Password reset tests only
-npm run test:auth-validation   # Auth validation tests only
-npm run test:household         # Household management tests only
-npm run test:validation        # Household validation tests only
-npm run test:e2e               # All E2E tests (runs all 4 suites)
+npm run test:password-reset       # Password reset tests only
+npm run test:auth-validation      # Auth validation tests only
+npm run test:household            # Household management tests only
+npm run test:household-validation # Household validation tests only
+npm run test:e2e                  # All E2E tests (runs all 4 suites)
 ```
 
 **Test Results:** ✅ All 4 test suites passing (40+ scenarios)

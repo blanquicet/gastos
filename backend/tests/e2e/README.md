@@ -404,7 +404,7 @@ Tests form validation in household-related forms.
 
 ```bash
 cd backend/tests
-npm run test:validation
+npm run test:household-validation
 ```
 
 ### Validation Rules Tested

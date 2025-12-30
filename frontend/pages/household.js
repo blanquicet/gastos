@@ -295,6 +295,7 @@ function renderInviteForm() {
   return `
     <div class="form-card">
       <h4>Invitar miembro al hogar</h4>
+      <div id="invite-error" class="error-message" style="display: none;"></div>
       <form id="invite-form" class="grid">
         <div class="field">
           <label>
@@ -319,6 +320,7 @@ function renderContactForm(contact = null) {
   return `
     <div class="form-card">
       <h4>${contact ? 'Editar contacto' : 'Agregar contacto'}</h4>
+      <div id="contact-error" class="error-message" style="display: none;"></div>
       <form id="contact-form" class="grid">
         <div class="field">
           <label>
@@ -560,9 +562,20 @@ async function handleInviteSubmit(e) {
   e.preventDefault();
   const email = document.getElementById('invite-email').value.trim();
   const submitBtn = e.target.querySelector('button[type="submit"]');
+  const errorEl = document.getElementById('invite-error');
+
+  // Hide previous errors
+  if (errorEl) {
+    errorEl.style.display = 'none';
+    errorEl.textContent = '';
+  }
 
   // Validate email format
   if (!validateInviteEmail()) {
+    if (errorEl) {
+      errorEl.textContent = 'Por favor corrija el formato del email';
+      errorEl.style.display = 'block';
+    }
     return;
   }
 
