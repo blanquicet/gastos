@@ -215,11 +215,17 @@ func (h *Handler) GetHousehold(w http.ResponseWriter, r *http.Request) {
 		h.handleServiceError(w, err)
 		return
 	}
+	if members == nil {
+		members = []*HouseholdMember{}
+	}
 
 	contacts, err := h.service.ListContacts(r.Context(), householdID, user.ID)
 	if err != nil {
 		h.handleServiceError(w, err)
 		return
+	}
+	if contacts == nil {
+		contacts = []*Contact{}
 	}
 
 	response := &HouseholdResponse{
