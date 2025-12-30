@@ -105,35 +105,55 @@ async function testPasswordReset() {
       throw new Error('Success message not found');
     }
 
-    // Step 4: Get reset token from docker logs
-    console.log('Step 4: Retrieving reset token from docker logs...');
+    // Step 4: Get reset token from logs
+    console.log('Step 4: Retrieving reset token from logs...');
     
     // Give the API a moment to log the token
     await page.waitForTimeout(1000);
     
-    // Get docker logs - in CI we need to use docker compose logs
-    const { execSync } = await import('child_process');
-    const logOutput = execSync('docker compose -f docker-compose.e2e.yml logs api', { 
-      encoding: 'utf8',
-      cwd: process.env.CI ? process.env.GITHUB_WORKSPACE : '.'
-    });
-    
-    // Find the token for this email in the logs
-    const logLines = logOutput.split('\n').reverse(); // Most recent first
     let token = null;
     
-    for (const line of logLines) {
-      if (line.includes(testEmail) && line.includes('password reset email (no-op)')) {
-        const match = line.match(/"token":"([^"]+)"/);
-        if (match) {
-          token = match[1];
-          break;
+    if (process.env.CI) {
+      // In CI: Read from docker compose logs
+      console.log('  Reading from docker compose logs...');
+      const { execSync } = await import('child_process');
+      const logOutput = execSync('docker compose -f docker-compose.e2e.yml logs api', { 
+        encoding: 'utf8',
+        cwd: process.env.GITHUB_WORKSPACE || '.'
+      });
+      
+      const logLines = logOutput.split('\n').reverse(); // Most recent first
+      
+      for (const line of logLines) {
+        if (line.includes(testEmail) && line.includes('password reset email (no-op)')) {
+          const match = line.match(/"token":"([^"]+)"/);
+          if (match) {
+            token = match[1];
+            break;
+          }
+        }
+      }
+    } else {
+      // In local: Read from log file
+      console.log('  Reading from /tmp/backend.log...');
+      const fs = await import('fs');
+      const logContent = fs.readFileSync('/tmp/backend.log', 'utf8');
+      const logLines = logContent.split('\n').reverse(); // Most recent first
+      
+      for (const line of logLines) {
+        if (line.includes(testEmail) && line.includes('password reset email (no-op)')) {
+          const match = line.match(/"token":"([^"]+)"/);
+          if (match) {
+            token = match[1];
+            break;
+          }
         }
       }
     }
     
     if (!token) {
-      throw new Error('No reset token found in docker logs');
+      const source = process.env.CI ? 'docker logs' : '/tmp/backend.log';
+      throw new Error(`No reset token found in ${source}`);
     }
     
     console.log('✅ Token retrieved:', token.substring(0, 20) + '...');
