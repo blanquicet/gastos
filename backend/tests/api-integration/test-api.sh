@@ -177,12 +177,5 @@ echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━�
 echo -e "${GREEN}✅ All 17 tests completed!${NC}"
 echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"
 
-echo -e "Summary:"
-echo -e "  Household ID: ${GREEN}$HOUSEHOLD_ID${NC}"
-echo -e "  Jose ID: ${GREEN}$JOSE_ID${NC}"
-echo -e "  Caro ID: ${GREEN}$CARO_ID${NC}"
-echo -e "\nVerify final state:"
-echo -e "  ${YELLOW}curl -s $BASE_URL/households/$HOUSEHOLD_ID -b $COOKIES_FILE | jq .${NC}\n"
-
 # Clean up
 rm -f $COOKIES_FILE

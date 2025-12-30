@@ -29,7 +29,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     name: Test
-    
+
     services:
       postgres:
         image: postgres:16
@@ -44,7 +44,7 @@ jobs:
           --health-retries 5
         ports:
           - 5432:5432
-    
+
     steps:
       - uses: actions/checkout@v4
 
@@ -89,7 +89,7 @@ jobs:
           echo "✅ API server started successfully"
 
       - name: Run API integration tests
-        working-directory: backend/tests
+        working-directory: backend/tests/api-integration
         run: |
           chmod +x test-api.sh
           ./test-api.sh
