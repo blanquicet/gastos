@@ -63,7 +63,9 @@ async function testPasswordReset() {
 
     // Step 2: Logout
     console.log('Step 2: Logging out...');
-    await page.getByRole('button', { name: 'Salir' }).click();
+    await page.locator('#hamburger-btn').click();
+    await page.waitForTimeout(500);
+    await page.locator('#dropdown-logout-btn').click();
     await page.waitForTimeout(1000);
     
     // Verify we're on login page
