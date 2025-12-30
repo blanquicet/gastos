@@ -6,7 +6,6 @@ on:
       - 'backend/**'
       - '!backend/README.md'
       - '!backend/**/*.md'
-      - '!backend/tests/**'
       - '.github/workflows/deploy-api.yml'
     branches:
       - main
@@ -15,7 +14,6 @@ on:
       - 'backend/**'
       - '!backend/README.md'
       - '!backend/**/*.md'
-      - '!backend/tests/**'
       - '.github/workflows/deploy-api.yml'
     types: [opened, synchronize, reopened]
     branches:
