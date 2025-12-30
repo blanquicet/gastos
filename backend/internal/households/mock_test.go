@@ -316,6 +316,14 @@ func (m *MockUserRepository) UpdatePassword(ctx context.Context, id, passwordHas
 	return nil
 }
 
+func (m *MockUserRepository) Delete(ctx context.Context, id string) error {
+	if _, ok := m.users[id]; !ok {
+		return auth.ErrUserNotFound
+	}
+	delete(m.users, id)
+	return nil
+}
+
 // AddTestUser is a helper to add users for testing
 func (m *MockUserRepository) AddTestUser(id, email, name string) *auth.User {
 	user := &auth.User{
