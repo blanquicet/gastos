@@ -245,8 +245,11 @@ jobs:
                 DATABASE_URL: postgres://gastos:gastos_test_password@postgres:5432/gastos_test?sslmode=disable
                 RATE_LIMIT_ENABLED: "false"
                 SESSION_COOKIE_SECURE: "false"
+                STATIC_DIR: "/app/frontend"
               ports:
                 - "8080:8080"
+              volumes:
+                - ./frontend:/app/frontend:ro
           EOF
 
       - name: Start test environment
