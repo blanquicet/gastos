@@ -317,6 +317,115 @@ rm -f $TEMP_COOKIES
 echo -e "${GREEN}✓ Successfully deleted account and invalidated session${NC}\n"
 
 # ═══════════════════════════════════════════════════════════
+# PAYMENT METHODS TESTS
+# ═══════════════════════════════════════════════════════════
+
+run_test "Create Payment Method (Personal)"
+PM_CREATE=$(curl -s -X POST $BASE_URL/payment-methods \
+  -H "Content-Type: application/json" \
+  -b $COOKIES_FILE \
+  -d '{"name":"Débito Jose","type":"debit_card","is_shared_with_household":false,"last4":"1234","institution":"Banco de Bogotá"}')
+PM1_ID=$(echo "$PM_CREATE" | jq -r '.id')
+[ "$PM1_ID" != "null" ] && [ -n "$PM1_ID" ]
+echo -e "${GREEN}✓ Created personal payment method${NC}\n"
+
+run_test "Create Payment Method (Shared)"
+PM_SHARED=$(curl -s -X POST $BASE_URL/payment-methods \
+  -H "Content-Type: application/json" \
+  -b $COOKIES_FILE \
+  -d '{"name":"Efectivo","type":"cash","is_shared_with_household":true}')
+PM2_ID=$(echo "$PM_SHARED" | jq -r '.id')
+[ "$PM2_ID" != "null" ] && [ -n "$PM2_ID" ]
+echo -e "${GREEN}✓ Created shared payment method${NC}\n"
+
+run_test "List Payment Methods"
+PM_LIST=$(curl -s $BASE_URL/payment-methods -b $COOKIES_FILE)
+PM_COUNT=$(echo "$PM_LIST" | jq '. | length')
+[ "$PM_COUNT" -ge "2" ]
+echo -e "${GREEN}✓ Listed payment methods (found $PM_COUNT)${NC}\n"
+
+run_test "Get Single Payment Method"
+PM_GET=$(curl -s $BASE_URL/payment-methods/$PM1_ID -b $COOKIES_FILE)
+PM_NAME=$(echo "$PM_GET" | jq -r '.name')
+[ "$PM_NAME" = "Débito Jose" ]
+echo -e "${GREEN}✓ Retrieved payment method${NC}\n"
+
+run_test "Update Payment Method"
+PM_UPDATE=$(curl -s -X PATCH $BASE_URL/payment-methods/$PM1_ID \
+  -H "Content-Type: application/json" \
+  -b $COOKIES_FILE \
+  -d '{"name":"Débito Jose Principal","is_shared_with_household":true}')
+PM_UPDATED_NAME=$(echo "$PM_UPDATE" | jq -r '.name')
+PM_UPDATED_SHARED=$(echo "$PM_UPDATE" | jq -r '.is_shared_with_household')
+[ "$PM_UPDATED_NAME" = "Débito Jose Principal" ]
+[ "$PM_UPDATED_SHARED" = "true" ]
+echo -e "${GREEN}✓ Updated payment method${NC}\n"
+
+run_test "Prevent Duplicate Payment Method Names"
+PM_DUP=$(curl -s -w "%{http_code}" -o /dev/null -X POST $BASE_URL/payment-methods \
+  -H "Content-Type: application/json" \
+  -b $COOKIES_FILE \
+  -d '{"name":"Efectivo","type":"cash","is_shared_with_household":true}')
+[ "$PM_DUP" = "409" ]
+echo -e "${GREEN}✓ Prevented duplicate payment method name${NC}\n"
+
+run_test "Delete Payment Method"
+PM_DELETE=$(curl -s -w "%{http_code}" -o /dev/null -X DELETE $BASE_URL/payment-methods/$PM2_ID -b $COOKIES_FILE)
+[ "$PM_DELETE" = "204" ]
+echo -e "${GREEN}✓ Deleted payment method${NC}\n"
+
+# ═══════════════════════════════════════════════════════════
+# CONTACT ACTIVATION TESTS
+# ═══════════════════════════════════════════════════════════
+
+run_test "Create Contact for Activation Test"
+CONTACT_CREATE=$(curl -s -X POST $BASE_URL/households/$HOUSEHOLD2_ID/contacts \
+  -H "Content-Type: application/json" \
+  -b $COOKIES_FILE \
+  -d "{\"name\":\"Pedro\",\"email\":\"pedro@example.com\"}")
+CONTACT_ID=$(echo "$CONTACT_CREATE" | jq -r '.id')
+[ "$CONTACT_ID" != "null" ] && [ -n "$CONTACT_ID" ]
+echo -e "${GREEN}✓ Created contact for activation test${NC}\n"
+
+run_test "Deactivate Contact"
+CONTACT_DEACTIVATE=$(curl -s -X PATCH $BASE_URL/households/$HOUSEHOLD2_ID/contacts/$CONTACT_ID \
+  -H "Content-Type: application/json" \
+  -b $COOKIES_FILE \
+  -d "{\"name\":\"Pedro\",\"is_active\":false}")
+CONTACT_ACTIVE=$(echo "$CONTACT_DEACTIVATE" | jq -r '.is_active')
+[ "$CONTACT_ACTIVE" = "false" ]
+echo -e "${GREEN}✓ Deactivated contact${NC}\n"
+
+run_test "Reactivate Contact"
+CONTACT_REACTIVATE=$(curl -s -X PATCH $BASE_URL/households/$HOUSEHOLD2_ID/contacts/$CONTACT_ID \
+  -H "Content-Type: application/json" \
+  -b $COOKIES_FILE \
+  -d "{\"name\":\"Pedro\",\"is_active\":true}")
+CONTACT_ACTIVE=$(echo "$CONTACT_REACTIVATE" | jq -r '.is_active')
+[ "$CONTACT_ACTIVE" = "true" ]
+echo -e "${GREEN}✓ Reactivated contact${NC}\n"
+
+# ═══════════════════════════════════════════════════════════
+# MOVEMENT FORM CONFIG TESTS
+# ═══════════════════════════════════════════════════════════
+
+run_test "Get Movement Form Config"
+FORM_CONFIG=$(curl -s $BASE_URL/movement-form-config -b $COOKIES_FILE)
+USERS_COUNT=$(echo "$FORM_CONFIG" | jq '.users | length')
+PM_COUNT=$(echo "$FORM_CONFIG" | jq '.payment_methods | length')
+CATEGORIES_COUNT=$(echo "$FORM_CONFIG" | jq '.categories | length')
+[ "$USERS_COUNT" -ge "1" ]
+[ "$PM_COUNT" -ge "1" ]
+[ "$CATEGORIES_COUNT" -ge "1" ]
+echo -e "${GREEN}✓ Retrieved form config (users: $USERS_COUNT, payment_methods: $PM_COUNT, categories: $CATEGORIES_COUNT)${NC}\n"
+
+run_test "Verify Form Config Structure"
+HAS_MEMBERS=$(echo "$FORM_CONFIG" | jq '.users[] | select(.type=="member")' | jq -s 'length')
+HAS_CONTACTS=$(echo "$FORM_CONFIG" | jq '.users[] | select(.type=="contact")' | jq -s 'length')
+[ "$HAS_MEMBERS" -ge "1" ]
+echo -e "${GREEN}✓ Form config has correct structure (members: $HAS_MEMBERS, contacts: $HAS_CONTACTS)${NC}\n"
+
+# ═══════════════════════════════════════════════════════════
 # CLEANUP (if requested)
 # ═══════════════════════════════════════════════════════════
 

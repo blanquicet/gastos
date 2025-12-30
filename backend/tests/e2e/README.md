@@ -25,7 +25,7 @@ npx playwright install
 Use the provided test runner script that handles all setup automatically:
 
 ```bash
-cd backend
+cd backend/tests/e2e
 ./run-e2e-tests.sh
 ```
 

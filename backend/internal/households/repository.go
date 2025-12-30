@@ -391,7 +391,6 @@ func (r *Repository) UpdateContact(ctx context.Context, contact *Contact, isActi
 	}
 	
 	var c Contact
-	var isActiveField bool
 	err := r.pool.QueryRow(ctx, query, args...).Scan(
 		&c.ID,
 		&c.HouseholdID,
@@ -400,7 +399,7 @@ func (r *Repository) UpdateContact(ctx context.Context, contact *Contact, isActi
 		&c.Phone,
 		&c.LinkedUserID,
 		&c.Notes,
-		&isActiveField,
+		&c.IsActive,
 		&c.CreatedAt,
 		&c.UpdatedAt,
 	)
