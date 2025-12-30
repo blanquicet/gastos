@@ -23,6 +23,9 @@ type Config struct {
 
 	// CORS configuration
 	AllowedOrigins []string
+	
+	// Rate limiting configuration
+	RateLimitEnabled bool
 
 	// Email configuration
 	EmailProvider    string
@@ -117,6 +120,9 @@ func Load() (*Config, error) {
 
 	// Static directory for serving frontend in development
 	staticDir := os.Getenv("STATIC_DIR")
+	
+	// Rate limiting - disabled only if explicitly set to "false", enabled by default
+	rateLimitEnabled := os.Getenv("RATE_LIMIT_ENABLED") != "false"
 
 	return &Config{
 		ServerAddr:          serverAddr,
@@ -125,6 +131,7 @@ func Load() (*Config, error) {
 		SessionCookieName:   sessionCookieName,
 		SessionCookieSecure: sessionCookieSecure,
 		AllowedOrigins:      allowedOrigins,
+		RateLimitEnabled:    rateLimitEnabled,
 		EmailProvider:       emailProvider,
 		EmailFromAddress:    emailFromAddress,
 		EmailFromName:       emailFromName,

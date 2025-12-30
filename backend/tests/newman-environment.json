@@ -1,0 +1,25 @@
+{
+  "name": "Gastos API - Local",
+  "values": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "enabled": true
+    },
+    {
+      "key": "householdId",
+      "value": "",
+      "enabled": true
+    },
+    {
+      "key": "memberId",
+      "value": "",
+      "enabled": true
+    },
+    {
+      "key": "contactId",
+      "value": "",
+      "enabled": true
+    }
+  ]
+}

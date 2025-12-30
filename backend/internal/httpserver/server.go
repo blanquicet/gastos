@@ -105,15 +105,22 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 		logger.Info("n8n client not configured; movement endpoints will be disabled")
 	}
 
-	// Create rate limiters for auth endpoints
+	// Create rate limiters for auth endpoints (if enabled)
 	// Login/Register: 5 requests per minute per IP (strict to prevent brute force)
-	authLimiter := middleware.NewRateLimiter(5, time.Minute)
 	// Password reset: 3 requests per minute per IP (even stricter)
-	resetLimiter := middleware.NewRateLimiter(3, time.Minute)
-
-	// Rate limit wrapper for auth handlers
-	rateLimitAuth := middleware.RateLimit(authLimiter)
-	rateLimitReset := middleware.RateLimit(resetLimiter)
+	var rateLimitAuth, rateLimitReset func(http.Handler) http.Handler
+	if cfg.RateLimitEnabled {
+		authLimiter := middleware.NewRateLimiter(5, time.Minute)
+		resetLimiter := middleware.NewRateLimiter(3, time.Minute)
+		rateLimitAuth = middleware.RateLimit(authLimiter)
+		rateLimitReset = middleware.RateLimit(resetLimiter)
+		logger.Info("rate limiting enabled for auth endpoints")
+	} else {
+		// No-op middleware when rate limiting is disabled
+		rateLimitAuth = func(next http.Handler) http.Handler { return next }
+		rateLimitReset = func(next http.Handler) http.Handler { return next }
+		logger.Warn("rate limiting disabled - only use in development/testing")
+	}
 
 	// Setup routes
 	mux := http.NewServeMux()
@@ -122,7 +129,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 	mux.HandleFunc("GET /health", handleHealth)
 	mux.HandleFunc("GET /version", handleVersion)
 
-	// Auth endpoints with rate limiting
+	// Auth endpoints with optional rate limiting
 	mux.Handle("POST /auth/register", rateLimitAuth(http.HandlerFunc(authHandler.Register)))
 	mux.Handle("POST /auth/login", rateLimitAuth(http.HandlerFunc(authHandler.Login)))
 	mux.HandleFunc("POST /auth/logout", authHandler.Logout)
