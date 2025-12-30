@@ -220,7 +220,7 @@ jobs:
 
       - name: Create docker-compose e2e file
         run: |
-          cat > docker-compose.e2e.yml <<'EOF'
+          cat > docker-compose.e2e.yml <<EOF
           services:
             postgres:
               image: postgres:16
@@ -249,7 +249,7 @@ jobs:
               ports:
                 - "8080:8080"
               volumes:
-                - ./frontend:/app/frontend:ro
+                - ${GITHUB_WORKSPACE}/frontend:/app/frontend:ro
           EOF
 
       - name: Start test environment
