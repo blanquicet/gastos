@@ -540,3 +540,191 @@ npm run test:auth-validation
 
 ✅ ✅ ✅ ALL AUTH VALIDATION TESTS PASSED! ✅ ✅ ✅
 ```
+
+## Contact Activation E2E Test
+
+Tests the contact activation/deactivation feature and how it affects the movement form.
+
+### Test Coverage
+
+**Test File:** `contact-activation.js`
+
+**Scenarios:**
+1. ✅ Register user and create household
+2. ✅ Add multiple contacts
+3. ✅ Verify all contacts appear in movement form (COMPARTIDO type)
+4. ✅ Deactivate a contact
+5. ✅ Verify deactivated contact does NOT appear in movement form
+6. ✅ Reactivate the contact
+7. ✅ Verify reactivated contact appears again in movement form
+8. ✅ Cleanup test data
+
+### Running the Test
+
+```bash
+cd backend/tests
+npm run test:contact-activation
+```
+
+### What the Test Does
+
+The test validates the Phase 3 contact activation feature:
+- Contacts can be set as inactive via the household page
+- Inactive contacts should not appear in participant dropdowns in movement forms
+- Reactivating a contact makes it available again
+- Ensures only active contacts are shown to users when registering movements
+
+### Expected Output
+
+```
+🚀 Starting Contact Activation Test
+👤 User: user-contact-1234567890@example.com
+🏠 Household: Contact Test Household 1234567890
+
+📝 Step 1: Registering user...
+✅ User registered and logged in
+📝 Step 2: Creating household...
+✅ Household created
+📝 Step 3: Adding contacts...
+✅ Added 3 contacts
+📝 Step 4: Verifying all contacts appear in movement form...
+Participants before deactivation: [...]
+✅ All contacts appear in movement form
+📝 Step 5: Deactivating contact...
+✅ Contact deactivated
+📝 Step 6: Verifying deactivated contact does not appear...
+Participants after deactivation: [...]
+✅ Deactivated contact correctly hidden from movement form
+📝 Step 7: Reactivating contact...
+✅ Contact reactivated
+📝 Step 8: Verifying reactivated contact appears again...
+Participants final: [...]
+✅ Reactivated contact correctly appears in movement form
+🧹 Cleaning up test data...
+✅ Cleanup complete
+
+✅ ✅ ✅ ALL CONTACT ACTIVATION TESTS PASSED! ✅ ✅ ✅
+```
+
+## Payment Methods E2E Test
+
+Comprehensive test for the Phase 3 payment methods feature.
+
+### Test Coverage
+
+**Test File:** `payment-methods.js`
+
+**Scenarios:**
+1. ✅ Register two users and create household
+2. ✅ Test form validation (required fields)
+3. ✅ User 1: Add personal payment method (not shared)
+4. ✅ User 1: Add shared payment method
+5. ✅ User 1: Add cash payment method
+6. ✅ User 2: Join household
+7. ✅ User 2: Verify sees shared payment methods in household page
+8. ✅ User 2: Verify does NOT see User 1's personal methods
+9. ✅ User 1: Verify all own payment methods in movement form
+10. ✅ User 2: Add own payment method
+11. ✅ User 2: Verify sees own + shared in movement form (filtered correctly)
+12. ✅ User 1: Edit payment method
+13. ✅ User 1: Delete personal payment method
+14. ✅ User 1: Delete shared payment method
+15. ✅ User 2: Verify deleted shared method is gone
+16. ✅ Test payment method deactivation (inactive methods hidden from movement form)
+17. ✅ Cleanup test data
+
+### Running the Test
+
+```bash
+cd backend/tests
+npm run test:payment-methods
+```
+
+### What the Test Does
+
+The test validates the complete payment methods lifecycle:
+- **CRUD operations:** Create, read, update, delete payment methods
+- **Sharing:** Shared payment methods visible to all household members
+- **Privacy:** Personal payment methods only visible to owner
+- **Movement form integration:** Only active, accessible payment methods appear in dropdowns
+- **Deactivation:** Inactive payment methods hidden from movement forms
+- **Form validation:** Required fields enforced
+- **Multiple users:** Two-user scenario to test sharing and isolation
+
+### Payment Method Types Tested
+
+- `credit_card` - Tarjeta de Crédito
+- `debit_card` - Tarjeta de Débito
+- `cash` - Efectivo
+- `other` - Otro
+
+### Expected Output
+
+```
+🚀 Starting Payment Methods Test
+👤 User 1 (Owner): pm-owner-1234567890@example.com
+👤 User 2 (Member): pm-member-1234567890@example.com
+🏠 Household: PM Test Household 1234567890
+
+📝 Step 1: Registering User 1 and creating household...
+✅ User 1 registered and household created
+📝 Step 2: Testing payment method form validation...
+✅ Form validation working (empty name rejected)
+📝 Step 3: User 1 adding personal payment method...
+✅ Personal payment method created
+📝 Step 4: User 1 adding shared payment method...
+✅ Shared payment method created
+📝 Step 5: User 1 adding cash payment method...
+✅ Cash payment method created
+📝 Step 6: Registering User 2...
+✅ User 2 registered
+📝 Inviting User 2 to household...
+✅ User 2 joined household
+📝 Step 7: User 2 checking household shared payment methods...
+✅ User 2 correctly sees only shared payment methods in household
+📝 Step 8: User 1 checking payment methods in movement form...
+User 1 payment methods: [...]
+✅ User 1 sees all own payment methods in movement form
+📝 Step 9: User 2 adding own payment method...
+✅ User 2 payment method created
+📝 Step 10: User 2 checking payment methods in movement form...
+User 2 payment methods: [...]
+✅ User 2 sees own + shared payment methods (correctly filtered)
+📝 Step 11: User 1 editing payment method...
+✅ Payment method edited successfully
+📝 Step 12: User 1 deleting personal payment method...
+✅ Personal payment method deleted
+📝 Step 13: User 1 deleting shared payment method...
+✅ Shared payment method deleted
+📝 Step 14: User 2 verifying deleted shared method is gone...
+✅ User 2 correctly does not see deleted shared payment method
+📝 Step 15: User 2 checking movement form after deletion...
+User 2 final payment methods: [...]
+✅ User 2 movement form correctly updated after shared method deletion
+📝 Step 16: Testing payment method deactivation...
+✅ Payment method deactivation works correctly
+🧹 Cleaning up test data...
+✅ Cleanup complete
+
+✅ ✅ ✅ ALL PAYMENT METHOD TESTS PASSED! ✅ ✅ ✅
+```
+
+## Test Summary
+
+| Test File | Focus | Key Features Tested |
+|-----------|-------|---------------------|
+| `password-reset.js` | Password reset flow | Email noop provider, token extraction, password strength UI |
+| `auth-validation.js` | Auth form validation | Email format, password strength, visibility toggle, password match |
+| `household-management.js` | Household CRUD | Create, invite, promote, demote, remove, delete |
+| `household-validation.js` | Household form validation | Email format, phone format, real-time validation |
+| `contact-activation.js` | Contact activation | Active/inactive contacts, movement form filtering |
+| `payment-methods.js` | Payment methods (Phase 3) | CRUD, sharing, privacy, movement form integration, deactivation |
+
+## Next Steps
+
+Future test improvements:
+- Add tests for expired tokens
+- Add tests for movement CRUD operations
+- Add tests for transaction splitting
+- Add tests for reports and analytics
+- Add performance benchmarks

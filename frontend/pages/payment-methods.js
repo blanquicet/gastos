@@ -211,17 +211,15 @@ function renderPaymentMethodForm(paymentMethod = null) {
     <div class="form-card">
       <h4>${isEdit ? 'Editar método de pago' : 'Agregar método de pago'}</h4>
       <form id="payment-method-form" class="grid">
-        <div class="field">
-          <label>
+        <div class="field-row col-span-2">
+          <label class="field">
             <span>Nombre *</span>
             <input type="text" id="pm-name" required maxlength="100" 
               value="${paymentMethod?.name || ''}" 
               placeholder="ej: Tarjeta Débito Bancolombia" />
           </label>
-        </div>
-        
-        <div class="field">
-          <label>
+          
+          <label class="field">
             <span>Tipo *</span>
             <select id="pm-type" required>
               <option value="">Selecciona un tipo</option>
@@ -234,33 +232,29 @@ function renderPaymentMethodForm(paymentMethod = null) {
           </label>
         </div>
         
-        <div class="field">
-          <label>
+        <div class="field-row col-span-2">
+          <label class="field">
             <span>Institución</span>
             <input type="text" id="pm-institution" maxlength="100" 
               value="${paymentMethod?.institution || ''}" 
               placeholder="ej: Bancolombia, Nequi (opcional)" />
           </label>
-        </div>
-        
-        <div class="field">
-          <label>
+          
+          <label class="field">
             <span>Últimos 4 dígitos</span>
             <input type="text" id="pm-last4" maxlength="4" pattern="\\d{4}"
               value="${paymentMethod?.last4 || ''}" 
               placeholder="ej: 1234 (opcional)" />
-            <span class="field-hint">Solo números, 4 dígitos</span>
+            <small class="hint">Solo números, 4 dígitos</small>
           </label>
         </div>
         
-        <div class="field">
-          <label>
-            <span>Notas</span>
-            <textarea id="pm-notes" rows="2" placeholder="Notas adicionales (opcional)">${paymentMethod?.notes || ''}</textarea>
-          </label>
-        </div>
+        <label class="field col-span-2">
+          <span>Notas</span>
+          <textarea id="pm-notes" rows="2" placeholder="Notas adicionales (opcional)">${paymentMethod?.notes || ''}</textarea>
+        </label>
         
-        <div class="field">
+        <div class="field col-span-2">
           <label class="checkbox-label">
             <input type="checkbox" id="pm-shared" ${paymentMethod?.is_shared_with_household ? 'checked' : ''} />
             <span>Compartir con el hogar (todos los miembros pueden usar este método)</span>
@@ -268,7 +262,7 @@ function renderPaymentMethodForm(paymentMethod = null) {
         </div>
         
         ${isEdit ? `
-          <div class="field">
+          <div class="field col-span-2">
             <label class="checkbox-label">
               <input type="checkbox" id="pm-active" ${paymentMethod?.is_active !== false ? 'checked' : ''} />
               <span>Activo (disponible para registrar movimientos)</span>
@@ -276,7 +270,7 @@ function renderPaymentMethodForm(paymentMethod = null) {
           </div>
         ` : ''}
         
-        <div class="form-actions">
+        <div class="form-actions col-span-2">
           <button type="submit" class="btn-primary">${isEdit ? 'Guardar cambios' : 'Agregar'}</button>
           <button type="button" id="cancel-pm-btn" class="btn-secondary">Cancelar</button>
         </div>
