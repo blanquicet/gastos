@@ -355,7 +355,6 @@ async function handleSubmit(e) {
   
   const data = {
     name,
-    type,
     is_shared_with_household: isShared,
     last4: last4 || null,
     institution: institution || null,
@@ -364,6 +363,9 @@ async function handleSubmit(e) {
   
   if (editingPaymentMethod) {
     data.is_active = isActive;
+  } else {
+    // Type is only sent when creating a new payment method
+    data.type = type;
   }
   
   try {
