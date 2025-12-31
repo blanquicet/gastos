@@ -425,7 +425,7 @@ function showPaymentMethods(required) {
   base.selected = true;
   metodoEl.appendChild(base);
 
-  for (const m of PAYMENT_METHODS) {
+  for (const m of paymentMethods) {
     const opt = document.createElement('option');
     opt.value = m;
     opt.textContent = m;
