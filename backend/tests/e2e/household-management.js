@@ -373,7 +373,7 @@ async function testHouseholdManagement() {
     await page1.waitForURL('**/perfil');
     
     // Verify no household
-    const noHousehold = await page1.locator('.no-household-text').textContent();
+    const noHousehold = await page1.locator('.no-household-text').first().textContent();
     if (!noHousehold.includes('no tienes un hogar')) {
       throw new Error('Household not deleted');
     }
