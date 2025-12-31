@@ -1,6 +1,7 @@
 package households
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -11,19 +12,21 @@ import (
 
 // Handler handles HTTP requests for household management
 type Handler struct {
-	service  *Service
-	logger   *slog.Logger
-	authSvc  *auth.Service
-	cookieName string
+	service                      *Service
+	logger                       *slog.Logger
+	authSvc                      *auth.Service
+	loadSharedPaymentMethodsFunc func(ctx context.Context, householdID, userID string) (interface{}, error)
+	cookieName                   string
 }
 
 // NewHandler creates a new household handler
-func NewHandler(service *Service, authService *auth.Service, cookieName string, logger *slog.Logger) *Handler {
+func NewHandler(service *Service, authService *auth.Service, loadSharedPMFunc func(ctx context.Context, householdID, userID string) (interface{}, error), cookieName string, logger *slog.Logger) *Handler {
 	return &Handler{
-		service:    service,
-		logger:     logger,
-		authSvc:    authService,
-		cookieName: cookieName,
+		service:                      service,
+		logger:                       logger,
+		authSvc:                      authService,
+		loadSharedPaymentMethodsFunc: loadSharedPMFunc,
+		cookieName:                   cookieName,
 	}
 }
 
@@ -65,15 +68,16 @@ type CreateInvitationRequest struct {
 }
 
 type HouseholdResponse struct {
-	ID        string                `json:"id"`
-	Name      string                `json:"name"`
-	CreatedBy string                `json:"created_by"`
-	Currency  string                `json:"currency"`
-	Timezone  string                `json:"timezone"`
-	Members   []*HouseholdMember    `json:"members,omitempty"`
-	Contacts  []*Contact            `json:"contacts,omitempty"`
-	CreatedAt string                `json:"created_at"`
-	UpdatedAt string                `json:"updated_at"`
+	ID                    string              `json:"id"`
+	Name                  string              `json:"name"`
+	CreatedBy             string              `json:"created_by"`
+	Currency              string              `json:"currency"`
+	Timezone              string              `json:"timezone"`
+	Members               []*HouseholdMember  `json:"members,omitempty"`
+	Contacts              []*Contact          `json:"contacts,omitempty"`
+	SharedPaymentMethods  interface{}         `json:"shared_payment_methods,omitempty"`
+	CreatedAt             string              `json:"created_at"`
+	UpdatedAt             string              `json:"updated_at"`
 }
 
 type ErrorResponse struct {
@@ -229,16 +233,29 @@ func (h *Handler) GetHousehold(w http.ResponseWriter, r *http.Request) {
 		contacts = []*Contact{}
 	}
 
+	// Get shared payment methods
+	sharedPaymentMethods, err := h.loadSharedPaymentMethodsFunc(r.Context(), householdID, user.ID)
+	if err != nil {
+		// Don't fail the request if payment methods fail to load
+		// Just log the error and return empty list
+		h.logger.Error("failed to load shared payment methods", "error", err)
+		sharedPaymentMethods = []interface{}{}
+	}
+	if sharedPaymentMethods == nil {
+		sharedPaymentMethods = []interface{}{}
+	}
+
 	response := &HouseholdResponse{
-		ID:        household.ID,
-		Name:      household.Name,
-		CreatedBy: household.CreatedBy,
-		Currency:  household.Currency,
-		Timezone:  household.Timezone,
-		Members:   members,
-		Contacts:  contacts,
-		CreatedAt: household.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-		UpdatedAt: household.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		ID:                   household.ID,
+		Name:                 household.Name,
+		CreatedBy:            household.CreatedBy,
+		Currency:             household.Currency,
+		Timezone:             household.Timezone,
+		Members:              members,
+		Contacts:             contacts,
+		SharedPaymentMethods: sharedPaymentMethods,
+		CreatedAt:            household.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt:            household.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
 
 	h.respondJSON(w, response, http.StatusOK)

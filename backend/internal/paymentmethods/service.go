@@ -215,3 +215,21 @@ return nil, ErrNotAuthorized
 
 return pm, nil
 }
+
+// ListSharedPaymentMethods returns only payment methods shared with the household (active only)
+func (s *Service) ListSharedPaymentMethods(ctx context.Context, householdID, userID string) ([]*PaymentMethod, error) {
+all, err := s.repo.ListByHousehold(ctx, householdID)
+if err != nil {
+return nil, err
+}
+
+// Filter: only return methods that are shared AND active
+var filtered []*PaymentMethod
+for _, pm := range all {
+if pm.IsSharedWithHousehold && pm.IsActive {
+filtered = append(filtered, pm)
+}
+}
+
+return filtered, nil
+}

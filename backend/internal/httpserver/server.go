@@ -88,17 +88,23 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 		logger,
 	)
 
-	// Create household handler
-	householdHandler := households.NewHandler(
-		householdService,
-		authService,
-		cfg.SessionCookieName,
-		logger,
-	)
-
 	// Create payment methods service and handler
 	paymentMethodsRepo := paymentmethods.NewRepository(pool)
 	paymentMethodsService := paymentmethods.NewService(paymentMethodsRepo)
+	
+	// Create household handler (needs function to load shared payment methods)
+	loadSharedPM := func(ctx context.Context, householdID, userID string) (interface{}, error) {
+		return paymentMethodsService.ListSharedPaymentMethods(ctx, householdID, userID)
+	}
+	
+	householdHandler := households.NewHandler(
+		householdService,
+		authService,
+		loadSharedPM,
+		cfg.SessionCookieName,
+		logger,
+	)
+	
 	paymentMethodsHandler := paymentmethods.NewHandler(
 		paymentMethodsService,
 		authService,

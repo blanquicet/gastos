@@ -107,19 +107,7 @@ async function loadHousehold() {
     const details = await detailsResponse.json();
     members = details.members || [];
     contacts = details.contacts || [];
-
-    // Fetch shared payment methods
-    const paymentMethodsResponse = await fetch(`${API_URL}/payment-methods`, {
-      credentials: 'include'
-    });
-
-    if (paymentMethodsResponse.ok) {
-      const allPaymentMethods = await paymentMethodsResponse.json();
-      // Filter only shared payment methods
-      sharedPaymentMethods = allPaymentMethods.filter(pm => pm.is_shared_with_household);
-    } else {
-      sharedPaymentMethods = [];
-    }
+    sharedPaymentMethods = details.shared_payment_methods || [];
 
     // Render content
     contentEl.innerHTML = renderHouseholdContent();
