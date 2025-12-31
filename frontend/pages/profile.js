@@ -119,12 +119,12 @@ function renderProfileContent() {
     </div>
 
     <div class="profile-section">
-      <div class="section-header">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
         <div>
           <h2 class="section-title">Mis métodos de pago</h2>
           <p class="section-description">Tus tarjetas, cuentas bancarias y otros métodos de pago</p>
         </div>
-        <button id="manage-payment-methods-btn" class="btn-secondary btn-small">Administrar →</button>
+        <button id="manage-payment-methods-btn" class="btn-secondary">Administrar →</button>
       </div>
       ${renderPaymentMethodsList()}
     </div>
@@ -175,26 +175,24 @@ function renderPaymentMethodsList() {
 
   if (paymentMethods.length === 0) {
     return `
-      <div class="empty-state-small">
-        <p>No tienes métodos de pago configurados</p>
+      <div class="no-household">
+        <p class="no-household-text">No tienes métodos de pago configurados</p>
       </div>
     `;
   }
 
   return `
-    <div class="list-container scrollable">
+    <div class="members-list">
       ${paymentMethods.map(pm => `
-        <div class="list-item">
-          <div class="item-icon">${getPaymentMethodIcon(pm.type)}</div>
-          <div class="item-content">
-            <div class="item-name">${pm.name}</div>
-            <div class="item-meta">
-              ${PAYMENT_METHOD_TYPES[pm.type] || pm.type}
-              ${pm.institution ? ' · ' + pm.institution : ''}
-              ${pm.last4 ? ' · •••• ' + pm.last4 : ''}
+        <div class="member-item">
+          <div class="member-avatar">${getPaymentMethodIcon(pm.type)}</div>
+          <div class="member-info">
+            <div class="member-name">${pm.name}</div>
+            <div class="member-email">
+              ${PAYMENT_METHOD_TYPES[pm.type] || pm.type}${pm.institution ? ' · ' + pm.institution : ''}${pm.last4 ? ' · •••• ' + pm.last4 : ''}
             </div>
           </div>
-          ${pm.is_shared_with_household ? '<span class="badge-shared">Compartido</span>' : ''}
+          ${pm.is_shared_with_household ? '<div class="member-role role-owner">Compartido</div>' : ''}
         </div>
       `).join('')}
     </div>
