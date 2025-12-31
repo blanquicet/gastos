@@ -391,7 +391,10 @@ async function handleSubmit(e) {
       throw new Error(error.error || 'Error al guardar');
     }
     
-    showSuccess(editingPaymentMethod ? 'Método de pago actualizado' : 'Método de pago creado');
+    showSuccess(
+      editingPaymentMethod ? 'Método de pago actualizado' : 'Método de pago creado',
+      'Tus cambios han sido guardados correctamente.'
+    );
     await loadPaymentMethods();
     document.getElementById('payment-method-form-container').style.display = 'none';
     editingPaymentMethod = null;
@@ -440,7 +443,7 @@ async function handleDelete(id) {
       throw new Error('Error al eliminar');
     }
     
-    showSuccess('Método de pago eliminado');
+    showSuccess('Método de pago eliminado', 'El método de pago ha sido eliminado correctamente.');
     await loadPaymentMethods();
     
   } catch (error) {
