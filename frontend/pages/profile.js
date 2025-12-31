@@ -13,6 +13,7 @@ import * as Navbar from '../components/navbar.js';
 
 let currentUser = null;
 let currentHousehold = null;
+let paymentMethods = [];
 
 /**
  * Render profile page
@@ -55,18 +56,26 @@ async function loadProfile() {
   const contentEl = document.getElementById('profile-content');
   
   try {
-    // Fetch user's households
-    const response = await fetch(`${API_URL}/households`, {
-      credentials: 'include'
-    });
+    // Fetch user's households and payment methods in parallel
+    const [householdsResponse, paymentMethodsResponse] = await Promise.all([
+      fetch(`${API_URL}/households`, { credentials: 'include' }),
+      fetch(`${API_URL}/payment-methods`, { credentials: 'include' })
+    ]);
 
-    if (!response.ok) {
+    if (!householdsResponse.ok) {
       throw new Error('Error al cargar información del hogar');
     }
 
-    const data = await response.json();
+    const data = await householdsResponse.json();
     const households = data.households || [];
     currentHousehold = households.length > 0 ? households[0] : null;
+
+    // Load payment methods if user has household
+    if (paymentMethodsResponse.ok) {
+      paymentMethods = await paymentMethodsResponse.json();
+    } else {
+      paymentMethods = [];
+    }
 
     // Render profile content
     contentEl.innerHTML = renderProfileContent();
@@ -110,11 +119,14 @@ function renderProfileContent() {
     </div>
 
     <div class="profile-section">
-      <h2 class="section-title">Mis métodos de pago</h2>
-      <p class="section-description">Administra tus tarjetas, cuentas bancarias y otros métodos de pago</p>
-      <div class="action-buttons">
-        <button id="view-payment-methods-btn" class="btn-secondary">Ver métodos de pago →</button>
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">Mis métodos de pago</h2>
+          <p class="section-description">Tus tarjetas, cuentas bancarias y otros métodos de pago</p>
+        </div>
+        <button id="manage-payment-methods-btn" class="btn-secondary btn-small">Administrar →</button>
       </div>
+      ${renderPaymentMethodsList()}
     </div>
   `;
 }
@@ -151,12 +163,64 @@ function renderHouseholdSection() {
 }
 
 /**
+ * Render payment methods list
+ */
+function renderPaymentMethodsList() {
+  const PAYMENT_METHOD_TYPES = {
+    credit_card: 'Tarjeta de Crédito',
+    debit_card: 'Tarjeta de Débito',
+    cash: 'Efectivo',
+    other: 'Otro'
+  };
+
+  if (paymentMethods.length === 0) {
+    return `
+      <div class="empty-state-small">
+        <p>No tienes métodos de pago configurados</p>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="list-container scrollable">
+      ${paymentMethods.map(pm => `
+        <div class="list-item">
+          <div class="item-icon">${getPaymentMethodIcon(pm.type)}</div>
+          <div class="item-content">
+            <div class="item-name">${pm.name}</div>
+            <div class="item-meta">
+              ${PAYMENT_METHOD_TYPES[pm.type] || pm.type}
+              ${pm.institution ? ' · ' + pm.institution : ''}
+              ${pm.last4 ? ' · •••• ' + pm.last4 : ''}
+            </div>
+          </div>
+          ${pm.is_shared_with_household ? '<span class="badge-shared">Compartido</span>' : ''}
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+/**
+ * Get icon for payment method type
+ */
+function getPaymentMethodIcon(type) {
+  const icons = {
+    credit_card: '💳',
+    debit_card: '💳',
+    cash: '💵',
+    other: '💰'
+  };
+  return icons[type] || '💰';
+}
+
+/**
  * Setup event listeners
  */
 function setupEventListeners() {
   const createBtn = document.getElementById('create-household-btn');
   const viewBtn = document.getElementById('view-household-btn');
-  const paymentMethodsBtn = document.getElementById('view-payment-methods-btn');
+  const paymentMethodsBtn = document.getElementById('manage-payment-methods-btn');
 
   if (createBtn) {
     createBtn.addEventListener('click', () => {
