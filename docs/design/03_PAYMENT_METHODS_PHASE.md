@@ -58,7 +58,9 @@ Represents payment methods (credit cards, bank accounts, cash, etc.)
 CREATE TYPE payment_method_type AS ENUM (
   'credit_card',
   'debit_card',
+  'bank_account',
   'cash',
+  'digital_wallet',
   'other'
 );
 
@@ -75,7 +77,7 @@ CREATE TABLE payment_methods (
 
   -- Optional metadata
   last4 VARCHAR(4), -- Last 4 digits of card/account
-  institution VARCHAR(100), -- Bank name, card issuer
+  institution VARCHAR(100), -- Bank name, card issuer, wallet provider
   notes TEXT,
 
   -- Lifecycle
