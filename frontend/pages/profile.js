@@ -122,7 +122,7 @@ function renderProfileContent() {
       <h2 class="section-title">Mis métodos de pago</h2>
       <p class="section-description">Tus tarjetas, cuentas bancarias y otros métodos de pago</p>
       <div style="margin-bottom: 16px;">
-        <button id="manage-payment-methods-btn" class="btn-secondary">Administrar mis métodos de pago →</button>
+        <button id="manage-payment-methods-btn" class="btn-secondary">Administrar mis métodos de pago</button>
       </div>
       ${renderPaymentMethodsList()}
     </div>
