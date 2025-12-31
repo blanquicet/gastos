@@ -16,7 +16,7 @@ const { Pool } = pg;
 
 async function testContactActivation() {
   const headless = process.env.CI === 'true' || process.env.HEADLESS === 'true';
-  const apiUrl = process.env.API_URL || 'http://localhost:8080';
+  const appUrl = process.env.APP_URL || 'http://localhost:8080';
   const dbUrl = process.env.DATABASE_URL || 'postgres://gastos:gastos_dev_password@localhost:5432/gastos?sslmode=disable';
   
   const browser = await chromium.launch({ headless });
@@ -44,26 +44,48 @@ async function testContactActivation() {
     const context = await browser.newContext();
     const page = await context.newPage();
     
-    await page.goto(`${apiUrl}/registrar`);
-    await page.fill('input[name="email"]', userEmail);
-    await page.fill('input[name="password"]', password);
-    await page.fill('input[name="passwordConfirm"]', password);
-    await page.click('button[type="submit"]');
+    await page.goto(appUrl);
+    await page.waitForTimeout(1000);
     
-    // Wait for redirect to home
-    await page.waitForURL(`${apiUrl}/`, { timeout: 5000 });
+    await page.getByRole('link', { name: 'Regístrate' }).click();
+    await page.waitForTimeout(500);
+    
+    await page.locator('#registerName').fill('Test User');
+    await page.locator('#registerEmail').fill(userEmail);
+    await page.locator('#registerPassword').fill(password);
+    await page.locator('#registerConfirm').fill(password);
+    
+    await page.getByRole('button', { name: 'Registrarse' }).click();
+    await page.waitForTimeout(2000);
+    
+    // Should be on registrar-movimiento page
+    await page.waitForURL('**/registrar-movimiento');
     console.log('✅ User registered and logged in');
 
     // ==================================================================
     // STEP 2: Create Household
     // ==================================================================
     console.log('📝 Step 2: Creating household...');
-    await page.goto(`${apiUrl}/hogar/crear`);
-    await page.fill('input[name="name"]', householdName);
-    await page.click('button:has-text("Crear hogar")');
     
-    // Wait for redirect
-    await page.waitForURL(`${apiUrl}/hogar`, { timeout: 5000 });
+    // Go to profile
+    await page.locator('#hamburger-btn').click();
+    await page.waitForTimeout(500);
+    await page.getByRole('link', { name: 'Perfil' }).click();
+    await page.waitForTimeout(1000);
+    
+    // Click "Crear hogar"
+    await page.getByRole('button', { name: 'Crear hogar' }).click();
+    await page.waitForTimeout(1000);
+    
+    // Fill household name
+    await page.locator('#household-name').fill(householdName);
+    await page.getByRole('button', { name: 'Crear hogar' }).click();
+    await page.waitForTimeout(2000);
+    
+    // Should be on household page
+    await page.waitForURL('**/hogar');
+    await page.waitForTimeout(1000);
+    
     console.log('✅ Household created');
 
     // ==================================================================
@@ -72,52 +94,93 @@ async function testContactActivation() {
     console.log('📝 Step 3: Adding contacts...');
     
     const contacts = [
-      { name: 'Active Contact 1', phone: '1234567890' },
-      { name: 'Active Contact 2', phone: '0987654321' },
-      { name: 'To Deactivate', phone: '5555555555' }
+      { name: 'Active Contact 1', email: 'active1@example.com', phone: '+571234567890' },
+      { name: 'Active Contact 2', email: 'active2@example.com', phone: '+570987654321' },
+      { name: 'To Deactivate', email: 'deactivate@example.com', phone: '+575555555555' }
     ];
 
     for (const contact of contacts) {
       // Click Add Contact button
-      await page.click('button:has-text("Agregar contacto")');
-      
-      // Wait for form to appear
-      await page.waitForSelector('input[name="name"]', { timeout: 2000 });
+      await page.getByRole('button', { name: '+ Agregar contacto' }).click();
+      await page.waitForTimeout(500);
       
       // Fill contact form
-      await page.fill('input[name="name"]', contact.name);
-      await page.fill('input[name="phone"]', contact.phone);
+      await page.locator('#contact-name').fill(contact.name);
+      await page.locator('#contact-email').fill(contact.email);
+      await page.locator('#contact-phone').fill(contact.phone);
       
       // Submit
-      await page.click('button:has-text("Agregar")');
-      
-      // Wait for success or contact to appear
-      await page.waitForTimeout(500);
+      await page.getByRole('button', { name: 'Agregar', exact: true }).click();
+      await page.waitForTimeout(3000); // Wait for reload
     }
     
     console.log('✅ Added 3 contacts');
 
     // ==================================================================
-    // STEP 4: Verify All Contacts in Movement Form
+    // STEP 4: Verify All Contacts Exist in Database
     // ==================================================================
-    console.log('📝 Step 4: Verifying all contacts appear in movement form...');
+    console.log('📝 Step 4: Verifying all contacts exist...');
     
-    await page.goto(`${apiUrl}/registrar`);
-    await page.waitForTimeout(1000); // Wait for form to load
+    const contactsResult = await pool.query(
+      `SELECT name, is_active FROM contacts 
+       WHERE household_id = (SELECT id FROM households WHERE name = $1)
+       ORDER BY name`,
+      [householdName]
+    );
     
-    // Select movement type that shows participants (COMPARTIDO)
-    await page.selectOption('select[name="tipo"]', 'COMPARTIDO');
-    await page.waitForTimeout(500);
+    console.log('Contacts in database:', contactsResult.rows);
     
-    // Check participants list
-    const participantsBefore = await page.locator('.participante-option').allTextContents();
-    console.log('Participants before deactivation:', participantsBefore);
-    
-    if (!participantsBefore.some(p => p.includes('Active Contact 1'))) {
-      throw new Error('Active Contact 1 not found in participants');
+    if (contactsResult.rows.length !== 3) {
+      throw new Error(`Expected 3 contacts, found ${contactsResult.rows.length}`);
     }
-    if (!participantsBefore.some(p => p.includes('To Deactivate'))) {
-      throw new Error('To Deactivate not found in participants');
+    
+    const allActive = contactsResult.rows.every(c => c.is_active === true);
+    if (!allActive) {
+      throw new Error('All contacts should be active initially');
+    }
+    
+    console.log('✅ All contacts are active');
+
+    // ==================================================================
+    // STEP 4b: Verify All Contacts Appear in Movement Form
+    // ==================================================================
+    console.log('📝 Step 4b: Verifying contacts appear in movement form...');
+    
+    await page.goto(`${appUrl}/registrar-movimiento`);
+    
+    // Wait for network to be idle (API calls complete)
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(2000); // Give extra time for API to load
+    
+    // Select "Dividir gasto" (COMPARTIDO) which shows participants
+    await page.selectOption('select#tipo', 'COMPARTIDO');
+    await page.waitForTimeout(2000);
+    
+    // Wait for participants section to be visible
+    await page.waitForSelector('#participantesWrap:not(.hidden)', { timeout: 5000 });
+    
+    // Click "Agregar participante" to add a participant row
+    await page.click('button#addParticipantBtn');
+    await page.waitForTimeout(2000);
+    
+    // Get all options from the participant select dropdown
+    const selectExists = await page.locator('#participantsList select').count();
+    if (selectExists === 0) {
+      throw new Error('No participant select found - form may not have loaded users');
+    }
+    
+    const participantOptions = await page.locator('#participantsList select').first().locator('option').allTextContents();
+    console.log('Available participants:', participantOptions);
+    
+    if (participantOptions.length === 0) {
+      throw new Error('Participant dropdown is empty - API may not have loaded');
+    }
+    
+    if (!participantOptions.some(p => p.includes('Active Contact 1'))) {
+      throw new Error('Active Contact 1 not found in participants dropdown');
+    }
+    if (!participantOptions.some(p => p.includes('To Deactivate'))) {
+      throw new Error('To Deactivate not found in participants dropdown');
     }
     
     console.log('✅ All contacts appear in movement form');
@@ -127,45 +190,75 @@ async function testContactActivation() {
     // ==================================================================
     console.log('📝 Step 5: Deactivating contact...');
     
-    await page.goto(`${apiUrl}/hogar`);
-    await page.waitForTimeout(500);
-    
-    // Scroll to contacts section
-    await page.evaluate(() => {
-      const contactsSection = document.querySelector('h2:has-text("Contactos")');
-      if (contactsSection) contactsSection.scrollIntoView();
-    });
-    
-    // Find "To Deactivate" contact and click Edit
-    const contactToDeactivate = page.locator('.contact-item:has-text("To Deactivate")');
-    await contactToDeactivate.locator('button:has-text("Editar")').click();
-    
-    await page.waitForTimeout(500);
-    
-    // Uncheck "is_active" checkbox
-    await page.uncheck('input[name="is_active"]');
-    
-    // Save
-    await page.click('button:has-text("Guardar")');
+    await page.goto(`${appUrl}/hogar`);
     await page.waitForTimeout(1000);
+    
+    // Find "To Deactivate" contact and click the "Desactivar" button
+    await page.locator('.contact-item', { hasText: 'To Deactivate' })
+      .locator('button[data-action="toggle-active"]')
+      .click();
+    
+    // Wait for confirmation modal and confirm
+    await page.waitForTimeout(500);
+    await page.locator('#modal-confirm').click();
+    
+    // Wait for the page to reload/update after toggle
+    await page.waitForTimeout(3000);
     
     console.log('✅ Contact deactivated');
 
     // ==================================================================
-    // STEP 6: Verify Deactivated Contact NOT in Movement Form
+    // STEP 6: Verify Contact Deactivated in Database
     // ==================================================================
-    console.log('📝 Step 6: Verifying deactivated contact does not appear...');
+    console.log('📝 Step 6: Verifying contact is deactivated...');
     
-    await page.goto(`${apiUrl}/registrar`);
-    await page.waitForTimeout(1000);
+    const contactsAfterDeactivation = await pool.query(
+      `SELECT name, is_active FROM contacts 
+       WHERE household_id = (SELECT id FROM households WHERE name = $1)
+       ORDER BY name`,
+      [householdName]
+    );
     
-    // Select COMPARTIDO again
-    await page.selectOption('select[name="tipo"]', 'COMPARTIDO');
-    await page.waitForTimeout(500);
+    console.log('Contacts after deactivation:', contactsAfterDeactivation.rows);
     
-    // Check participants list
-    const participantsAfter = await page.locator('.participante-option').allTextContents();
-    console.log('Participants after deactivation:', participantsAfter);
+    const deactivatedContact = contactsAfterDeactivation.rows.find(c => c.name === 'To Deactivate');
+    if (!deactivatedContact) {
+      throw new Error('To Deactivate contact not found');
+    }
+    if (deactivatedContact.is_active !== false) {
+      throw new Error('Contact should be deactivated');
+    }
+    
+    const activeContacts = contactsAfterDeactivation.rows.filter(c => c.is_active === true);
+    if (activeContacts.length !== 2) {
+      throw new Error('Should have 2 active contacts remaining');
+    }
+    
+    console.log('✅ Contact correctly deactivated in database');
+
+    // ==================================================================
+    // STEP 6b: Verify Deactivated Contact NOT in Movement Form
+    // ==================================================================
+    console.log('📝 Step 6b: Verifying deactivated contact does not appear in form...');
+    
+    await page.goto(`${appUrl}/registrar-movimiento`);
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(5000);
+    
+    // Select "Dividir gasto" again
+    await page.selectOption('select#tipo', 'COMPARTIDO');
+    await page.waitForTimeout(2000);
+    
+    // Wait for participants section
+    await page.waitForSelector('#participantesWrap:not(.hidden)', { timeout: 5000 });
+    
+    // Click "Agregar participante"
+    await page.click('button#addParticipantBtn');
+    await page.waitForTimeout(2000);
+    
+    // Check participants dropdown
+    const participantsAfter = await page.locator('#participantsList select').first().locator('option').allTextContents();
+    console.log('Available participants after deactivation:', participantsAfter);
     
     if (!participantsAfter.some(p => p.includes('Active Contact 1'))) {
       throw new Error('Active Contact 1 should still appear');
@@ -181,37 +274,75 @@ async function testContactActivation() {
     // ==================================================================
     console.log('📝 Step 7: Reactivating contact...');
     
-    await page.goto(`${apiUrl}/hogar`);
-    await page.waitForTimeout(500);
-    
-    // Find deactivated contact and edit
-    await contactToDeactivate.locator('button:has-text("Editar")').click();
-    await page.waitForTimeout(500);
-    
-    // Check "is_active" checkbox
-    await page.check('input[name="is_active"]');
-    
-    // Save
-    await page.click('button:has-text("Guardar")');
+    await page.goto(`${appUrl}/hogar`);
     await page.waitForTimeout(1000);
+    
+    // Find deactivated contact and click "Activar" button
+    await page.locator('.contact-item', { hasText: 'To Deactivate' })
+      .locator('button[data-action="toggle-active"]')
+      .click();
+    
+    // Wait for confirmation modal and confirm
+    await page.waitForTimeout(500);
+    await page.locator('#modal-confirm').click();
+    
+    // Wait for the page to reload/update
+    await page.waitForTimeout(3000);
     
     console.log('✅ Contact reactivated');
 
     // ==================================================================
-    // STEP 8: Verify Reactivated Contact Back in Movement Form
+    // STEP 8: Verify Contact Reactivated in Database
     // ==================================================================
-    console.log('📝 Step 8: Verifying reactivated contact appears again...');
+    console.log('📝 Step 8: Verifying contact is reactivated...');
     
-    await page.goto(`${apiUrl}/registrar`);
-    await page.waitForTimeout(1000);
+    const contactsAfterReactivation = await pool.query(
+      `SELECT name, is_active FROM contacts 
+       WHERE household_id = (SELECT id FROM households WHERE name = $1)
+       ORDER BY name`,
+      [householdName]
+    );
     
-    // Select COMPARTIDO
-    await page.selectOption('select[name="tipo"]', 'COMPARTIDO');
-    await page.waitForTimeout(500);
+    console.log('Contacts after reactivation:', contactsAfterReactivation.rows);
     
-    // Check participants list
-    const participantsFinal = await page.locator('.participante-option').allTextContents();
-    console.log('Participants after reactivation:', participantsFinal);
+    const reactivatedContact = contactsAfterReactivation.rows.find(c => c.name === 'To Deactivate');
+    if (!reactivatedContact) {
+      throw new Error('To Deactivate contact not found');
+    }
+    if (reactivatedContact.is_active !== true) {
+      throw new Error('Contact should be reactivated');
+    }
+    
+    const allActiveAgain = contactsAfterReactivation.rows.every(c => c.is_active === true);
+    if (!allActiveAgain) {
+      throw new Error('All contacts should be active again');
+    }
+    
+    console.log('✅ Contact correctly reactivated in database');
+
+    // ==================================================================
+    // STEP 8b: Verify Reactivated Contact Back in Movement Form
+    // ==================================================================
+    console.log('📝 Step 8b: Verifying reactivated contact appears in form...');
+    
+    await page.goto(`${appUrl}/registrar-movimiento`);
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(5000);
+    
+    // Select "Dividir gasto"
+    await page.selectOption('select#tipo', 'COMPARTIDO');
+    await page.waitForTimeout(2000);
+    
+    // Wait for participants section
+    await page.waitForSelector('#participantesWrap:not(.hidden)', { timeout: 5000 });
+    
+    // Click "Agregar participante"
+    await page.click('button#addParticipantBtn');
+    await page.waitForTimeout(2000);
+    
+    // Check participants dropdown
+    const participantsFinal = await page.locator('#participantsList select').first().locator('option').allTextContents();
+    console.log('Available participants after reactivation:', participantsFinal);
     
     if (!participantsFinal.some(p => p.includes('To Deactivate'))) {
       throw new Error('Reactivated contact should appear in participants');
@@ -242,7 +373,7 @@ async function testContactActivation() {
         const householdId = householdResult.rows[0].id;
         
         // Delete contacts
-        await pool.query('DELETE FROM household_contacts WHERE household_id = $1', [householdId]);
+        await pool.query('DELETE FROM contacts WHERE household_id = $1', [householdId]);
         
         // Delete household members
         await pool.query('DELETE FROM household_members WHERE household_id = $1', [householdId]);

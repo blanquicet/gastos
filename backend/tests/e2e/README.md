@@ -34,10 +34,11 @@ This script will:
 1. ✅ Check if PostgreSQL is running
 2. ✅ Build the backend binary
 3. ✅ Start the backend with proper environment variables
-4. ✅ Redirect logs to `/tmp/backend.log`
-5. ✅ Wait for backend to be healthy
-6. ✅ Run all e2e tests
-7. ✅ Clean up the backend process
+4. ✅ Start the frontend dev server
+5. ✅ Redirect logs to `/tmp/backend.log` and `/tmp/frontend.log`
+6. ✅ Wait for both backend and frontend to be healthy
+7. ✅ Run all e2e tests
+8. ✅ Clean up the backend and frontend processes
 
 ### Manual Setup (Alternative)
 
