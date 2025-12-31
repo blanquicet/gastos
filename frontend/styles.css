@@ -1262,9 +1262,10 @@ button.loading::after {
 .member-actions,
 .contact-actions {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  align-items: flex-end;
+  flex-direction: row;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 .btn-link {
