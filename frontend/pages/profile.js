@@ -188,12 +188,11 @@ function renderPaymentMethodsList() {
         <div class="member-item">
           <div class="member-avatar">${getPaymentMethodIcon(pm.type)}</div>
           <div class="member-info">
-            <div class="member-name">${pm.name}</div>
-            <div class="member-email">
-              ${PAYMENT_METHOD_TYPES[pm.type] || pm.type}${pm.institution ? ' · ' + pm.institution : ''}${pm.last4 ? ' · •••• ' + pm.last4 : ''}
-            </div>
+            <div class="member-name">${pm.name}${pm.last4 ? ' ( ••• ' + pm.last4 + ')' : ''}</div>
+            <div class="member-email">${PAYMENT_METHOD_TYPES[pm.type] || pm.type}</div>
+            ${pm.institution ? `<div class="member-email">${pm.institution}</div>` : ''}
           </div>
-          ${pm.is_shared_with_household ? '<div class="member-role role-owner">Compartido</div>' : ''}
+          ${pm.is_shared_with_household ? '<div class="member-role role-owner" title="Compartido">C</div>' : ''}
         </div>
       `).join('')}
     </div>

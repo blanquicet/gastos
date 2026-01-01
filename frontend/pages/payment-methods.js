@@ -165,20 +165,19 @@ function renderPaymentMethodsList() {
           <div class="contact-avatar">${getPaymentMethodIcon(pm.type)}</div>
           <div class="contact-info">
             <div class="contact-name">
-              ${pm.name}
-              ${pm.is_shared_with_household ? '<span class="linked-badge">👥 Compartido</span>' : ''}
+              ${pm.name}${pm.last4 ? ' ( ••• ' + pm.last4 + ')' : ''}
               ${!pm.is_active ? '<span class="inactive-badge">❌ Inactivo</span>' : ''}
             </div>
-            <div class="contact-details">
-              ${PAYMENT_METHOD_TYPES[pm.type] || pm.type}
-              ${pm.institution ? ' · ' + pm.institution : ''}
-              ${pm.last4 ? ' · •••• ' + pm.last4 : ''}
-            </div>
-            ${pm.notes ? `<div class="contact-notes">${pm.notes}</div>` : ''}
+            <div class="contact-details">${PAYMENT_METHOD_TYPES[pm.type] || pm.type}</div>
+            ${pm.institution ? `<div class="contact-details">${pm.institution}</div>` : ''}
           </div>
-          <div class="contact-actions">
-            <button class="btn-link text-sm" data-action="edit" data-id="${pm.id}">Editar</button>
-            <button class="btn-link text-sm text-danger" data-action="delete" data-id="${pm.id}">Eliminar</button>
+          ${pm.is_shared_with_household ? '<div class="member-role role-owner" title="Compartido">C</div>' : ''}
+          <div class="contact-actions-menu">
+            <button class="btn-menu" data-menu-id="${pm.id}">⋮</button>
+            <div class="actions-dropdown" id="menu-${pm.id}" style="display: none;">
+              <button class="dropdown-item" data-action="edit" data-id="${pm.id}">Editar</button>
+              <button class="dropdown-item text-danger" data-action="delete" data-id="${pm.id}">Eliminar</button>
+            </div>
           </div>
         </div>
       `).join('')}
@@ -297,11 +296,47 @@ function setupEventHandlers() {
     }
   });
 
+  // Menu toggle buttons
+  document.querySelectorAll('[data-menu-id]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const menuId = e.currentTarget.dataset.menuId;
+      const menu = document.getElementById(`menu-${menuId}`);
+      const isOpen = menu.style.display === 'block';
+      
+      // Close all menus
+      document.querySelectorAll('.actions-dropdown').forEach(m => m.style.display = 'none');
+      
+      // Toggle this menu
+      if (!isOpen) {
+        // Position the menu relative to the button
+        const btnRect = btn.getBoundingClientRect();
+        menu.style.top = `${btnRect.bottom + 4}px`;
+        menu.style.right = `${window.innerWidth - btnRect.right}px`;
+        menu.style.left = 'auto';
+        menu.style.display = 'block';
+      }
+    });
+  });
+
+  // Close menus when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.contact-actions-menu')) {
+      document.querySelectorAll('.actions-dropdown').forEach(m => m.style.display = 'none');
+    }
+  });
+
   // Action buttons
   document.querySelectorAll('[data-action]').forEach(btn => {
     btn.addEventListener('click', async (e) => {
-      const action = e.target.dataset.action;
-      const id = e.target.dataset.id;
+      e.preventDefault();
+      e.stopPropagation();
+      const action = e.currentTarget.dataset.action;
+      const id = e.currentTarget.dataset.id;
+
+      // Close menu
+      document.querySelectorAll('.actions-dropdown').forEach(m => m.style.display = 'none');
 
       if (action === 'edit') await handleEdit(id);
       else if (action === 'delete') await handleDelete(id);
