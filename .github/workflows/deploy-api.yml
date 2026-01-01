@@ -303,7 +303,7 @@ jobs:
           HEADLESS: 'true'
           API_URL: 'http://localhost:8080'
           DATABASE_URL: 'postgres://gastos:gastos_test_password@localhost:5432/gastos_test?sslmode=disable'
-        run: node test/e2e/${{ matrix.test-file }}
+        run: node e2e/${{ matrix.test-file }}
 
       - name: Upload test artifacts
         if: failure()
