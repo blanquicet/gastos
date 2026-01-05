@@ -124,14 +124,33 @@ jobs:
       - name: Load Docker image
         run: docker load --input /tmp/gastos-api.tar
 
+      - name: Set up Docker Buildx (for caching)
+        uses: docker/setup-buildx-action@v3
+
+      - name: Cache postgres image
+        uses: actions/cache@v4
+        with:
+          path: /tmp/docker-images
+          key: postgres-16-${{ runner.os }}
+
+      - name: Load or pull postgres image
+        run: |
+          if [ -f /tmp/docker-images/postgres-16.tar ]; then
+            echo "📦 Loading postgres:16 from cache..."
+            docker load -i /tmp/docker-images/postgres-16.tar
+          else
+            echo "⬇️ Pulling postgres:16 from Docker Hub..."
+            docker pull postgres:16
+            mkdir -p /tmp/docker-images
+            docker save postgres:16 -o /tmp/docker-images/postgres-16.tar
+            echo "💾 Saved postgres:16 to cache"
+          fi
+
       - name: Install golang-migrate
         run: |
           curl -L https://github.com/golang-migrate/migrate/releases/download/v4.17.0/migrate.linux-amd64.tar.gz | tar xvz
           sudo mv migrate /usr/local/bin/
           migrate -version
-
-      - name: Pull postgres image (parallel with other setup)
-        run: docker pull postgres:16
 
       - name: Create docker-compose test file
         run: |
@@ -236,14 +255,33 @@ jobs:
           cache: 'npm'
           cache-dependency-path: backend/tests/package-lock.json
 
+      - name: Set up Docker Buildx (for caching)
+        uses: docker/setup-buildx-action@v3
+
+      - name: Cache postgres image
+        uses: actions/cache@v4
+        with:
+          path: /tmp/docker-images
+          key: postgres-16-${{ runner.os }}
+
+      - name: Load or pull postgres image
+        run: |
+          if [ -f /tmp/docker-images/postgres-16.tar ]; then
+            echo "📦 Loading postgres:16 from cache..."
+            docker load -i /tmp/docker-images/postgres-16.tar
+          else
+            echo "⬇️ Pulling postgres:16 from Docker Hub..."
+            docker pull postgres:16
+            mkdir -p /tmp/docker-images
+            docker save postgres:16 -o /tmp/docker-images/postgres-16.tar
+            echo "💾 Saved postgres:16 to cache"
+          fi
+
       - name: Install golang-migrate
         run: |
           curl -L https://github.com/golang-migrate/migrate/releases/download/v4.17.0/migrate.linux-amd64.tar.gz | tar xvz
           sudo mv migrate /usr/local/bin/
           migrate -version
-
-      - name: Pull postgres image (parallel with other setup)
-        run: docker pull postgres:16
 
       - name: Create docker-compose e2e file
         run: |
