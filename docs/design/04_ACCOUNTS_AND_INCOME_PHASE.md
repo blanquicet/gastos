@@ -383,21 +383,54 @@ Request:
 {
   "member_id": "uuid",
   "account_id": "uuid",
+  "type": "salary",
   "amount": 5000000,
   "description": "Salario Enero 2025",
   "income_date": "2025-01-15"
 }
+
+Income Types (income_type enum):
+
+Real Income (increases net worth):
+- salary              - Sueldo mensual
+- bonus               - Bono, prima, aguinaldo
+- freelance           - Trabajo independiente
+- reimbursement       - Reembolso de gastos
+- gift                - Regalo en dinero
+- sale                - Venta de algo (carro, mueble)
+- other_income        - Otro ingreso real
+
+Internal Movements (doesn't increase net worth):
+- savings_withdrawal  - Retiro de ahorros previos (bolsillos, CDT)
+- previous_balance    - Sobrante del mes anterior
+- debt_collection     - Cobro de deuda
+- account_transfer    - Transferencia entre cuentas propias
+- adjustment          - Ajuste contable
 
 Validation:
 - User must be household member
 - Member must belong to user's household
 - Account must exist and belong to household
 - Account type must be 'savings' or 'cash'
+- Type must be valid income_type enum
 - Amount must be positive
 - Income date required (can be future for planning)
 
 Response: 201 Created
 {
+  "id": "uuid",
+  "household_id": "uuid",
+  "member_id": "uuid",
+  "member_name": "Jose Blanquicet",
+  "account_id": "uuid",
+  "account_name": "Cuenta de ahorros Bancolombia",
+  "type": "salary",
+  "amount": 5000000,
+  "description": "Salario Enero 2025",
+  "income_date": "2025-01-15",
+  "created_at": "2025-01-15T10:30:00Z",
+  "updated_at": "2025-01-15T10:30:00Z"
+}
   "id": "uuid",
   "household_id": "uuid",
   "member_id": "uuid",
@@ -464,14 +497,28 @@ Response: 200 OK
     }
   ],
   "totals": {
-    "total_amount": 5800000,
+    "total_amount": 10300000,
+    "real_income_amount": 10300000,
+    "internal_movements_amount": 0,
     "by_member": {
-      "Jose Blanquicet": 5800000,
-      "Caro Salazar": 4500000
+      "Jose Blanquicet": {
+        "total": 5800000,
+        "real_income": 5800000,
+        "internal_movements": 0
+      },
+      "Caro Salazar": {
+        "total": 4500000,
+        "real_income": 4500000,
+        "internal_movements": 0
+      }
     },
     "by_account": {
       "Cuenta de ahorros Bancolombia": 5800000,
       "Cuenta de ahorros Davivienda": 4500000
+    },
+    "by_type": {
+      "salary": 9500000,
+      "freelance": 800000
     }
   }
 }
@@ -769,29 +816,42 @@ Accessible from hamburger menu or from profile.
 │ Ingresos registrados (3):               │
 │                                         │
 │ ┌───────────────────────────────────┐   │
-│ │ Jose - Salario                    │   │
+│ │ Jose - Salario 💰                 │   │
 │ │ $5,000,000 → Cuenta Bancolombia   │   │
 │ │ 15 Ene 2025          [⋮]          │   │
 │ └───────────────────────────────────┘   │
 │                                         │
 │ ┌───────────────────────────────────┐   │
-│ │ Jose - Freelance                  │   │
+│ │ Jose - Freelance 💰               │   │
 │ │ $800,000 → Cuenta Bancolombia     │   │
 │ │ 22 Ene 2025          [⋮]          │   │
 │ └───────────────────────────────────┘   │
 │                                         │
 │ ┌───────────────────────────────────┐   │
-│ │ Caro - Salario                    │   │
+│ │ Jose - Retiro de Ahorros 🔄       │   │
+│ │ $1,000,000 → Cuenta Bancolombia   │   │
+│ │ 10 Ene 2025          [⋮]          │   │
+│ └───────────────────────────────────┘   │
+│                                         │
+│ ┌───────────────────────────────────┐   │
+│ │ Caro - Salario 💰                 │   │
 │ │ $4,500,000 → Cuenta Davivienda    │   │
 │ │ 30 Ene 2025          [⋮]          │   │
 │ └───────────────────────────────────┘   │
 │                                         │
 │ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  │
-│ Por miembro:                            │
-│ Jose: $5,800,000 (56%)                  │
-│ Caro: $4,500,000 (44%)                  │
+│ INGRESO REAL (💰):                      │
+│ Jose: $5,800,000                        │
+│ Caro: $4,500,000                        │
+│ Subtotal: $10,300,000                   │
+│                                         │
+│ MOVIMIENTOS INTERNOS (🔄):              │
+│ Jose: $1,000,000                        │
+│ Subtotal: $1,000,000                    │
+│                                         │
+│ Total registrado: $11,300,000           │
+│ [✓ Mostrar solo ingreso real]           │
 │ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  │
-│ Total del hogar: $10,300,000            │
 └─────────────────────────────────────────┘
 ```
 
@@ -806,6 +866,27 @@ Accessible from hamburger menu or from profile.
 │ │ Jose Blanquicet ▼                   │ │
 │ └─────────────────────────────────────┘ │
 │ (Solo miembros del hogar)               │
+│                                         │
+│ Tipo de Ingreso *                       │
+│ ┌─────────────────────────────────────┐ │
+│ │ Sueldo ▼                            │ │
+│ └─────────────────────────────────────┘ │
+│ Opciones:                               │
+│   INGRESO REAL                          │
+│   • Sueldo                              │
+│   • Bono / Prima                        │
+│   • Trabajo Independiente               │
+│   • Reembolso de Gastos                 │
+│   • Regalo                              │
+│   • Venta                               │
+│   • Otro Ingreso                        │
+│   ─────────────────────                 │
+│   MOVIMIENTO INTERNO                    │
+│   • Retiro de Ahorros                   │
+│   • Sobrante Mes Anterior               │
+│   • Cobro de Deuda                      │
+│   • Transferencia entre Cuentas         │
+│   • Ajuste Contable                     │
 │                                         │
 │ Monto * (COP)                           │
 │ ┌─────────────────────────────────────┐ │
