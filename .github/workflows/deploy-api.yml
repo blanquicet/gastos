@@ -130,6 +130,9 @@ jobs:
           sudo mv migrate /usr/local/bin/
           migrate -version
 
+      - name: Pull postgres image (parallel with other setup)
+        run: docker pull postgres:16
+
       - name: Create docker-compose test file
         run: |
           cat > docker-compose.test.yml <<'EOF'
@@ -238,6 +241,9 @@ jobs:
           curl -L https://github.com/golang-migrate/migrate/releases/download/v4.17.0/migrate.linux-amd64.tar.gz | tar xvz
           sudo mv migrate /usr/local/bin/
           migrate -version
+
+      - name: Pull postgres image (parallel with other setup)
+        run: docker pull postgres:16
 
       - name: Create docker-compose e2e file
         run: |
