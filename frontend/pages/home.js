@@ -197,7 +197,6 @@ function renderIncomeCategories() {
                 <div class="entry-actions">
                   <button class="three-dots-btn" data-income-id="${entry.id}">⋮</button>
                   <div class="three-dots-menu" id="income-menu-${entry.id}">
-                    <button class="menu-item" data-action="edit" data-id="${entry.id}">Editar</button>
                     <button class="menu-item" data-action="delete" data-id="${entry.id}">Eliminar</button>
                   </div>
                 </div>
@@ -304,14 +303,6 @@ function refreshDisplay() {
 }
 
 /**
- * Handle edit income
- */
-async function handleEditIncome(incomeId) {
-  // Navigate to registrar-movimiento page with income ID to edit
-  router.navigate(`/registrar-movimiento?tipo=INGRESO&edit=${incomeId}`);
-}
-
-/**
  * Handle delete income
  */
 async function handleDeleteIncome(incomeId) {
@@ -370,10 +361,23 @@ function setupCategoryListeners() {
       const isOpen = menu.style.display === 'block';
       
       // Close all menus
-      document.querySelectorAll('.three-dots-menu').forEach(m => m.style.display = 'none');
+      document.querySelectorAll('.three-dots-menu').forEach(m => {
+        m.style.display = 'none';
+        m.classList.remove('menu-above');
+      });
       
       // Toggle this menu
       if (!isOpen) {
+        // Check if menu would overflow bottom of viewport
+        const btnRect = btn.getBoundingClientRect();
+        const menuHeight = 80; // Approximate height of menu with 2 items
+        const spaceBelow = window.innerHeight - btnRect.bottom;
+        
+        // If not enough space below, position above
+        if (spaceBelow < menuHeight) {
+          menu.classList.add('menu-above');
+        }
+        
         menu.style.display = 'block';
       }
     });
@@ -397,9 +401,7 @@ function setupCategoryListeners() {
       // Close menu
       document.querySelectorAll('.three-dots-menu').forEach(m => m.style.display = 'none');
 
-      if (action === 'edit') {
-        await handleEditIncome(id);
-      } else if (action === 'delete') {
+      if (action === 'delete') {
         await handleDeleteIncome(id);
       }
     });

@@ -1712,9 +1712,16 @@ button.loading::after {
   border: 1px solid #e5e7eb;
   border-radius: 6px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  z-index: 10;
+  z-index: 1000;
   min-width: 120px;
   margin-top: 4px;
+}
+
+.three-dots-menu.menu-above {
+  top: auto;
+  bottom: 100%;
+  margin-top: 0;
+  margin-bottom: 4px;
 }
 
 .three-dots-menu .menu-item {
@@ -1904,7 +1911,7 @@ button.loading::after {
   background: white;
   border: 1px solid #e5e7eb;
   border-radius: 12px;
-  overflow: hidden;
+  overflow: visible;
   transition: transform 0.2s, box-shadow 0.2s;
 }
 
