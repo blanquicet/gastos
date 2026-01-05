@@ -271,6 +271,29 @@ func (m *MockHouseholdRepository) ListPendingInvitations(ctx context.Context, ho
 	return result, nil
 }
 
+// GetUserHouseholdID returns the household ID for a user
+func (m *MockHouseholdRepository) GetUserHouseholdID(ctx context.Context, userID string) (string, error) {
+	for hID, members := range m.members {
+		for _, member := range members {
+			if member.UserID == userID {
+				return hID, nil
+			}
+		}
+	}
+	return "", ErrHouseholdNotFound
+}
+
+// IsUserMember checks if a user is a member of a household
+func (m *MockHouseholdRepository) IsUserMember(ctx context.Context, householdID, memberID string) (bool, error) {
+	for _, member := range m.members[householdID] {
+		if member.UserID == memberID {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+
 // MockUserRepository is a mock implementation for testing
 type MockUserRepository struct {
 	users map[string]*auth.User
