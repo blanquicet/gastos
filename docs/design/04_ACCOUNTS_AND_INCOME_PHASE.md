@@ -1,6 +1,6 @@
 # Phase 4: Accounts & Income Tracking
 
-> **Status:** 📋 PLANNED
+> **Status:** 🚧 IN PROGRESS (Phase 4.2 Complete ✅)
 >
 > This phase introduces the concept of **Accounts** (where money lives) and **Income Tracking** 
 > to enable future cash flow analysis and financial planning.
@@ -1340,70 +1340,53 @@ This document is designed to be self-contained for implementation. Key points:
 
 ## 🔄 Dual Write Strategy (Migration Period)
 
-### Current State
+### Current State (Phase 4.2 Complete)
 - **Gastos:** n8n → Google Sheets ✅
-- **Ingresos:** ❌ Not implemented
-
-### Implementation Phase (This Phase)
-- **Gastos:** n8n → Google Sheets ✅ (no changes)
-- **Ingresos:** Backend → PostgreSQL + n8n → Google Sheets ✅ (dual write)
+- **Ingresos:** Backend → PostgreSQL + n8n → Google Sheets ✅
 
 ### Future State (Phase 5+)
 - **Gastos:** Backend → PostgreSQL ✅
 - **Ingresos:** Backend → PostgreSQL ✅
 - **Google Sheets:** Deprecated ❌
 
-### Dual Write Implementation
+### n8n Failure Handling (Implemented)
 
-**Backend Flow:**
-```go
-func (h *Handler) CreateIncome(w, r) {
-  // 1. Save to PostgreSQL (source of truth)
-  income, err := h.service.Create(ctx, input)
-  if err != nil {
-    return error
-  }
-  
-  // 2. Send to n8n for Google Sheets
-  err = h.n8nClient.SendIncome(income)
-  if err != nil {
-    // CRITICAL: If Sheets fails, rollback DB transaction
-    // User sees error - dual write must succeed or fail together
-    return error
-  }
-  
-  return success
-}
+**Architecture Decision: Fail Fast (No Retries)**
+
+n8n is not flaky - if down, stays down. User needs immediate feedback to contact admin. Manual intervention acceptable during migration period.
+
+#### Movements (Gastos/Prestamos)
+- Only writes to n8n (no PostgreSQL yet)
+- **On failure:** Nothing saved, returns 503, shows error to user
+- **Code:** `backend/internal/movements/handler.go`
+
+#### Income (Ingresos)  
+- Dual write: PostgreSQL first, then n8n
+- **On failure:** Data saved to DB, NOT synced to Sheets, returns 503
+- **Error:** "income saved to database but not synced to Google Sheets. Please contact administrator"
+- **Code:** `backend/internal/income/service.go`, `types.go`, `handlers.go`
+
+#### Configuration
+- **Production webhook:** `https://n8n.blanquicet.com.co/webhook/movimientos/reportar`
+- **Test flag:** `is_test` in payload (from `N8N_IS_TEST` env var)
+- n8n routes to test/production Sheets based on flag
+
+#### Recovery
+```bash
+# Monitor failures
+grep "failed to send income to n8n" backend.log
+
+# Recovery
+# - Income: Query PostgreSQL for missing entries, manually sync to Sheets
+# - Movements: No recovery needed (nothing was saved)
 ```
 
-**n8n Webhook:**
-```
-POST /webhook/movimientos/reportar
-Content-Type: application/json
+**Not Implemented (by design):**
+- ❌ Retries (n8n failures are persistent)
+- ❌ Retry queue (adds complexity for temporary migration)
+- ❌ Transaction rollback (PostgreSQL is source of truth)
 
-{
-  "tipo": "ingreso",  // NEW field
-  "fecha": "2026-01-15",
-  "miembro": "Jose Blanquicet",
-  "tipo_ingreso": "salary",
-  "monto": 5000000,
-  "descripcion": "Salario Enero"
-}
-```
-
-**Google Sheets Structure:**
-
-New sheet: **"Ingresos"**
-
-| Fecha | Miembro | Tipo | Monto | Descripción |
-|-------|---------|------|-------|-------------|
-| 15/01/2026 | Jose Blanquicet | Sueldo | 5000000 | Salario Enero |
-| 22/01/2026 | Jose Blanquicet | Freelance | 800000 | Proyecto X |
-
-**Error Handling:**
-- If PostgreSQL fails → Return error, don't call n8n
-- If n8n/Sheets fails → Return error, rollback PostgreSQL transaction
-- Both must succeed or both fail (atomic operation)
+See `docs/N8N_FAILURE_HANDLING.md` for complete documentation.
 
 ---
 
@@ -1534,26 +1517,29 @@ Jose has existing income data in Excel to migrate:
 
 ## ✅ Updated Implementation Checklist
 
-### Phase 4.1: Accounts Backend (DONE ✅)
+### Phase 4.1: Accounts Backend ✅ COMPLETE
 - [x] Database migrations (011-014)
 - [x] Accounts module (types, repository, service, handlers)
-- [x] API endpoints
-- [x] Integration tests
+- [x] API endpoints (POST, GET, PATCH, DELETE)
+- [x] Integration tests passing
+- [x] Account type restrictions (savings/cash can receive income)
 
-### Phase 4.2: Income Backend (Day 1)
-- [ ] Update migration 012 with income_type enum (DONE ✅)
-- [ ] Create income module
-  - [ ] types.go (13 income types, IsRealIncome helper)
-  - [ ] repository.go (CRUD + GetTotals with type breakdown)
-  - [ ] service.go (business logic + authorization)
-  - [ ] handlers.go (POST, GET, PATCH, DELETE)
-- [ ] Dual write implementation
-  - [ ] n8n client method for income
-  - [ ] Atomic transaction (DB + Sheets or fail all)
-- [ ] Integration tests
-  - [ ] Create, list, update, delete income
-  - [ ] Test all income types
-  - [ ] Test totals calculation (real vs internal)
+### Phase 4.2: Income Backend ✅ COMPLETE
+- [x] Update migration 012 with income_type enum
+- [x] Create income module
+  - [x] types.go (13 income types, IsRealIncome helper)
+  - [x] repository.go (CRUD + GetTotals with type breakdown)
+  - [x] service.go (business logic + authorization)
+  - [x] handlers.go (POST, GET, PATCH, DELETE)
+- [x] Dual write implementation
+  - [x] n8n client method for income
+  - [x] n8n failure handling (fail fast with clear errors)
+  - [x] Production webhook with is_test flag
+- [x] Integration tests
+  - [x] Create, list, update, delete income (13 tests)
+  - [x] Test all income types
+  - [x] Test totals calculation (real vs internal)
+  - [x] Test validation (account types, authorization)
 
 ### Phase 4.3: UI - Registrar Movimiento (Day 2)
 - [ ] Add "Ingreso" radio option
@@ -1582,5 +1568,5 @@ Jose has existing income data in Excel to migrate:
 ---
 
 **Last Updated:** 2026-01-05  
-**Status:** 🚀 Ready to implement - Starting with Income Backend  
-**Next Action:** Create income module (types, repository, service, handlers)
+**Status:** 🚧 IN PROGRESS - Phase 4.2 Complete ✅  
+**Next Action:** Phase 4.3 - UI for Registrar Movimiento (add income option)

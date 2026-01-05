@@ -15,6 +15,7 @@ import (
 	"github.com/blanquicet/gastos/backend/internal/config"
 	"github.com/blanquicet/gastos/backend/internal/email"
 	"github.com/blanquicet/gastos/backend/internal/households"
+	"github.com/blanquicet/gastos/backend/internal/income"
 	"github.com/blanquicet/gastos/backend/internal/middleware"
 	"github.com/blanquicet/gastos/backend/internal/movements"
 	"github.com/blanquicet/gastos/backend/internal/n8nclient"
@@ -105,6 +106,28 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 		logger,
 	)
 	
+	// Create n8n client and movements handler (for migration period)
+	var movementsHandler *movements.Handler
+	var n8nClient *n8nclient.Client
+	if cfg.N8NWebhookURL != "" && cfg.N8NAPIKey != "" {
+		n8nClient = n8nclient.New(cfg.N8NWebhookURL, cfg.N8NAPIKey, cfg.N8NIsTest)
+		movementsHandler = movements.NewHandler(n8nClient, logger)
+		logger.Info("n8n client configured for movements", "webhook", cfg.N8NWebhookURL, "is_test", cfg.N8NIsTest)
+	} else {
+		logger.Info("n8n client not configured; movement endpoints will be disabled")
+	}
+	
+	// Create income service and handler (needs n8n client for dual write)
+	incomeRepo := income.NewRepository(pool)
+	incomeService := income.NewService(incomeRepo, accountsRepo, householdRepo, n8nClient, logger)
+	
+	incomeHandler := income.NewHandler(
+		incomeService,
+		authService,
+		cfg.SessionCookieName,
+		logger,
+	)
+	
 	// Create household handler (needs function to load shared payment methods)
 	loadSharedPM := func(ctx context.Context, householdID, userID string) (interface{}, error) {
 		return paymentMethodsService.ListSharedPaymentMethods(ctx, householdID, userID)
@@ -125,16 +148,6 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 		cfg.SessionCookieName,
 		logger,
 	)
-
-	// Create n8n client and movements handler (for migration period)
-	var movementsHandler *movements.Handler
-	if cfg.N8NWebhookURL != "" && cfg.N8NAPIKey != "" {
-		n8nClient := n8nclient.New(cfg.N8NWebhookURL, cfg.N8NAPIKey)
-		movementsHandler = movements.NewHandler(n8nClient, logger)
-		logger.Info("n8n client configured for movements", "webhook", cfg.N8NWebhookURL)
-	} else {
-		logger.Info("n8n client not configured; movement endpoints will be disabled")
-	}
 
 	// Create form config handler for movements
 	formConfigHandler := movements.NewFormConfigHandler(
@@ -207,6 +220,13 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 	mux.HandleFunc("GET /accounts/{id}", accountsHandler.GetAccount)
 	mux.HandleFunc("PATCH /accounts/{id}", accountsHandler.UpdateAccount)
 	mux.HandleFunc("DELETE /accounts/{id}", accountsHandler.DeleteAccount)
+
+	// Income endpoints
+	mux.HandleFunc("POST /income", incomeHandler.HandleCreate)
+	mux.HandleFunc("GET /income", incomeHandler.HandleList)
+	mux.HandleFunc("GET /income/{id}", incomeHandler.HandleGetByID)
+	mux.HandleFunc("PATCH /income/{id}", incomeHandler.HandleUpdate)
+	mux.HandleFunc("DELETE /income/{id}", incomeHandler.HandleDelete)
 
 	// Payment methods endpoints
 	mux.HandleFunc("POST /payment-methods", paymentMethodsHandler.CreatePaymentMethod)

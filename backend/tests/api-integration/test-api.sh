@@ -538,6 +538,114 @@ DELETE_STATUS=$(curl -s -w "%{http_code}" -o /dev/null -X DELETE $BASE_URL/accou
 echo -e "${GREEN}✓ Deleted account ($DELETE_TEST_ID)${NC}\n"
 
 # ═══════════════════════════════════════════════════════════
+# INCOME MANAGEMENT
+# ═══════════════════════════════════════════════════════════
+
+echo -e "\n${BLUE}═══ INCOME MANAGEMENT ═══${NC}\n"
+
+run_test "Create Salary Income"
+CREATE_INCOME=$(curl -s -X POST $BASE_URL/income \
+  -b $COOKIES_FILE \
+  -H "Content-Type: application/json" \
+  -d "{\"member_id\":\"$JOSE_ID\",\"account_id\":\"$ACCOUNT_ID\",\"type\":\"salary\",\"amount\":5000000,\"description\":\"Salario Enero 2026\",\"income_date\":\"2026-01-15\"}")
+echo "$CREATE_INCOME" | jq -e '.id' > /dev/null
+INCOME_ID=$(echo "$CREATE_INCOME" | jq -r '.id')
+echo "$CREATE_INCOME" | jq -e '.type == "salary"' > /dev/null
+echo "$CREATE_INCOME" | jq -e '.amount == 5000000' > /dev/null
+echo -e "${GREEN}✓ Created salary income ($INCOME_ID)${NC}\n"
+
+run_test "Create Freelance Income"
+CREATE_FREELANCE=$(curl -s -X POST $BASE_URL/income \
+  -b $COOKIES_FILE \
+  -H "Content-Type: application/json" \
+  -d "{\"member_id\":\"$JOSE_ID\",\"account_id\":\"$ACCOUNT_ID\",\"type\":\"freelance\",\"amount\":800000,\"description\":\"Proyecto X\",\"income_date\":\"2026-01-22\"}")
+echo "$CREATE_FREELANCE" | jq -e '.id' > /dev/null
+FREELANCE_ID=$(echo "$CREATE_FREELANCE" | jq -r '.id')
+echo -e "${GREEN}✓ Created freelance income ($FREELANCE_ID)${NC}\n"
+
+run_test "Create Internal Movement (Savings Withdrawal)"
+CREATE_WITHDRAWAL=$(curl -s -X POST $BASE_URL/income \
+  -b $COOKIES_FILE \
+  -H "Content-Type: application/json" \
+  -d "{\"member_id\":\"$JOSE_ID\",\"account_id\":\"$ACCOUNT_ID\",\"type\":\"savings_withdrawal\",\"amount\":1000000,\"description\":\"Retiro de bolsillo\",\"income_date\":\"2026-01-10\"}")
+echo "$CREATE_WITHDRAWAL" | jq -e '.id' > /dev/null
+WITHDRAWAL_ID=$(echo "$CREATE_WITHDRAWAL" | jq -r '.id')
+echo -e "${GREEN}✓ Created savings withdrawal ($WITHDRAWAL_ID)${NC}\n"
+
+run_test "List Income (No Filters)"
+INCOME_LIST=$(curl -s -X GET $BASE_URL/income -b $COOKIES_FILE)
+INCOME_COUNT=$(echo "$INCOME_LIST" | jq '.income_entries | length')
+[ "$INCOME_COUNT" -ge "3" ]
+echo -e "${GREEN}✓ Listed $INCOME_COUNT income entries${NC}\n"
+
+run_test "Verify Income Totals"
+TOTAL_AMOUNT=$(echo "$INCOME_LIST" | jq -r '.totals.total_amount')
+REAL_INCOME=$(echo "$INCOME_LIST" | jq -r '.totals.real_income_amount')
+INTERNAL_MOVEMENTS=$(echo "$INCOME_LIST" | jq -r '.totals.internal_movements_amount')
+echo "$INCOME_LIST" | jq -e '.totals.total_amount == 6800000' > /dev/null
+echo "$INCOME_LIST" | jq -e '.totals.real_income_amount == 5800000' > /dev/null
+echo "$INCOME_LIST" | jq -e '.totals.internal_movements_amount == 1000000' > /dev/null
+echo -e "${GREEN}✓ Totals verified (total: $TOTAL_AMOUNT, real: $REAL_INCOME, internal: $INTERNAL_MOVEMENTS)${NC}\n"
+
+run_test "Filter Income by Member"
+MEMBER_INCOME=$(curl -s -X GET "$BASE_URL/income?member_id=$JOSE_ID" -b $COOKIES_FILE)
+MEMBER_COUNT=$(echo "$MEMBER_INCOME" | jq '.income_entries | length')
+[ "$MEMBER_COUNT" -ge "3" ]
+echo -e "${GREEN}✓ Filtered by member: $MEMBER_COUNT entries${NC}\n"
+
+run_test "Filter Income by Account"
+ACCOUNT_INCOME=$(curl -s -X GET "$BASE_URL/income?account_id=$ACCOUNT_ID" -b $COOKIES_FILE)
+ACCOUNT_COUNT=$(echo "$ACCOUNT_INCOME" | jq '.income_entries | length')
+[ "$ACCOUNT_COUNT" -ge "3" ]
+echo -e "${GREEN}✓ Filtered by account: $ACCOUNT_COUNT entries${NC}\n"
+
+run_test "Filter Income by Month"
+MONTH_INCOME=$(curl -s -X GET "$BASE_URL/income?month=2026-01" -b $COOKIES_FILE)
+MONTH_COUNT=$(echo "$MONTH_INCOME" | jq '.income_entries | length')
+[ "$MONTH_COUNT" -ge "3" ]
+echo -e "${GREEN}✓ Filtered by month: $MONTH_COUNT entries${NC}\n"
+
+run_test "Get Income by ID"
+GET_INCOME=$(curl -s -X GET $BASE_URL/income/$INCOME_ID -b $COOKIES_FILE)
+echo "$GET_INCOME" | jq -e '.id == "'$INCOME_ID'"' > /dev/null
+echo "$GET_INCOME" | jq -e '.member_name' > /dev/null
+echo "$GET_INCOME" | jq -e '.account_name' > /dev/null
+echo -e "${GREEN}✓ Retrieved income details with enriched data${NC}\n"
+
+run_test "Update Income"
+UPDATE_INCOME=$(curl -s -X PATCH $BASE_URL/income/$INCOME_ID \
+  -b $COOKIES_FILE \
+  -H "Content-Type: application/json" \
+  -d '{"amount":5200000,"description":"Salario Enero + Bono"}')
+echo "$UPDATE_INCOME" | jq -e '.amount == 5200000' > /dev/null
+echo "$UPDATE_INCOME" | jq -e '.description == "Salario Enero + Bono"' > /dev/null
+echo -e "${GREEN}✓ Updated income${NC}\n"
+
+run_test "Prevent Income to Checking Account"
+CREATE_CHECKING=$(curl -s -X POST $BASE_URL/accounts \
+  -b $COOKIES_FILE \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Cuenta Corriente","type":"checking"}')
+CHECKING_ID=$(echo "$CREATE_CHECKING" | jq -r '.id')
+INVALID_INCOME_STATUS=$(curl -s -w "%{http_code}" -o /dev/null -X POST $BASE_URL/income \
+  -b $COOKIES_FILE \
+  -H "Content-Type: application/json" \
+  -d "{\"member_id\":\"$JOSE_ID\",\"account_id\":\"$CHECKING_ID\",\"type\":\"salary\",\"amount\":1000000,\"description\":\"Test\",\"income_date\":\"2026-01-15\"}")
+[ "$INVALID_INCOME_STATUS" = "400" ]
+echo -e "${GREEN}✓ Prevented income to checking account${NC}\n"
+
+run_test "Delete Income"
+DELETE_INCOME_STATUS=$(curl -s -w "%{http_code}" -o /dev/null -X DELETE $BASE_URL/income/$WITHDRAWAL_ID -b $COOKIES_FILE)
+[ "$DELETE_INCOME_STATUS" = "204" ]
+echo -e "${GREEN}✓ Deleted income ($WITHDRAWAL_ID)${NC}\n"
+
+run_test "Verify Account Balance After Income"
+BALANCE_ACCOUNT=$(curl -s -X GET $BASE_URL/accounts/$ACCOUNT_ID -b $COOKIES_FILE)
+# Initial balance 5500000 + income (5200000 + 800000) = 11500000
+echo "$BALANCE_ACCOUNT" | jq -e '.current_balance == 11500000' > /dev/null
+echo -e "${GREEN}✓ Account balance updated correctly after income${NC}\n"
+
+# ═══════════════════════════════════════════════════════════
 # CLEANUP (if requested)
 # ═══════════════════════════════════════════════════════════
 

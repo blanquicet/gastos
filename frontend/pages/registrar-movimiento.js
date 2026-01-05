@@ -820,7 +820,8 @@ function readForm() {
 
   return {
     fecha,
-    tipo,
+    tipo: 'gasto', // All movements are "gasto" until we split gastos/prestamos
+    sub_tipo: tipo,
     descripcion,
     categoria,
     valor,
@@ -859,9 +860,9 @@ async function onSubmit(e) {
 
     const text = await res.text();
     if (!res.ok) {
-      // Check if it's a n8n connection issue (500 with "Failed to record movement")
-      if (res.status === 500 && text.includes('Failed to record movement')) {
-        throw new Error('No se pudo conectar con n8n para guardar el movimiento en Google Sheets');
+      // Check if it's a n8n service unavailable (503)
+      if (res.status === 503) {
+        throw new Error('⚠️ n8n no está disponible - El movimiento NO se guardó. Por favor contacta al administrador.');
       }
       throw new Error(`HTTP ${res.status} - ${text}`);
     }

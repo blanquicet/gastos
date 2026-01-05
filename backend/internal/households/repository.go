@@ -617,3 +617,37 @@ func (r *Repository) ListPendingInvitations(ctx context.Context, householdID str
 
 	return invitations, nil
 }
+
+// GetUserHouseholdID gets the household ID for a user (first household they belong to)
+func (r *Repository) GetUserHouseholdID(ctx context.Context, userID string) (string, error) {
+	var householdID string
+	err := r.pool.QueryRow(ctx, `
+		SELECT household_id 
+		FROM household_members 
+		WHERE user_id = $1
+		LIMIT 1
+	`, userID).Scan(&householdID)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", errors.New("user has no household")
+		}
+		return "", err
+	}
+
+	return householdID, nil
+}
+
+// IsUserMember checks if a user is a member of a household
+func (r *Repository) IsUserMember(ctx context.Context, householdID, userID string) (bool, error) {
+	var exists bool
+	err := r.pool.QueryRow(ctx, `
+		SELECT EXISTS(
+			SELECT 1 FROM household_members 
+			WHERE household_id = $1 AND user_id = $2
+		)
+	`, householdID, userID).Scan(&exists)
+
+	return exists, err
+}
+

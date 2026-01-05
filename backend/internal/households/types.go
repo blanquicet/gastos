@@ -165,4 +165,8 @@ type HouseholdRepository interface {
 	GetInvitationByToken(ctx context.Context, token string) (*HouseholdInvitation, error)
 	AcceptInvitation(ctx context.Context, id string) error
 	ListPendingInvitations(ctx context.Context, householdID string) ([]*HouseholdInvitation, error)
+	
+	// Helper methods
+	GetUserHouseholdID(ctx context.Context, userID string) (string, error)
+	IsUserMember(ctx context.Context, householdID, userID string) (bool, error)
 }

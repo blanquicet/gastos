@@ -49,7 +49,7 @@ func (h *Handler) RecordMovement(w http.ResponseWriter, r *http.Request) {
 	resp, err := h.n8nClient.RecordMovement(r.Context(), &movement)
 	if err != nil {
 		h.logger.Error("failed to record movement in n8n", "error", err, "movement_id", movement.ID)
-		http.Error(w, "Failed to record movement", http.StatusInternalServerError)
+		http.Error(w, "n8n service unavailable - movement could not be synced to Google Sheets. Please contact administrator", http.StatusServiceUnavailable)
 		return
 	}
 
