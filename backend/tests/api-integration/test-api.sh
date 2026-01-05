@@ -475,6 +475,69 @@ HAS_CONTACTS=$(echo "$FORM_CONFIG" | jq '.users[] | select(.type=="contact")' | 
 echo -e "${GREEN}✓ Form config has correct structure (members: $HAS_MEMBERS, contacts: $HAS_CONTACTS)${NC}\n"
 
 # ═══════════════════════════════════════════════════════════
+# ACCOUNTS MANAGEMENT
+# ═══════════════════════════════════════════════════════════
+
+echo -e "\n${BLUE}═══ ACCOUNTS MANAGEMENT ═══${NC}\n"
+
+run_test "Create Savings Account"
+CREATE_ACCOUNT=$(curl -s -X POST $BASE_URL/accounts \
+  -b $COOKIES_FILE \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Cuenta de ahorros Bancolombia","type":"savings","institution":"Bancolombia","last4":"1234","initial_balance":5000000,"notes":"Cuenta principal"}')
+echo "$CREATE_ACCOUNT" | jq -e '.id' > /dev/null
+ACCOUNT_ID=$(echo "$CREATE_ACCOUNT" | jq -r '.id')
+echo -e "${GREEN}✓ Created savings account ($ACCOUNT_ID)${NC}\n"
+
+run_test "Create Cash Account"
+CREATE_CASH=$(curl -s -X POST $BASE_URL/accounts \
+  -b $COOKIES_FILE \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Efectivo en Casa","type":"cash","initial_balance":200000}')
+echo "$CREATE_CASH" | jq -e '.id' > /dev/null
+CASH_ACCOUNT_ID=$(echo "$CREATE_CASH" | jq -r '.id')
+echo -e "${GREEN}✓ Created cash account ($CASH_ACCOUNT_ID)${NC}\n"
+
+run_test "List Accounts"
+ACCOUNTS=$(curl -s -X GET $BASE_URL/accounts -b $COOKIES_FILE)
+ACCOUNTS_COUNT=$(echo "$ACCOUNTS" | jq 'length')
+[ "$ACCOUNTS_COUNT" -ge "2" ]
+echo -e "${GREEN}✓ Listed $ACCOUNTS_COUNT accounts${NC}\n"
+
+run_test "Get Account by ID"
+GET_ACCOUNT=$(curl -s -X GET $BASE_URL/accounts/$ACCOUNT_ID -b $COOKIES_FILE)
+echo "$GET_ACCOUNT" | jq -e '.id == "'$ACCOUNT_ID'"' > /dev/null
+echo "$GET_ACCOUNT" | jq -e '.current_balance == 5000000' > /dev/null
+echo -e "${GREEN}✓ Retrieved account details${NC}\n"
+
+run_test "Update Account"
+UPDATE_ACCOUNT=$(curl -s -X PATCH $BASE_URL/accounts/$ACCOUNT_ID \
+  -b $COOKIES_FILE \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Cuenta de ahorros Bancolombia Principal","initial_balance":5500000}')
+echo "$UPDATE_ACCOUNT" | jq -e '.name == "Cuenta de ahorros Bancolombia Principal"' > /dev/null
+echo "$UPDATE_ACCOUNT" | jq -e '.initial_balance == 5500000' > /dev/null
+echo -e "${GREEN}✓ Updated account${NC}\n"
+
+run_test "Prevent Duplicate Account Name"
+DUPLICATE_STATUS=$(curl -s -w "%{http_code}" -o /dev/null -X POST $BASE_URL/accounts \
+  -b $COOKIES_FILE \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Cuenta de ahorros Bancolombia Principal","type":"savings"}')
+[ "$DUPLICATE_STATUS" = "409" ]
+echo -e "${GREEN}✓ Prevented duplicate account name${NC}\n"
+
+run_test "Delete Account (Will create new account for deletion test)"
+DELETE_TEST_ACCOUNT=$(curl -s -X POST $BASE_URL/accounts \
+  -b $COOKIES_FILE \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Account to Delete","type":"savings"}')
+DELETE_TEST_ID=$(echo "$DELETE_TEST_ACCOUNT" | jq -r '.id')
+DELETE_STATUS=$(curl -s -w "%{http_code}" -o /dev/null -X DELETE $BASE_URL/accounts/$DELETE_TEST_ID -b $COOKIES_FILE)
+[ "$DELETE_STATUS" = "204" ]
+echo -e "${GREEN}✓ Deleted account ($DELETE_TEST_ID)${NC}\n"
+
+# ═══════════════════════════════════════════════════════════
 # CLEANUP (if requested)
 # ═══════════════════════════════════════════════════════════
 

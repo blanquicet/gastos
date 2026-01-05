@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/blanquicet/gastos/backend/internal/accounts"
 	"github.com/blanquicet/gastos/backend/internal/auth"
 	"github.com/blanquicet/gastos/backend/internal/config"
 	"github.com/blanquicet/gastos/backend/internal/email"
@@ -91,6 +92,18 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 	// Create payment methods service and handler
 	paymentMethodsRepo := paymentmethods.NewRepository(pool)
 	paymentMethodsService := paymentmethods.NewService(paymentMethodsRepo)
+	
+	// Create accounts service and handler
+	accountsRepo := accounts.NewRepository(pool)
+	accountsService := accounts.NewService(accountsRepo)
+	
+	accountsHandler := accounts.NewHandler(
+		accountsService,
+		authService,
+		householdRepo,
+		cfg.SessionCookieName,
+		logger,
+	)
 	
 	// Create household handler (needs function to load shared payment methods)
 	loadSharedPM := func(ctx context.Context, householdID, userID string) (interface{}, error) {
@@ -187,6 +200,13 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 	
 	// Invitation endpoints
 	mux.HandleFunc("POST /households/{id}/invitations", householdHandler.CreateInvitation)
+
+	// Accounts endpoints
+	mux.HandleFunc("POST /accounts", accountsHandler.CreateAccount)
+	mux.HandleFunc("GET /accounts", accountsHandler.ListAccounts)
+	mux.HandleFunc("GET /accounts/{id}", accountsHandler.GetAccount)
+	mux.HandleFunc("PATCH /accounts/{id}", accountsHandler.UpdateAccount)
+	mux.HandleFunc("DELETE /accounts/{id}", accountsHandler.DeleteAccount)
 
 	// Payment methods endpoints
 	mux.HandleFunc("POST /payment-methods", paymentMethodsHandler.CreatePaymentMethod)
