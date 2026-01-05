@@ -44,6 +44,8 @@ func (t AccountType) CanReceiveIncome() bool {
 type Account struct {
 	ID             string       `json:"id"`
 	HouseholdID    string       `json:"household_id"`
+	OwnerID        string       `json:"owner_id"`
+	OwnerName      string       `json:"owner_name,omitempty"` // Populated from join
 	Name           string       `json:"name"`
 	Type           AccountType  `json:"type"`
 	Institution    *string      `json:"institution,omitempty"`

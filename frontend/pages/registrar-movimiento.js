@@ -18,6 +18,7 @@ let usersMap = {}; // Map of name -> user object
 let primaryUsers = [];
 let paymentMethods = []; // Full payment method objects with owner_id and is_shared
 let categories = [];
+let accounts = []; // Accounts for income registration
 let formConfigLoaded = false;
 
 let participants = []; // [{ name, pct }]
@@ -74,7 +75,7 @@ export function render(user) {
           <h1>Registrar movimiento</h1>
           ${Navbar.render(user, '/registrar-movimiento')}
         </div>
-        <p class="subtitle">Gasto del hogar, dividir gasto o pago de deuda.</p>
+        <p class="subtitle">Registra ingresos, gastos o préstamos</p>
       </header>
 
       <form id="movForm" novalidate>
@@ -86,9 +87,10 @@ export function render(user) {
           </label>
 
           <label class="field">
-            <span>Tipo de movimiento</span>
+            <span>¿Qué deseas registrar?</span>
             <select name="tipo" id="tipo" required>
               <option value="" selected disabled>Seleccionar</option>
+              <option value="INGRESO">Ingreso</option>
               <option value="FAMILIAR">Gasto del hogar</option>
               <option value="COMPARTIDO">Dividir gasto</option>
               <option value="PAGO_DEUDA">Pago de deuda</option>
@@ -117,6 +119,42 @@ export function render(user) {
               <input name="valor" id="valor" type="text" inputmode="decimal" placeholder="0" required style="border: none; outline: none; flex: 1; padding: 8px 8px 8px 2px; background-color: transparent; text-align: right; min-width: 0;" />
             </div>
             <small class="hint">Obligatorio</small>
+          </label>
+
+          <!-- Income-specific fields -->
+          <label class="field hidden" id="ingresoMiembroWrap">
+            <span>Quien recibe</span>
+            <select name="ingresoMiembro" id="ingresoMiembro">
+              <option value="" selected>Seleccionar</option>
+            </select>
+            <small class="hint">Solo miembros del hogar</small>
+          </label>
+
+          <label class="field col-span-2 hidden" id="ingresoTipoWrap">
+            <span>Tipo de Ingreso</span>
+            <select name="ingresoTipo" id="ingresoTipo">
+              <option value="" selected disabled>Seleccionar</option>
+              <optgroup label="INGRESO REAL">
+                <option value="salary">Sueldo</option>
+                <option value="bonus">Bono / Prima</option>
+                <option value="reimbursement">Reembolso de Gastos</option>
+                <option value="other_income">Otro Ingreso</option>
+              </optgroup>
+              <optgroup label="MOVIMIENTO INTERNO">
+                <option value="savings_withdrawal">Retiro de Ahorros</option>
+                <option value="previous_balance">Sobrante Mes Anterior</option>
+                <option value="adjustment">Ajuste Contable</option>
+              </optgroup>
+            </select>
+            <small class="hint">Obligatorio</small>
+          </label>
+
+          <label class="field col-span-2 hidden" id="ingresoCuentaWrap">
+            <span>Cuenta destino</span>
+            <select name="ingresoCuenta" id="ingresoCuenta">
+              <option value="" selected>Seleccionar</option>
+            </select>
+            <small class="hint">Solo cuentas tipo savings o cash</small>
           </label>
 
           <!-- Pagador y Tomador en fila (para PAGO_DEUDA) -->
@@ -214,6 +252,9 @@ async function loadFormConfig() {
     // Use categories from API
     categories = config.categories || [];
     
+    // Load accounts for income registration
+    await loadAccounts();
+    
     formConfigLoaded = true;
     
   } catch (error) {
@@ -224,6 +265,30 @@ async function loadFormConfig() {
     primaryUsers = [];
     paymentMethods = [];
     categories = [];
+    accounts = [];
+  }
+}
+
+/**
+ * Load accounts from API (for income registration)
+ */
+async function loadAccounts() {
+  try {
+    const response = await fetch(`${API_URL}/accounts`, {
+      credentials: 'include'
+    });
+    
+    if (!response.ok) {
+      throw new Error('Error loading accounts');
+    }
+    
+    const accountsData = await response.json();
+    // Filter to only savings and cash accounts (can receive income)
+    accounts = accountsData.filter(a => a.type === 'savings' || a.type === 'cash');
+    
+  } catch (error) {
+    console.error('Error loading accounts:', error);
+    accounts = [];
   }
 }
 
@@ -265,9 +330,18 @@ export async function setup() {
   renderUserSelect(document.getElementById('tomador'), users, true);
   renderCategorySelect();
   renderPaymentMethodSelect();
+  renderIngresoMiembroSelect();
+  renderIngresoCuentaSelect();
 
   // Reset participants for COMPARTIDO
   resetParticipants();
+
+  // Check URL params for pre-selection
+  const urlParams = new URLSearchParams(window.location.search);
+  const tipoParam = urlParams.get('tipo');
+  if (tipoParam && tipoEl) {
+    tipoEl.value = tipoParam;
+  }
 
   // Event listeners
   tipoEl.addEventListener('change', onTipoChange);
@@ -297,6 +371,15 @@ export async function setup() {
       e.target.value = toEditableNumber(rawValue);
     }
   });
+  
+  // Event listener for income member selector to filter accounts
+  const ingresoMiembroEl = document.getElementById('ingresoMiembro');
+  if (ingresoMiembroEl) {
+    ingresoMiembroEl.addEventListener('change', (e) => {
+      const selectedMemberId = e.target.value;
+      renderIngresoCuentaSelect(selectedMemberId || null);
+    });
+  }
   
   addParticipantBtn.addEventListener('click', onAddParticipant);
   form.addEventListener('submit', onSubmit);
@@ -371,6 +454,68 @@ function renderCategorySelect() {
 }
 
 /**
+ * Render income member select (only primary users/members)
+ */
+function renderIngresoMiembroSelect() {
+  const miembroEl = document.getElementById('ingresoMiembro');
+  if (!miembroEl) return;
+  
+  miembroEl.innerHTML = '';
+  
+  const base = document.createElement('option');
+  base.value = '';
+  base.textContent = 'Seleccionar';
+  base.selected = true;
+  miembroEl.appendChild(base);
+
+  for (const userName of primaryUsers) {
+    const user = usersMap[userName];
+    if (user) {
+      const opt = document.createElement('option');
+      opt.value = user.id;  // Use user ID
+      opt.textContent = userName;
+      miembroEl.appendChild(opt);
+    }
+  }
+}
+
+/**
+ * Render accounts select (only savings and cash, filtered by owner)
+ */
+function renderIngresoCuentaSelect(ownerId = null) {
+  const cuentaEl = document.getElementById('ingresoCuenta');
+  if (!cuentaEl) return;
+  
+  cuentaEl.innerHTML = '';
+  
+  const base = document.createElement('option');
+  base.value = '';
+  base.selected = true;
+  base.textContent = 'Seleccionar';
+  cuentaEl.appendChild(base);
+
+  // Only show accounts if an owner is selected
+  if (!ownerId) {
+    return;
+  }
+
+  // Filter accounts by owner
+  const filteredAccounts = accounts.filter(account => account.owner_id === ownerId);
+
+  if (filteredAccounts.length === 0) {
+    base.textContent = 'Este miembro no tiene cuentas';
+    return;
+  }
+
+  for (const account of filteredAccounts) {
+    const opt = document.createElement('option');
+    opt.value = account.id;
+    opt.textContent = account.name;
+    cuentaEl.appendChild(opt);
+  }
+}
+
+/**
  * Update submit button state
  */
 function updateSubmitButton(isCompartido) {
@@ -389,17 +534,42 @@ function onTipoChange() {
   const isFamiliar = tipo === 'FAMILIAR';
   const isPagoDeuda = tipo === 'PAGO_DEUDA';
   const isCompartido = tipo === 'COMPARTIDO';
+  const isIngreso = tipo === 'INGRESO';
 
+  // Show/hide sections based on tipo
   document.getElementById('pagadorTomadorRow').classList.toggle('hidden', !isPagoDeuda);
   document.getElementById('pagadorWrap').classList.toggle('hidden', !isCompartido);
   document.getElementById('participantesWrap').classList.toggle('hidden', !isCompartido);
+  
+  // Income-specific fields
+  document.getElementById('ingresoMiembroWrap').classList.toggle('hidden', !isIngreso);
+  document.getElementById('ingresoTipoWrap').classList.toggle('hidden', !isIngreso);
+  document.getElementById('ingresoCuentaWrap').classList.toggle('hidden', !isIngreso);
+
+  // Reset income fields when switching to/from INGRESO
+  if (isIngreso) {
+    // When switching TO income, reset account dropdown to empty (no owner selected yet)
+    renderIngresoCuentaSelect(null);
+  } else {
+    // When switching away from INGRESO, reset all fields
+    document.getElementById('ingresoMiembro').value = '';
+    document.getElementById('ingresoTipo').value = '';
+    document.getElementById('ingresoCuenta').value = '';
+    renderIngresoCuentaSelect(null);
+  }
+
+  // For income, hide category (not needed)
+  const categoriaField = document.querySelector('#categoria').closest('.field');
+  if (categoriaField) {
+    categoriaField.classList.toggle('hidden', isIngreso);
+  }
 
   updateSubmitButton(isCompartido);
 
   if (isFamiliar) {
     // For FAMILIAR type, show payment methods for current user
     showPaymentMethods(currentUser ? currentUser.name : '', true);
-  } else {
+  } else if (!isIngreso) {
     onPagadorChange();
   }
 
@@ -774,14 +944,38 @@ function readForm() {
   const fecha = (document.getElementById('fecha').value || '').slice(0, 10);
   const descripcion = (document.getElementById('descripcion').value || '').trim();
   const valor = parseNumber(document.getElementById('valor').value);
-  const pagador = getCurrentPayer();
-  const metodo = document.getElementById('metodo').value || '';
-  const tomador = document.getElementById('tomador').value || '';
-  const categoria = document.getElementById('categoria').value || '';
 
   if (!fecha) throw new Error('Fecha es obligatoria.');
   if (!tipo) throw new Error('Tipo de movimiento es obligatorio.');
   if (!Number.isFinite(valor) || valor <= 0) throw new Error('Monto total debe ser un número mayor a 0.');
+  if (!descripcion) throw new Error('Descripción es obligatoria.');
+
+  // Handle INGRESO separately
+  if (tipo === 'INGRESO') {
+    const ingresoMiembro = document.getElementById('ingresoMiembro').value || '';
+    const ingresoTipo = document.getElementById('ingresoTipo').value || '';
+    const ingresoCuenta = document.getElementById('ingresoCuenta').value || '';
+
+    if (!ingresoMiembro) throw new Error('Debes seleccionar para quién es el ingreso.');
+    if (!ingresoTipo) throw new Error('Debes seleccionar el tipo de ingreso.');
+    if (!ingresoCuenta) throw new Error('Debes seleccionar la cuenta destino.');
+
+    return {
+      tipo: 'INGRESO',
+      member_id: ingresoMiembro,
+      account_id: ingresoCuenta,
+      type: ingresoTipo,
+      amount: valor,
+      description: descripcion,
+      income_date: fecha
+    };
+  }
+
+  // Handle regular movements (gastos, prestamos)
+  const pagador = getCurrentPayer();
+  const metodo = document.getElementById('metodo').value || '';
+  const tomador = document.getElementById('tomador').value || '';
+  const categoria = document.getElementById('categoria').value || '';
 
   if (tipo !== 'FAMILIAR' && !pagador) throw new Error('Pagador es obligatorio.');
 
@@ -848,26 +1042,68 @@ async function onSubmit(e) {
     // Show loading state
     submitBtn.disabled = true;
     submitBtn.textContent = 'Guardando...';
-    setStatus('Registrando movimiento...', 'loading');
+    
+    // Handle INGRESO separately - submit to income API
+    if (payload.tipo === 'INGRESO') {
+      setStatus('Registrando ingreso...', 'loading');
+      
+      const res = await fetch(`${API_URL}/income`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify(payload)
+      });
 
-    const res = await fetch(getMovementsApiUrl(), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
-
-    const text = await res.text();
-    if (!res.ok) {
-      // Check if it's a n8n service unavailable (503)
-      if (res.status === 503) {
-        throw new Error('⚠️ n8n no está disponible - El movimiento NO se guardó. Por favor contacta al administrador.');
+      const text = await res.text();
+      if (!res.ok) {
+        // Check if it's a n8n service unavailable (503)
+        if (res.status === 503) {
+          // For income, data is saved to DB but not synced to Sheets
+          setStatus('⚠️ Ingreso guardado en base de datos pero no sincronizado con Google Sheets. Por favor contacta al administrador.', 'warning');
+          
+          // Reset form after 3 seconds
+          setTimeout(() => {
+            document.getElementById('movForm').reset();
+            document.getElementById('fecha').value = getTodayLocal();
+            document.getElementById('tipo').value = '';
+            onTipoChange();
+            setStatus('', '');
+          }, 3000);
+          
+          submitBtn.disabled = false;
+          submitBtn.textContent = originalText;
+          return;
+        }
+        throw new Error(`HTTP ${res.status} - ${text}`);
       }
-      throw new Error(`HTTP ${res.status} - ${text}`);
+
+      setStatus('Ingreso registrado correctamente.', 'ok');
+    } else {
+      // Handle regular movements (gastos)
+      setStatus('Registrando movimiento...', 'loading');
+
+      const res = await fetch(getMovementsApiUrl(), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const text = await res.text();
+      if (!res.ok) {
+        // Check if it's a n8n service unavailable (503)
+        if (res.status === 503) {
+          throw new Error('⚠️ n8n no está disponible - El movimiento NO se guardó. Por favor contacta al administrador.');
+        }
+        throw new Error(`HTTP ${res.status} - ${text}`);
+      }
+
+      setStatus('Movimiento registrado correctamente.', 'ok');
     }
 
-    setStatus('Movimiento registrado correctamente.', 'ok');
     document.getElementById('movForm').reset();
 
     // Restore defaults
@@ -878,6 +1114,9 @@ async function onSubmit(e) {
     document.getElementById('tomador').value = '';
     document.getElementById('metodo').value = '';
     document.getElementById('categoria').value = '';
+    document.getElementById('ingresoMiembro').value = '';
+    document.getElementById('ingresoTipo').value = '';
+    document.getElementById('ingresoCuenta').value = '';
     document.getElementById('equitable').checked = true;
     resetParticipants();
 

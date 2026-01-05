@@ -12,9 +12,9 @@ import { logout } from '../auth-utils.js';
 import router from '../router.js';
 
 let isOpen = false;
-let currentRoute = '/registrar-movimiento';
+let currentRoute = '/';
 
-export function render(user, activeRoute = '/registrar-movimiento') {
+export function render(user, activeRoute = '/') {
   currentRoute = activeRoute;
   
   return `
@@ -23,11 +23,14 @@ export function render(user, activeRoute = '/registrar-movimiento') {
     </button>
 
     <div id="dropdown-menu" class="dropdown-menu">
-      <a href="/perfil" class="dropdown-item ${activeRoute === '/perfil' ? 'active' : ''}" data-route="/perfil">
-        Perfil
+      <a href="/" class="dropdown-item ${activeRoute === '/' ? 'active' : ''}" data-route="/">
+        Home
       </a>
       <a href="/registrar-movimiento" class="dropdown-item ${activeRoute === '/registrar-movimiento' ? 'active' : ''}" data-route="/registrar-movimiento">
         Registrar movimientos
+      </a>
+      <a href="/perfil" class="dropdown-item ${activeRoute === '/perfil' ? 'active' : ''}" data-route="/perfil">
+        Perfil
       </a>
       <button id="dropdown-logout-btn" class="dropdown-item dropdown-logout">
         Salir

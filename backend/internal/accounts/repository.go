@@ -24,15 +24,16 @@ func (r *repository) Create(ctx context.Context, account *Account) (*Account, er
 	var result Account
 	err := r.pool.QueryRow(ctx, `
 		INSERT INTO accounts (
-			household_id, name, type, institution, last4, initial_balance, notes
+			household_id, owner_id, name, type, institution, last4, initial_balance, notes
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-		RETURNING id, household_id, name, type, institution, last4, initial_balance, 
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		RETURNING id, household_id, owner_id, name, type, institution, last4, initial_balance, 
 		          notes, created_at, updated_at
-	`, account.HouseholdID, account.Name, account.Type, account.Institution,
+	`, account.HouseholdID, account.OwnerID, account.Name, account.Type, account.Institution,
 		account.Last4, account.InitialBalance, account.Notes).Scan(
 		&result.ID,
 		&result.HouseholdID,
+		&result.OwnerID,
 		&result.Name,
 		&result.Type,
 		&result.Institution,
@@ -59,13 +60,17 @@ func (r *repository) Create(ctx context.Context, account *Account) (*Account, er
 func (r *repository) GetByID(ctx context.Context, id string) (*Account, error) {
 	var account Account
 	err := r.pool.QueryRow(ctx, `
-		SELECT id, household_id, name, type, institution, last4, initial_balance, 
-		       notes, created_at, updated_at
-		FROM accounts
-		WHERE id = $1
+		SELECT a.id, a.household_id, a.owner_id, u.name as owner_name, a.name, a.type, 
+		       a.institution, a.last4, a.initial_balance, a.notes, 
+		       a.created_at, a.updated_at
+		FROM accounts a
+		JOIN users u ON a.owner_id = u.id
+		WHERE a.id = $1
 	`, id).Scan(
 		&account.ID,
 		&account.HouseholdID,
+		&account.OwnerID,
+		&account.OwnerName,
 		&account.Name,
 		&account.Type,
 		&account.Institution,
@@ -101,12 +106,13 @@ func (r *repository) Update(ctx context.Context, account *Account) (*Account, er
 		SET name = $2, institution = $3, last4 = $4, initial_balance = $5, 
 		    notes = $6, updated_at = NOW()
 		WHERE id = $1
-		RETURNING id, household_id, name, type, institution, last4, initial_balance, 
+		RETURNING id, household_id, owner_id, name, type, institution, last4, initial_balance, 
 		          notes, created_at, updated_at
 	`, account.ID, account.Name, account.Institution, account.Last4,
 		account.InitialBalance, account.Notes).Scan(
 		&result.ID,
 		&result.HouseholdID,
+		&result.OwnerID,
 		&result.Name,
 		&result.Type,
 		&result.Institution,
@@ -183,10 +189,12 @@ func (r *repository) Delete(ctx context.Context, id string) error {
 // ListByHousehold retrieves all accounts for a household
 func (r *repository) ListByHousehold(ctx context.Context, householdID string) ([]*Account, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT id, household_id, name, type, institution, last4, initial_balance, 
-		       notes, created_at, updated_at
-		FROM accounts
-		WHERE household_id = $1
+		SELECT a.id, a.household_id, a.owner_id, u.name as owner_name, a.name, a.type, 
+		       a.institution, a.last4, a.initial_balance, a.notes, 
+		       a.created_at, a.updated_at
+		FROM accounts a
+		JOIN users u ON a.owner_id = u.id
+		WHERE a.household_id = $1
 		ORDER BY 
 			CASE type
 				WHEN 'savings' THEN 1
@@ -206,6 +214,8 @@ func (r *repository) ListByHousehold(ctx context.Context, householdID string) ([
 		err := rows.Scan(
 			&account.ID,
 			&account.HouseholdID,
+			&account.OwnerID,
+			&account.OwnerName,
 			&account.Name,
 			&account.Type,
 			&account.Institution,

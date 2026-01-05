@@ -40,6 +40,7 @@ func NewHandler(
 // Request/Response types
 
 type CreateAccountRequest struct {
+	OwnerID        string       `json:"owner_id"`
 	Name           string       `json:"name"`
 	Type           AccountType  `json:"type"`
 	Institution    *string      `json:"institution,omitempty"`
@@ -122,8 +123,21 @@ func (h *Handler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.OwnerID == "" {
+		h.respondError(w, errors.New("owner_id is required"), http.StatusBadRequest)
+		return
+	}
+
+	// Validate owner is a member of the household
+	_, err = h.householdRepo.GetMemberByUserID(r.Context(), household.ID, req.OwnerID)
+	if err != nil {
+		h.respondError(w, errors.New("owner must be a member of the household"), http.StatusBadRequest)
+		return
+	}
+
 	input := CreateInput{
 		HouseholdID:    household.ID,
+		OwnerID:        req.OwnerID,
 		Name:           req.Name,
 		Type:           req.Type,
 		Institution:    req.Institution,
@@ -146,6 +160,7 @@ func (h *Handler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 }
 
 // ListAccounts handles GET /api/accounts
+// Supports optional ?owner_id= query parameter to filter by owner
 func (h *Handler) ListAccounts(w http.ResponseWriter, r *http.Request) {
 	user, err := h.getUserFromRequest(r)
 	if err != nil {
@@ -163,6 +178,18 @@ func (h *Handler) ListAccounts(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.respondError(w, err, http.StatusInternalServerError)
 		return
+	}
+
+	// Filter by owner_id if provided
+	ownerID := r.URL.Query().Get("owner_id")
+	if ownerID != "" {
+		filtered := make([]*Account, 0)
+		for _, account := range accounts {
+			if account.OwnerID == ownerID {
+				filtered = append(filtered, account)
+			}
+		}
+		accounts = filtered
 	}
 
 	h.respondJSON(w, accounts, http.StatusOK)

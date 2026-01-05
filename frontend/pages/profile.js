@@ -15,8 +15,17 @@ import { showConfirmation, showSuccess, showError } from '../utils.js';
 
 let currentUser = null;
 let currentHousehold = null;
+let accounts = [];
 let paymentMethods = [];
+let editingAccount = null;
 let editingPaymentMethod = null;
+
+// Account type labels in Spanish
+const ACCOUNT_TYPES = {
+  savings: 'Cuenta de Ahorros',
+  cash: 'Efectivo',
+  checking: 'Cuenta Corriente'
+};
 
 // Payment method type labels in Spanish
 const PAYMENT_METHOD_TYPES = {
@@ -67,9 +76,10 @@ async function loadProfile() {
   const contentEl = document.getElementById('profile-content');
   
   try {
-    // Fetch user's households and payment methods in parallel
-    const [householdsResponse, paymentMethodsResponse] = await Promise.all([
+    // Fetch user's households, accounts, and payment methods in parallel
+    const [householdsResponse, accountsResponse, paymentMethodsResponse] = await Promise.all([
       fetch(`${API_URL}/households`, { credentials: 'include' }),
+      fetch(`${API_URL}/accounts?owner_id=${currentUser.id}`, { credentials: 'include' }),
       fetch(`${API_URL}/payment-methods?own_only=true`, { credentials: 'include' })
     ]);
 
@@ -80,6 +90,13 @@ async function loadProfile() {
     const data = await householdsResponse.json();
     const households = data.households || [];
     currentHousehold = households.length > 0 ? households[0] : null;
+
+    // Load accounts if user has household
+    if (accountsResponse.ok) {
+      accounts = await accountsResponse.json();
+    } else {
+      accounts = [];
+    }
 
     // Load payment methods if user has household
     if (paymentMethodsResponse.ok) {
@@ -130,8 +147,19 @@ function renderProfileContent() {
     </div>
 
     <div class="profile-section">
+      <h2 class="section-title">Mis cuentas</h2>
+      <p class="section-description">Donde vive tu dinero: cuentas bancarias y efectivo</p>
+      ${accounts.length > 0 ? `
+        <div style="margin-bottom: 16px;">
+          <button id="add-account-btn" class="btn-secondary btn-small">+ Agregar cuenta</button>
+        </div>
+      ` : ''}
+      ${renderAccountsList()}
+    </div>
+
+    <div class="profile-section">
       <h2 class="section-title">Mis métodos de pago</h2>
-      <p class="section-description">Tus tarjetas, cuentas bancarias y otros métodos de pago</p>
+      <p class="section-description">Tarjetas y formas de pago que usas para tus gastos</p>
       ${paymentMethods.length > 0 ? `
         <div style="margin-bottom: 16px;">
           <button id="add-payment-method-btn" class="btn-secondary btn-small">+ Agregar método</button>
@@ -171,6 +199,72 @@ function renderHouseholdSection() {
       </div>
     </div>
   `;
+}
+
+/**
+ * Render accounts list
+ */
+function renderAccountsList() {
+  const emptyState = accounts.length === 0 ? `
+    <div class="empty-state">
+      <p class="empty-state-text">No tienes cuentas registradas</p>
+      <button id="add-account-btn" class="btn-secondary" style="margin-top: 16px;">Agregar cuenta</button>
+    </div>
+  ` : '';
+
+  const accountList = accounts.length > 0 ? `
+    <div class="contact-list">
+      ${accounts.map(account => `
+        <div class="contact-item">
+          <div class="contact-avatar">${getAccountIcon(account.type)}</div>
+          <div class="contact-info">
+            <div class="contact-name">${account.name}</div>
+            ${account.institution ? `<div class="contact-details">${account.institution}${account.last4 ? ` • ••• ${account.last4}` : ''}</div>` : ''}
+            ${account.current_balance !== undefined ? `<div class="contact-details">Balance: ${formatCurrency(account.current_balance)}</div>` : ''}
+          </div>
+          <div class="contact-actions">
+            <button class="three-dots-btn" data-account-id="${account.id}">⋮</button>
+            <div class="three-dots-menu" id="account-menu-${account.id}">
+              <button class="menu-item" data-action="edit" data-id="${account.id}">Editar</button>
+              <button class="menu-item" data-action="delete" data-id="${account.id}">Eliminar</button>
+            </div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  ` : '';
+
+  return `
+    ${emptyState}
+    ${accountList}
+    <div id="account-form-container" style="display: none;">
+      ${renderAccountForm()}
+    </div>
+  `;
+}
+
+/**
+ * Get icon for account type
+ */
+function getAccountIcon(type) {
+  switch(type) {
+    case 'savings': return '💰';
+    case 'cash': return '💵';
+    case 'checking': return '🏦';
+    default: return '💳';
+  }
+}
+
+/**
+ * Format currency
+ */
+function formatCurrency(num) {
+  return new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: 'COP',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(num || 0);
 }
 
 /**
@@ -239,6 +333,7 @@ function getPaymentMethodIcon(type) {
 function setupEventListeners() {
   const createBtn = document.getElementById('create-household-btn');
   const viewBtn = document.getElementById('view-household-btn');
+  const addAccountBtn = document.getElementById('add-account-btn');
   const addPaymentMethodBtn = document.getElementById('add-payment-method-btn');
 
   if (createBtn) {
@@ -250,6 +345,20 @@ function setupEventListeners() {
   if (viewBtn) {
     viewBtn.addEventListener('click', () => {
       router.navigate('/hogar');
+    });
+  }
+
+  if (addAccountBtn) {
+    addAccountBtn.addEventListener('click', () => {
+      editingAccount = null;
+      const container = document.getElementById('account-form-container');
+      if (container.style.display === 'block') {
+        container.style.display = 'none';
+      } else {
+        container.innerHTML = renderAccountForm();
+        container.style.display = 'block';
+        setupAccountFormHandlers();
+      }
     });
   }
 
@@ -267,7 +376,7 @@ function setupEventListeners() {
     });
   }
 
-  // Menu toggle buttons
+  // Menu toggle buttons (for payment methods)
   document.querySelectorAll('[data-menu-id]').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
@@ -277,7 +386,7 @@ function setupEventListeners() {
       const isOpen = menu.style.display === 'block';
       
       // Close all menus
-      document.querySelectorAll('.actions-dropdown').forEach(m => m.style.display = 'none');
+      document.querySelectorAll('.actions-dropdown, .three-dots-menu').forEach(m => m.style.display = 'none');
       
       // Toggle this menu
       if (!isOpen) {
@@ -291,10 +400,29 @@ function setupEventListeners() {
     });
   });
 
+  // Account three-dots menu toggle
+  document.querySelectorAll('.three-dots-btn[data-account-id]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const accountId = e.currentTarget.dataset.accountId;
+      const menu = document.getElementById(`account-menu-${accountId}`);
+      const isOpen = menu.style.display === 'block';
+      
+      // Close all menus
+      document.querySelectorAll('.actions-dropdown, .three-dots-menu').forEach(m => m.style.display = 'none');
+      
+      // Toggle this menu
+      if (!isOpen) {
+        menu.style.display = 'block';
+      }
+    });
+  });
+
   // Close menus when clicking outside
   document.addEventListener('click', (e) => {
-    if (!e.target.closest('.contact-actions-menu')) {
-      document.querySelectorAll('.actions-dropdown').forEach(m => m.style.display = 'none');
+    if (!e.target.closest('.contact-actions-menu') && !e.target.closest('.contact-actions')) {
+      document.querySelectorAll('.actions-dropdown, .three-dots-menu').forEach(m => m.style.display = 'none');
     }
   });
 
@@ -307,10 +435,18 @@ function setupEventListeners() {
       const id = e.currentTarget.dataset.id;
 
       // Close menu
-      document.querySelectorAll('.actions-dropdown').forEach(m => m.style.display = 'none');
+      document.querySelectorAll('.actions-dropdown, .three-dots-menu').forEach(m => m.style.display = 'none');
 
-      if (action === 'edit') await handleEditPaymentMethod(id);
-      else if (action === 'delete') await handleDeletePaymentMethod(id);
+      // Check if it's in a three-dots-menu (account) or not (payment method)
+      const isAccount = e.currentTarget.closest('.three-dots-menu');
+      
+      if (isAccount) {
+        if (action === 'edit') await handleEditAccount(id);
+        else if (action === 'delete') await handleDeleteAccount(id);
+      } else {
+        if (action === 'edit') await handleEditPaymentMethod(id);
+        else if (action === 'delete') await handleDeletePaymentMethod(id);
+      }
     });
   });
 }
@@ -325,6 +461,74 @@ function formatDate(dateString) {
     month: 'long', 
     day: 'numeric' 
   });
+}
+
+/**
+ * Render account form (create or edit)
+ */
+function renderAccountForm(account = null) {
+  const isEdit = account !== null;
+  
+  return `
+    <div class="form-card">
+      <h4>${isEdit ? 'Editar cuenta' : 'Agregar cuenta'}</h4>
+      <form id="account-form" class="grid">
+        <label class="field col-span-2">
+          <span>Tipo de cuenta *</span>
+          <select id="account-type" required ${isEdit ? 'disabled' : ''}>
+            <option value="">Selecciona un tipo</option>
+            ${Object.entries(ACCOUNT_TYPES).map(([value, label]) => `
+              <option value="${value}" ${account?.type === value ? 'selected' : ''}>
+                ${label}
+              </option>
+            `).join('')}
+          </select>
+          ${isEdit ? '<small class="hint">El tipo no se puede cambiar después de crear la cuenta</small>' : ''}
+        </label>
+
+        <label class="field col-span-2">
+          <span>Nombre *</span>
+          <input type="text" id="account-name" required maxlength="100" 
+            value="${account?.name || ''}" 
+            placeholder="ej: Cuenta de ahorros Bancolombia" />
+        </label>
+        
+        <div class="field-row col-span-2">
+          <label class="field">
+            <span>Institución</span>
+            <input type="text" id="account-institution" maxlength="100" 
+              value="${account?.institution || ''}" 
+              placeholder="ej: Bancolombia (opcional)" />
+          </label>
+          
+          <label class="field">
+            <span>Últimos 4 dígitos</span>
+            <input type="text" id="account-last4" maxlength="4" pattern="\\d{4}"
+              value="${account?.last4 || ''}" 
+              placeholder="1234 (opcional)" />
+          </label>
+        </div>
+
+        <label class="field col-span-2">
+          <span>Balance inicial</span>
+          <input type="number" id="account-balance" step="0.01" min="0"
+            value="${account?.initial_balance || 0}" 
+            placeholder="0 (opcional)" />
+          <small class="hint">El balance con que inicia la cuenta</small>
+        </label>
+
+        <label class="field col-span-2">
+          <span>Notas</span>
+          <textarea id="account-notes" rows="2" maxlength="500" placeholder="Notas adicionales (opcional)">${account?.notes || ''}</textarea>
+        </label>
+
+        <div class="field-row col-span-2">
+          <button type="button" id="cancel-account-btn" class="btn-secondary">Cancelar</button>
+          <button type="submit" class="btn-primary">${isEdit ? 'Actualizar' : 'Guardar'}</button>
+        </div>
+      </form>
+    </div>
+  `;
 }
 
 /**
@@ -408,6 +612,170 @@ function renderPaymentMethodForm(paymentMethod = null) {
 /**
  * Setup form handlers
  */
+/**
+ * Setup account form handlers
+ */
+function setupAccountFormHandlers() {
+  const form = document.getElementById('account-form');
+  const cancelBtn = document.getElementById('cancel-account-btn');
+
+  form?.addEventListener('submit', handleSubmitAccount);
+  cancelBtn?.addEventListener('click', () => {
+    document.getElementById('account-form-container').style.display = 'none';
+    editingAccount = null;
+  });
+
+  // Auto-suggest account name based on type and institution
+  const typeSelect = document.getElementById('account-type');
+  const institutionInput = document.getElementById('account-institution');
+  const nameInput = document.getElementById('account-name');
+
+  function suggestName() {
+    if (editingAccount) return; // Don't auto-suggest when editing
+    
+    // Only auto-suggest if name field is empty
+    if (nameInput.value.trim() !== '') return;
+    
+    const type = typeSelect?.value;
+    const institution = institutionInput?.value?.trim();
+
+    if (type === 'savings' && institution) {
+      nameInput.value = `Cuenta de ahorros ${institution}`;
+    } else if (type === 'cash') {
+      nameInput.value = 'Efectivo en Casa';
+    } else if (type === 'checking' && institution) {
+      nameInput.value = `Cuenta corriente ${institution}`;
+    }
+  }
+
+  typeSelect?.addEventListener('change', suggestName);
+  institutionInput?.addEventListener('blur', suggestName);
+}
+
+/**
+ * Handle account form submission
+ */
+async function handleSubmitAccount(e) {
+  e.preventDefault();
+
+  const accountType = document.getElementById('account-type').value;
+  const name = document.getElementById('account-name').value.trim();
+  const institution = document.getElementById('account-institution').value.trim() || null;
+  const last4 = document.getElementById('account-last4').value.trim() || null;
+  const initialBalance = parseFloat(document.getElementById('account-balance').value) || 0;
+  const notes = document.getElementById('account-notes').value.trim() || null;
+
+  if (!name || !accountType) {
+    showError('Por favor completa todos los campos requeridos');
+    return;
+  }
+
+  const payload = {
+    name,
+    institution,
+    last4,
+    initial_balance: initialBalance,
+    notes
+  };
+
+  // Only include type and owner_id when creating (not editing)
+  if (!editingAccount) {
+    payload.type = accountType;
+    payload.owner_id = currentUser.id;
+  }
+
+  try {
+    const url = editingAccount 
+      ? `${API_URL}/accounts/${editingAccount.id}`
+      : `${API_URL}/accounts`;
+
+    const method = editingAccount ? 'PATCH' : 'POST';
+
+    const response = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || 'Error al guardar la cuenta');
+    }
+
+    showSuccess(
+      editingAccount ? 'Cuenta actualizada' : 'Cuenta creada',
+      editingAccount ? 'La cuenta se actualizó correctamente' : 'La cuenta se creó correctamente'
+    );
+
+    document.getElementById('account-form-container').style.display = 'none';
+    editingAccount = null;
+    await loadProfile();
+
+  } catch (error) {
+    console.error('Error saving account:', error);
+    showError('Error al guardar la cuenta', error.message);
+  }
+}
+
+/**
+ * Handle edit account
+ */
+async function handleEditAccount(id) {
+  const account = accounts.find(a => a.id === id);
+  if (!account) return;
+
+  editingAccount = account;
+  const container = document.getElementById('account-form-container');
+  container.innerHTML = renderAccountForm(account);
+  container.style.display = 'block';
+  setupAccountFormHandlers();
+}
+
+/**
+ * Handle delete account
+ */
+async function handleDeleteAccount(id) {
+  const account = accounts.find(a => a.id === id);
+  if (!account) return;
+
+  const confirmed = await showConfirmation(
+    '¿Eliminar cuenta?',
+    `¿Estás seguro de que quieres eliminar la cuenta "${account.name}"? Esta acción no se puede deshacer.`
+  );
+
+  if (!confirmed) return;
+
+  try {
+    const response = await fetch(`${API_URL}/accounts/${id}`, {
+      method: 'DELETE',
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      
+      // Handle specific error about income entries
+      if (errorData?.error?.includes('income entries')) {
+        showError(
+          'No se puede eliminar esta cuenta porque tiene ingresos registrados. ' +
+          'Para eliminarla, primero debes eliminar todos los ingresos asociados desde la página de inicio.'
+        );
+        return;
+      }
+      
+      throw new Error(errorData?.error || 'Error al eliminar la cuenta');
+    }
+
+    showSuccess('Cuenta eliminada', 'La cuenta se eliminó correctamente');
+    await loadProfile();
+
+  } catch (error) {
+    console.error('Error deleting account:', error);
+    showError('Error al eliminar la cuenta', error.message);
+  }
+}
+
 function setupFormHandlers() {
   const form = document.getElementById('payment-method-form');
   const cancelBtn = document.getElementById('cancel-pm-btn');

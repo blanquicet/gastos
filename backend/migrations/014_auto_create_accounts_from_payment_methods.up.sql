@@ -1,8 +1,9 @@
 -- Auto-create savings accounts from existing debit_card payment methods
 -- Include owner name to make accounts unique
-INSERT INTO accounts (household_id, name, type, institution, last4, initial_balance, notes)
+INSERT INTO accounts (household_id, owner_id, name, type, institution, last4, initial_balance, notes)
 SELECT 
   pm.household_id,
+  pm.owner_id,
   CASE 
     WHEN pm.institution IS NOT NULL AND pm.institution != '' 
     THEN 'Cuenta de ahorros ' || u.name || ' ' || pm.institution
@@ -33,9 +34,10 @@ WHERE pm.owner_id = u.id
   AND a.notes LIKE 'Auto-creada desde método de pago:%';
 
 -- For each household with cash payment method, create cash account per owner
-INSERT INTO accounts (household_id, name, type, initial_balance, notes)
+INSERT INTO accounts (household_id, owner_id, name, type, initial_balance, notes)
 SELECT DISTINCT
   pm.household_id,
+  pm.owner_id,
   'Efectivo ' || u.name as name,
   'cash'::account_type,
   0 as initial_balance,

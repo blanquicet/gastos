@@ -10,6 +10,7 @@ import { checkAuth } from './auth-utils.js';
 import * as LoginPage from './pages/login.js';
 import * as ForgotPasswordPage from './pages/forgot-password.js';
 import * as ResetPasswordPage from './pages/reset-password.js';
+import * as HomePage from './pages/home.js';
 import * as RegistrarMovimientoPage from './pages/registrar-movimiento.js';
 import * as ProfilePage from './pages/profile.js';
 import * as HouseholdCreatePage from './pages/household-create.js';
@@ -39,6 +40,21 @@ function initRouter() {
     const appEl = document.getElementById('app');
     appEl.innerHTML = ResetPasswordPage.render();
     ResetPasswordPage.init();
+  });
+
+  router.route('/', async () => {
+    // Check if user is authenticated
+    const { authenticated, user } = await checkAuth();
+    
+    if (!authenticated) {
+      router.navigate('/login');
+      return;
+    }
+
+    currentUser = user;
+    const appEl = document.getElementById('app');
+    appEl.innerHTML = HomePage.render(user);
+    HomePage.setup();
   });
 
   router.route('/registrar-movimiento', async () => {
@@ -116,7 +132,7 @@ function initRouter() {
 
     // If authenticated and trying to access public route, redirect to main page
     if (authenticated && isPublicRoute) {
-      router.navigate('/registrar-movimiento');
+      router.navigate('/');
       return false;
     }
 
@@ -147,7 +163,7 @@ async function init() {
   
   if (currentPath === '/' || currentPath === '/registrar-movimiento' || currentPath === '/registrar-movimiento/') {
     // Default route - let beforeEach guard handle auth check
-    router.navigate('/registrar-movimiento');
+    router.navigate('/');
   } else {
     // Let router handle current path (with query params)
     router.navigate(fullPath);

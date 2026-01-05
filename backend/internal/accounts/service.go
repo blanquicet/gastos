@@ -19,6 +19,7 @@ func NewService(repo Repository) *Service {
 // CreateInput contains the data needed to create an account
 type CreateInput struct {
 	HouseholdID    string
+	OwnerID        string // ID of the member who owns this account
 	Name           string
 	Type           AccountType
 	Institution    *string
@@ -38,6 +39,9 @@ func (i *CreateInput) Validate() error {
 	}
 	if i.HouseholdID == "" {
 		return errors.New("household ID is required")
+	}
+	if i.OwnerID == "" {
+		return errors.New("owner ID is required")
 	}
 	if err := i.Type.Validate(); err != nil {
 		return err
@@ -80,6 +84,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*Account, erro
 
 	account := &Account{
 		HouseholdID:    input.HouseholdID,
+		OwnerID:        input.OwnerID,
 		Name:           input.Name,
 		Type:           input.Type,
 		Institution:    input.Institution,
