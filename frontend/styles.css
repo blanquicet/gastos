@@ -1988,9 +1988,29 @@ button.loading::after {
   flex: 1;
 }
 
-.entry-member {
+.entry-description-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.entry-description {
   font-size: 14px;
+  color: #111827;
+  font-weight: 500;
+}
+
+.entry-member-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background-color: #f3f4f6;
   color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .entry-amount {

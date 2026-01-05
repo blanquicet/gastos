@@ -188,7 +188,10 @@ function renderIncomeCategories() {
             ${data.entries.map(entry => `
               <div class="income-detail-entry">
                 <div class="entry-info">
-                  <span class="entry-member">${entry.member_name}</span>
+                  <div class="entry-description-row">
+                    <span class="entry-description">${entry.description || entry.member_name}</span>
+                    <span class="entry-member-badge">${entry.member_name}</span>
+                  </div>
                   <span class="entry-amount">${formatCurrency(entry.amount)}</span>
                 </div>
                 <button class="btn-delete-income-small" data-income-id="${entry.id}" title="Eliminar">
@@ -381,8 +384,22 @@ export async function setup() {
   // Load income data
   await loadIncomeData();
   
-  // Initial render of content
-  refreshDisplay();
+  // Initial render of content - UPDATE THE DOM after loading data
+  const contentContainer = document.querySelector('.dashboard-content');
+  if (contentContainer && activeTab === 'ingresos') {
+    contentContainer.innerHTML = `
+      ${renderMonthSelector()}
+      
+      <div class="total-display">
+        <div class="total-label">Total</div>
+        <div class="total-amount">${formatCurrency(incomeData?.totals?.total_amount || 0)}</div>
+      </div>
+
+      <div id="categories-container">
+        ${renderIncomeCategories()}
+      </div>
+    `;
+  }
 
   // Setup tab listeners
   const tabButtons = document.querySelectorAll('.tab-btn');
