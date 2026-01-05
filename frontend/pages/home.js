@@ -1,11 +1,11 @@
 /**
  * Home / Dashboard Page
  *
- * Shows income summary for the current month with:
- * - Month navigation
- * - Income totals (real income vs internal movements)
- * - Expandable income list by category
- * - Placeholder for gastos (future)
+ * Modern dashboard showing income summary with:
+ * - Tab navigation (Gastos | Ingresos | Tarjetas)
+ * - Month selector with date range
+ * - Total amount prominently displayed
+ * - Category breakdown with icons and percentages
  */
 
 import { API_URL } from '../config.js';
@@ -16,7 +16,7 @@ import { showConfirmation, showSuccess, showError } from '../utils.js';
 let currentUser = null;
 let currentMonth = null; // YYYY-MM format
 let incomeData = null;
-let isExpanded = false;
+let activeTab = 'ingresos'; // 'gastos', 'ingresos', 'tarjetas'
 
 /**
  * Format number as COP currency
@@ -52,6 +52,13 @@ function getMonthName(yearMonth) {
 }
 
 /**
+ * Get month name for display (e.g., "Enero")
+ */
+function getMonthDateRange(yearMonth) {
+  return getMonthName(yearMonth);
+}
+
+/**
  * Navigate to previous month
  */
 function previousMonth(yearMonth) {
@@ -72,141 +79,136 @@ function nextMonth(yearMonth) {
 }
 
 /**
- * Render income summary (collapsed)
+ * Get icon for income type
  */
-function renderIncomeSummary() {
-  if (!incomeData || !incomeData.totals) {
-    return `
-      <div class="income-summary">
-        <div class="income-header">
-          <h2>💰 INGRESOS DEL MES</h2>
-          <button id="toggle-income" class="btn-text">▼ Expandir</button>
-        </div>
-        <p class="income-total">Sin ingresos registrados</p>
-        <button id="add-income-btn" style="margin-top: 16px;">+ Agregar ingreso</button>
-      </div>
-    `;
-  }
+function getIncomeTypeIcon(type) {
+  const icons = {
+    'salary': '💰',
+    'bonus': '🎁',
+    'reimbursement': '💳',
+    'other_income': '💵',
+    'savings_withdrawal': '🏦',
+    'previous_balance': '📊',
+    'adjustment': '⚖️'
+  };
+  return icons[type] || '💵';
+}
 
-  const totals = incomeData.totals;
-
+/**
+ * Render tab navigation
+ */
+function renderTabs() {
   return `
-    <div class="income-summary">
-      <div class="income-header">
-        <h2>💰 INGRESOS DEL MES</h2>
-        <button id="toggle-income" class="btn-text">${isExpanded ? '▲ Colapsar' : '▼ Expandir'}</button>
-      </div>
-      <p class="income-total">${formatCurrency(totals.total_amount)}</p>
-      <button id="add-income-btn"  style="margin-top: 16px;">+ Agregar ingreso</button>
-      ${isExpanded ? renderIncomeDetails() : ''}
+    <div class="dashboard-tabs">
+      <button class="tab-btn ${activeTab === 'gastos' ? 'active' : ''}" data-tab="gastos">Gastos</button>
+      <button class="tab-btn ${activeTab === 'ingresos' ? 'active' : ''}" data-tab="ingresos">Ingresos</button>
+      <button class="tab-btn ${activeTab === 'tarjetas' ? 'active' : ''}" data-tab="tarjetas">Tarjetas de crédito</button>
     </div>
   `;
 }
 
 /**
- * Render income details (expanded view)
+ * Render month selector
  */
-function renderIncomeDetails() {
+function renderMonthSelector() {
+  return `
+    <div class="month-selector">
+      <button id="prev-month-btn" class="month-nav-btn">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"/>
+        </svg>
+      </button>
+      <div class="month-display">${getMonthDateRange(currentMonth)}</div>
+      <button id="next-month-btn" class="month-nav-btn">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/>
+        </svg>
+      </button>
+    </div>
+  `;
+}
+
+/**
+ * Render income categories
+ */
+function renderIncomeCategories() {
   if (!incomeData || !incomeData.income_entries || incomeData.income_entries.length === 0) {
-    return '';
+    return `
+      <div class="empty-state">
+        <div class="empty-icon">📊</div>
+        <p>No hay ingresos registrados este mes</p>
+        <button id="add-income-btn" class="btn-primary">+ Agregar ingreso</button>
+      </div>
+    `;
   }
 
-  const totals = incomeData.totals;
   const entries = incomeData.income_entries;
+  const total = incomeData.totals.total_amount;
 
   // Group entries by type
   const byType = {};
   entries.forEach(entry => {
     if (!byType[entry.type]) {
-      byType[entry.type] = [];
+      byType[entry.type] = { total: 0, entries: [] };
     }
-    byType[entry.type].push(entry);
+    byType[entry.type].total += entry.amount;
+    byType[entry.type].entries.push(entry);
   });
 
   // Helper to get type label in Spanish
   const typeLabels = {
     'salary': 'Sueldo',
     'bonus': 'Bono / Prima',
-    'freelance': 'Trabajo Independiente',
-    'reimbursement': 'Reembolso',
-    'gift': 'Regalo',
-    'sale': 'Venta',
+    'reimbursement': 'Reembolsos',
     'other_income': 'Otro Ingreso',
     'savings_withdrawal': 'Retiro de Ahorros',
     'previous_balance': 'Sobrante Mes Anterior',
-    'debt_collection': 'Cobro de Deuda',
-    'account_transfer': 'Transferencia entre Cuentas',
-    'adjustment': 'Ajuste Contable'
+    'adjustment': 'Ajustes'
   };
 
-  // Helper to determine if type is real income
-  const realIncomeTypes = ['salary', 'bonus', 'freelance', 'reimbursement', 'gift', 'sale', 'other_income'];
+  const categoriesHtml = Object.keys(byType)
+    .sort((a, b) => byType[b].total - byType[a].total)
+    .map(type => {
+      const data = byType[type];
+      const percentage = ((data.total / total) * 100).toFixed(2);
+      const icon = getIncomeTypeIcon(type);
+      const label = typeLabels[type] || type;
 
-  let realIncomeHtml = '';
-  let internalMovementsHtml = '';
-
-  Object.keys(byType).forEach(type => {
-    const typeEntries = byType[type];
-    const typeTotal = typeEntries.reduce((sum, e) => sum + e.amount, 0);
-    const typeLabel = typeLabels[type] || type;
-    const isRealIncome = realIncomeTypes.includes(type);
-
-    const typeHtml = `
-      <div class="income-type-group">
-        <div class="income-type-header">
-          <strong>${typeLabel}:</strong>
-          <span>${formatCurrency(typeTotal)}</span>
-        </div>
-        <div class="income-entries">
-          ${typeEntries.map(entry => {
-            const date = new Date(entry.income_date);
-            const day = date.getDate();
-            const monthName = date.toLocaleDateString('es-CO', { month: 'short' });
-            return `
-              <div class="income-entry">
-                <span>• ${entry.member_name} - ${formatCurrency(entry.amount)} (${day} ${monthName})</span>
-                <button class="btn-delete-income" data-income-id="${entry.id}" title="Eliminar ingreso">🗑️</button>
+      return `
+        <div class="category-card" data-type="${type}">
+          <div class="category-header">
+            <div class="category-icon">${icon}</div>
+            <div class="category-info">
+              <div class="category-name">${label}</div>
+              <div class="category-amount">${formatCurrency(data.total)}</div>
+            </div>
+            <div class="category-percentage">${percentage}%</div>
+          </div>
+          <div class="category-details hidden" id="details-${type}">
+            ${data.entries.map(entry => `
+              <div class="income-detail-entry">
+                <div class="entry-info">
+                  <span class="entry-member">${entry.member_name}</span>
+                  <span class="entry-amount">${formatCurrency(entry.amount)}</span>
+                </div>
+                <button class="btn-delete-income-small" data-income-id="${entry.id}" title="Eliminar">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M5.5 5.5A.5.5 0 016 6v6a.5.5 0 01-1 0V6a.5.5 0 01.5-.5zm2.5 0a.5.5 0 01.5.5v6a.5.5 0 01-1 0V6a.5.5 0 01.5-.5zm3 .5a.5.5 0 00-1 0v6a.5.5 0 001 0V6z"/>
+                    <path fill-rule="evenodd" d="M14.5 3a1 1 0 01-1 1H13v9a2 2 0 01-2 2H5a2 2 0 01-2-2V4h-.5a1 1 0 01-1-1V2a1 1 0 011-1H6a1 1 0 011-1h2a1 1 0 011 1h3.5a1 1 0 011 1v1zM4.118 4L4 4.059V13a1 1 0 001 1h6a1 1 0 001-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                  </svg>
+                </button>
               </div>
-            `;
-          }).join('')}
+            `).join('')}
+          </div>
         </div>
-      </div>
-    `;
-
-    if (isRealIncome) {
-      realIncomeHtml += typeHtml;
-    } else {
-      internalMovementsHtml += typeHtml;
-    }
-  });
+      `;
+    }).join('');
 
   return `
-    <div class="income-details">
-      <hr style="margin: 24px 0; border: none; border-top: 1px solid #e0e0e0;" />
-      
-      ${totals.real_income_amount > 0 ? `
-        <div class="income-section">
-          <h3 style="color: #2e7d32; margin-bottom: 12px;">INGRESO REAL: ${formatCurrency(totals.real_income_amount)}</h3>
-          ${realIncomeHtml}
-        </div>
-      ` : ''}
-      
-      ${totals.internal_movements_amount > 0 ? `
-        <div class="income-section" style="margin-top: 24px;">
-          <h3 style="color: #666; margin-bottom: 12px;">MOVIMIENTOS INTERNOS: ${formatCurrency(totals.internal_movements_amount)}</h3>
-          ${internalMovementsHtml}
-        </div>
-      ` : totals.real_income_amount > 0 ? `
-        <div class="income-section" style="margin-top: 24px;">
-          <p style="color: #666; font-style: italic;">MOVIMIENTOS INTERNOS: $0 (ninguno este mes)</p>
-        </div>
-      ` : ''}
-      
-      <hr style="margin: 24px 0; border: none; border-top: 1px solid #e0e0e0;" />
-      <div class="income-total-section">
-        <strong>Total registrado: ${formatCurrency(totals.total_amount)}</strong>
-      </div>
+    <div class="categories-grid">
+      ${categoriesHtml}
     </div>
+    <button id="add-income-btn" class="btn-add-floating">+</button>
   `;
 }
 
@@ -219,30 +221,35 @@ export function render(user) {
     currentMonth = getCurrentMonth();
   }
 
-  const monthName = getMonthName(currentMonth);
+  const totalAmount = incomeData?.totals?.total_amount || 0;
 
   return `
-    <main class="card">
-      <header class="header">
-        <div class="header-row">
-          <h1>Home</h1>
-          ${Navbar.render(user, '/')}
-        </div>
+    <main class="dashboard">
+      <header class="dashboard-header">
+        <h1 class="dashboard-title">Resumen</h1>
+        ${Navbar.render(user, '/')}
       </header>
 
-      <div class="month-navigation">
-        <button id="prev-month-btn" class="btn-nav">← ${getMonthName(previousMonth(currentMonth))}</button>
-        <h2 id="current-month-label">${monthName}</h2>
-        <button id="next-month-btn" class="btn-nav">${getMonthName(nextMonth(currentMonth))} →</button>
-      </div>
+      ${renderTabs()}
+      
+      <div class="dashboard-content">
+        ${activeTab === 'ingresos' ? `
+          ${renderMonthSelector()}
+          
+          <div class="total-display">
+            <div class="total-label">Total</div>
+            <div class="total-amount">${formatCurrency(totalAmount)}</div>
+          </div>
 
-      <div id="income-container">
-        ${renderIncomeSummary()}
-      </div>
-
-      <div class="expenses-placeholder" style="margin-top: 32px; padding: 24px; background-color: #f5f5f5; border-radius: 8px; text-align: center;">
-        <h2 style="color: #666; margin-bottom: 8px;">📊 Gastos</h2>
-        <p style="color: #999;">Próximamente: Los gastos se mostrarán aquí cuando los migremos a la base de datos.</p>
+          <div id="categories-container">
+            ${renderIncomeCategories()}
+          </div>
+        ` : `
+          <div class="coming-soon">
+            <div class="coming-soon-icon">${activeTab === 'gastos' ? '🛒' : '💳'}</div>
+            <p>Próximamente</p>
+          </div>
+        `}
       </div>
     </main>
   `;
@@ -271,19 +278,27 @@ async function loadIncomeData() {
 }
 
 /**
- * Refresh income display
+ * Refresh display
  */
-function refreshIncomeDisplay() {
-  const container = document.getElementById('income-container');
+function refreshDisplay() {
+  const container = document.getElementById('categories-container');
   if (container) {
-    container.innerHTML = renderIncomeSummary();
-    setupIncomeListeners();
+    container.innerHTML = renderIncomeCategories();
+    setupCategoryListeners();
+  }
+
+  const totalEl = document.querySelector('.total-amount');
+  if (totalEl) {
+    const totalAmount = incomeData?.totals?.total_amount || 0;
+    totalEl.textContent = formatCurrency(totalAmount);
+  }
+
+  const monthEl = document.querySelector('.month-display');
+  if (monthEl) {
+    monthEl.textContent = getMonthDateRange(currentMonth);
   }
 }
 
-/**
- * Setup income-related event listeners
- */
 /**
  * Handle delete income
  */
@@ -310,7 +325,7 @@ async function handleDeleteIncome(incomeId) {
     
     // Reload income data and refresh display
     await loadIncomeData();
-    refreshIncomeDisplay();
+    refreshDisplay();
   } catch (error) {
     console.error('Error deleting income:', error);
     showError(error.message || 'Error al eliminar el ingreso');
@@ -318,27 +333,23 @@ async function handleDeleteIncome(incomeId) {
 }
 
 /**
- * Setup income event listeners
+ * Setup category card listeners
  */
-function setupIncomeListeners() {
-  const toggleBtn = document.getElementById('toggle-income');
-  const addBtn = document.getElementById('add-income-btn');
-
-  if (toggleBtn) {
-    toggleBtn.addEventListener('click', () => {
-      isExpanded = !isExpanded;
-      refreshIncomeDisplay();
+function setupCategoryListeners() {
+  // Category card click to expand/collapse
+  const categoryCards = document.querySelectorAll('.category-card');
+  categoryCards.forEach(card => {
+    card.querySelector('.category-header')?.addEventListener('click', () => {
+      const type = card.dataset.type;
+      const details = document.getElementById(`details-${type}`);
+      if (details) {
+        details.classList.toggle('hidden');
+      }
     });
-  }
-
-  if (addBtn) {
-    addBtn.addEventListener('click', () => {
-      router.navigate('/registrar-movimiento?tipo=INGRESO');
-    });
-  }
+  });
 
   // Delete income buttons
-  const deleteButtons = document.querySelectorAll('.btn-delete-income');
+  const deleteButtons = document.querySelectorAll('.btn-delete-income-small');
   deleteButtons.forEach(btn => {
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
@@ -346,6 +357,14 @@ function setupIncomeListeners() {
       await handleDeleteIncome(incomeId);
     });
   });
+
+  // Add income button
+  const addBtn = document.getElementById('add-income-btn');
+  if (addBtn) {
+    addBtn.addEventListener('click', () => {
+      router.navigate('/registrar-movimiento?tipo=INGRESO');
+    });
+  }
 }
 
 /**
@@ -354,59 +373,94 @@ function setupIncomeListeners() {
 export async function setup() {
   Navbar.setup();
 
-  // Load income data
-  await loadIncomeData();
-  refreshIncomeDisplay();
-
-  // Update month label
-  const monthLabel = document.getElementById('current-month-label');
-  if (monthLabel) {
-    monthLabel.textContent = getMonthName(currentMonth);
+  // Initialize current month if not set
+  if (!currentMonth) {
+    currentMonth = getCurrentMonth();
   }
 
-  // Month navigation
+  // Load income data
+  await loadIncomeData();
+  
+  // Initial render of content
+  refreshDisplay();
+
+  // Setup tab listeners
+  const tabButtons = document.querySelectorAll('.tab-btn');
+  tabButtons.forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const newTab = btn.dataset.tab;
+      if (newTab === activeTab) return; // Already on this tab
+      
+      activeTab = newTab;
+      
+      // Update tab buttons
+      tabButtons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      
+      // Update content
+      const contentContainer = document.querySelector('.dashboard-content');
+      if (contentContainer) {
+        contentContainer.innerHTML = activeTab === 'ingresos' ? `
+          ${renderMonthSelector()}
+          
+          <div class="total-display">
+            <div class="total-label">Total</div>
+            <div class="total-amount">${formatCurrency(incomeData?.totals?.total_amount || 0)}</div>
+          </div>
+
+          <div id="categories-container">
+            ${renderIncomeCategories()}
+          </div>
+        ` : `
+          <div class="coming-soon">
+            <div class="coming-soon-icon">${activeTab === 'gastos' ? '🛒' : '💳'}</div>
+            <p>Próximamente</p>
+          </div>
+        `;
+        
+        if (activeTab === 'ingresos') {
+          setupMonthNavigation();
+          setupCategoryListeners();
+        }
+      }
+    });
+  });
+
+  // Setup month navigation for initial load
+  setupMonthNavigation();
+
+  // Setup category listeners
+  setupCategoryListeners();
+}
+
+/**
+ * Setup month navigation listeners
+ */
+function setupMonthNavigation() {
   const prevBtn = document.getElementById('prev-month-btn');
   const nextBtn = document.getElementById('next-month-btn');
 
   if (prevBtn) {
-    prevBtn.addEventListener('click', async () => {
+    // Remove old listener if exists
+    const newPrevBtn = prevBtn.cloneNode(true);
+    prevBtn.parentNode.replaceChild(newPrevBtn, prevBtn);
+    
+    newPrevBtn.addEventListener('click', async () => {
       currentMonth = previousMonth(currentMonth);
-      
-      // Update all labels
-      const monthLabel = document.getElementById('current-month-label');
-      if (monthLabel) {
-        monthLabel.textContent = getMonthName(currentMonth);
-      }
-      
-      // Update navigation button labels (calculate AFTER currentMonth changed)
-      const prevMonth = previousMonth(currentMonth);
-      const nextMon = nextMonth(currentMonth);
-      prevBtn.textContent = `← ${getMonthName(prevMonth)}`;
-      nextBtn.textContent = `${getMonthName(nextMon)} →`;
-      
       await loadIncomeData();
-      refreshIncomeDisplay();
+      refreshDisplay();
     });
   }
 
   if (nextBtn) {
-    nextBtn.addEventListener('click', async () => {
+    // Remove old listener if exists
+    const newNextBtn = nextBtn.cloneNode(true);
+    nextBtn.parentNode.replaceChild(newNextBtn, nextBtn);
+    
+    newNextBtn.addEventListener('click', async () => {
       currentMonth = nextMonth(currentMonth);
-      
-      // Update all labels
-      const monthLabel = document.getElementById('current-month-label');
-      if (monthLabel) {
-        monthLabel.textContent = getMonthName(currentMonth);
-      }
-      
-      // Update navigation button labels (calculate AFTER currentMonth changed)
-      const prevMonth = previousMonth(currentMonth);
-      const nextMon = nextMonth(currentMonth);
-      prevBtn.textContent = `← ${getMonthName(prevMonth)}`;
-      nextBtn.textContent = `${getMonthName(nextMon)} →`;
-      
       await loadIncomeData();
-      refreshIncomeDisplay();
+      refreshDisplay();
     });
   }
 }
