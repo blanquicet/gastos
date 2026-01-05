@@ -284,7 +284,7 @@ async function loadAccounts() {
     
     const accountsData = await response.json();
     // Filter to only savings and cash accounts (can receive income)
-    accounts = accountsData.filter(a => a.type === 'savings' || a.type === 'cash');
+    accounts = (accountsData || []).filter(a => a.type === 'savings' || a.type === 'cash');
     
   } catch (error) {
     console.error('Error loading accounts:', error);

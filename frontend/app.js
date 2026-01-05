@@ -161,7 +161,7 @@ async function init() {
   const search = window.location.search;
   const fullPath = currentPath + search;
   
-  if (currentPath === '/' || currentPath === '/registrar-movimiento' || currentPath === '/registrar-movimiento/') {
+  if (currentPath === '/') {
     // Default route - let beforeEach guard handle auth check
     router.navigate('/');
   } else {
