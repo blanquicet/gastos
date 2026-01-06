@@ -35,6 +35,25 @@ function formatCurrency(num) {
 }
 
 /**
+ * Format date and time (e.g., "18 Dic - 12:03")
+ */
+function formatDateTime(dateString) {
+  if (!dateString) return '';
+  
+  const date = new Date(dateString);
+  const day = date.getDate();
+  
+  // Get month abbreviation and capitalize properly (Ene, Feb, Mar, etc.)
+  const monthLong = date.toLocaleDateString('es-CO', { month: 'short' });
+  const month = monthLong.replace('.', '').charAt(0).toUpperCase() + monthLong.replace('.', '').slice(1);
+  
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  
+  return `${day} ${month} - ${hours}:${minutes}`;
+}
+
+/**
  * Get current month as YYYY-MM
  */
 function getCurrentMonth() {
@@ -361,6 +380,7 @@ function renderIncomeCategories() {
                     <span class="entry-member-badge">${entry.member_name}</span>
                   </div>
                   <span class="entry-amount">${formatCurrency(entry.amount)}</span>
+                  <div class="entry-date">${formatDateTime(entry.created_at)}</div>
                 </div>
                 <div class="entry-actions">
                   <button class="three-dots-btn" data-income-id="${entry.id}">⋮</button>

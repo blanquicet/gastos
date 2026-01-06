@@ -2023,6 +2023,12 @@ button.loading::after {
   font-weight: 500;
 }
 
+.entry-date {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-top: 2px;
+}
+
 .entry-member-badge {
   display: inline-block;
   font-size: 11px;
