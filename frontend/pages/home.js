@@ -363,6 +363,13 @@ function refreshDisplay() {
   if (monthEl) {
     monthEl.textContent = getMonthDateRange(currentMonth);
   }
+
+  // Update member filter
+  const memberFilterNav = document.querySelector('.member-filter-nav');
+  if (memberFilterNav) {
+    memberFilterNav.outerHTML = renderMemberFilter();
+    setupMonthNavigation(); // Re-setup listeners
+  }
 }
 
 /**
