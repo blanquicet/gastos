@@ -51,6 +51,15 @@ body:has(.auth-wrapper) {
   padding: 0;
 }
 
+/* Mobile: remove padding to use full screen */
+@media (max-width: 600px) {
+  body {
+    padding: 0;
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
 html, body {
   width: 100%;
   overflow-x: hidden;
