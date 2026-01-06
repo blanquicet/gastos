@@ -254,11 +254,11 @@ async function testPaymentMethods() {
     await page1.goto(`${appUrl}/registrar-movimiento`, { waitUntil: 'networkidle' });
     
     // Wait for the tipo select to be available and not disabled
-    await page1.waitForSelector('select#tipo', { state: 'visible', timeout: 15000 });
+    
     await page1.waitForTimeout(500); // Additional wait for form config to load
     
     // Select a movement type that shows payment methods (FAMILIAR)
-    await page1.selectOption('select#tipo', 'FAMILIAR');
+    await page1.click('button.tipo-btn[data-tipo="FAMILIAR"]');
     await page1.waitForTimeout(1000);
     
     // Get payment method options
@@ -309,10 +309,10 @@ async function testPaymentMethods() {
     await page2.goto(`${appUrl}/registrar-movimiento`);
     
     // Wait for the tipo select to be available and not disabled
-    await page2.waitForSelector('select#tipo', { state: 'visible', timeout: 10000 });
+    
     await page2.waitForTimeout(500); // Additional wait for form config to load
     
-    await page2.selectOption('select#tipo', 'FAMILIAR');
+    await page2.click('button.tipo-btn[data-tipo="FAMILIAR"]');
     await page2.waitForTimeout(1000);
     
     const paymentOptions2 = await page2.locator('select#metodo option').allTextContents();
@@ -338,11 +338,10 @@ async function testPaymentMethods() {
     console.log('📝 Step 10.5: Testing payment method filtering by payer selection...');
     
     await page2.goto(`${appUrl}/registrar-movimiento`);
-    await page2.waitForSelector('select#tipo', { state: 'visible', timeout: 10000 });
     await page2.waitForTimeout(500);
     
     // Select COMPARTIDO type
-    await page2.selectOption('select#tipo', 'COMPARTIDO');
+    await page2.click('button.tipo-btn[data-tipo="COMPARTIDO"]');
     await page2.waitForTimeout(1000);
     
     // User 2 selects themselves as payer - should see own + shared
@@ -386,17 +385,17 @@ async function testPaymentMethods() {
     // Try to submit a movement with wrong payment method for payer
     // This tests that the backend validates ownership even if frontend is bypassed
     await page2.goto(`${appUrl}/registrar-movimiento`);
-    await page2.waitForSelector('select#tipo', { state: 'visible', timeout: 10000 });
+    
     await page2.waitForTimeout(500);
     
-    await page2.selectOption('select#tipo', 'PAGO_DEUDA');
+    await page2.click('button.tipo-btn[data-tipo="PAGO_DEUDA"]');
     await page2.waitForTimeout(500);
     
     // Fill form
     await page2.locator('#fecha').fill('2025-01-15');
     await page2.locator('#descripcion').fill('Test validation');
     await page2.locator('#valor').fill('100,00');
-    await page2.selectOption('select#categoria', 'Mercado');
+    // Note: categoria is hidden for PAGO_DEUDA, so we skip it
     
     // Select User 1 as payer (pagador)
     await page2.selectOption('select#pagador', 'Test Owner PM');
@@ -449,10 +448,9 @@ async function testPaymentMethods() {
     
     // Go to movement form
     await page1.goto(`${appUrl}/registrar-movimiento`);
-    await page1.waitForSelector('select#tipo', { state: 'visible', timeout: 10000 });
     await page1.waitForTimeout(500);
     
-    await page1.selectOption('select#tipo', 'COMPARTIDO');
+    await page1.click('button.tipo-btn[data-tipo="COMPARTIDO"]');
     await page1.waitForTimeout(500);
     
     // Select contact as payer
@@ -582,10 +580,10 @@ async function testPaymentMethods() {
     console.log('📝 Step 15: User 2 checking movement form after deletion...');
     
     await page2.goto(`${appUrl}/registrar-movimiento`);
-    await page2.waitForSelector('select#tipo', { state: 'visible', timeout: 10000 });
+    
     await page2.waitForTimeout(500);
     
-    await page2.selectOption('select#tipo', 'FAMILIAR');
+    await page2.click('button.tipo-btn[data-tipo="FAMILIAR"]');
     await page2.waitForTimeout(500);
     
     const finalOptions = await page2.locator('select#metodo option').allTextContents();
@@ -623,9 +621,9 @@ async function testPaymentMethods() {
     
     // Verify it appears in movement form
     await page2.goto(`${appUrl}/registrar-movimiento`);
-    await page2.waitForSelector('select#tipo', { state: 'visible', timeout: 10000 });
+    
     await page2.waitForTimeout(500);
-    await page2.selectOption('select#tipo', 'FAMILIAR');
+    await page2.click('button.tipo-btn[data-tipo="FAMILIAR"]');
     await page2.waitForTimeout(500);
     
     let beforeDeactivation = await page2.locator('select#metodo option').allTextContents();
@@ -659,9 +657,9 @@ async function testPaymentMethods() {
     
     // Verify it does NOT appear in movement form
     await page2.goto(`${appUrl}/registrar-movimiento`);
-    await page2.waitForSelector('select#tipo', { state: 'visible', timeout: 10000 });
+    
     await page2.waitForTimeout(500);
-    await page2.selectOption('select#tipo', 'FAMILIAR');
+    await page2.click('button.tipo-btn[data-tipo="FAMILIAR"]');
     await page2.waitForTimeout(500);
     
     let afterDeactivation = await page2.locator('select#metodo option').allTextContents();
