@@ -17,6 +17,8 @@ let currentUser = null;
 let currentMonth = null; // YYYY-MM format
 let incomeData = null;
 let activeTab = 'ingresos'; // 'gastos', 'ingresos', 'tarjetas'
+let householdMembers = []; // List of household members for filtering
+let selectedMemberId = null; // null = "Todos"
 
 /**
  * Format number as COP currency
@@ -108,22 +110,41 @@ function renderTabs() {
 }
 
 /**
- * Render month selector
+ * Render month selector with member filter
  */
 function renderMonthSelector() {
+  const memberOptions = [
+    { id: null, name: '👥 Todos los miembros' },
+    ...householdMembers.map(m => ({ id: m.user_id, name: m.name }))
+  ];
+
+  const selectedMember = memberOptions.find(m => m.id === selectedMemberId) || memberOptions[0];
+
   return `
     <div class="month-selector">
-      <button id="prev-month-btn" class="month-nav-btn">
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-          <path d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"/>
-        </svg>
-      </button>
-      <div class="month-display">${getMonthDateRange(currentMonth)}</div>
-      <button id="next-month-btn" class="month-nav-btn">
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-          <path d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/>
-        </svg>
-      </button>
+      <div class="month-nav-group">
+        <button id="prev-month-btn" class="month-nav-btn">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"/>
+          </svg>
+        </button>
+        <div class="month-display">${getMonthDateRange(currentMonth)}</div>
+        <button id="next-month-btn" class="month-nav-btn">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/>
+          </svg>
+        </button>
+      </div>
+      
+      <div class="member-filter">
+        <select id="member-filter-select" class="member-filter-select">
+          ${memberOptions.map(option => `
+            <option value="${option.id || ''}" ${option.id === selectedMemberId ? 'selected' : ''}>
+              ${option.name}
+            </option>
+          `).join('')}
+        </select>
+      </div>
     </div>
   `;
 }
@@ -259,11 +280,40 @@ export function render(user) {
 }
 
 /**
+ * Load household members for filtering
+ */
+async function loadHouseholdMembers() {
+  try {
+    const response = await fetch(`${API_URL}/movement-form-config`, {
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      console.error('Error loading household members:', response.status);
+      householdMembers = [];
+      return;
+    }
+
+    const data = await response.json();
+    // Filter only members (not contacts)
+    householdMembers = data.users.filter(u => u.type === 'member');
+  } catch (error) {
+    console.error('Error loading household members:', error);
+    householdMembers = [];
+  }
+}
+
+/**
  * Load income data for the current month
  */
 async function loadIncomeData() {
   try {
-    const response = await fetch(`${API_URL}/income?month=${currentMonth}`, {
+    let url = `${API_URL}/income?month=${currentMonth}`;
+    if (selectedMemberId) {
+      url += `&member_id=${selectedMemberId}`;
+    }
+    
+    const response = await fetch(url, {
       credentials: 'include'
     });
 
@@ -427,6 +477,9 @@ export async function setup() {
     currentMonth = getCurrentMonth();
   }
 
+  // Load household members for filter
+  await loadHouseholdMembers();
+
   // Load income data
   await loadIncomeData();
   
@@ -502,6 +555,7 @@ export async function setup() {
 function setupMonthNavigation() {
   const prevBtn = document.getElementById('prev-month-btn');
   const nextBtn = document.getElementById('next-month-btn');
+  const memberFilter = document.getElementById('member-filter-select');
 
   if (prevBtn) {
     // Remove old listener if exists
@@ -522,6 +576,14 @@ function setupMonthNavigation() {
     
     newNextBtn.addEventListener('click', async () => {
       currentMonth = nextMonth(currentMonth);
+      await loadIncomeData();
+      refreshDisplay();
+    });
+  }
+
+  if (memberFilter) {
+    memberFilter.addEventListener('change', async (e) => {
+      selectedMemberId = e.target.value || null;
       await loadIncomeData();
       refreshDisplay();
     });
