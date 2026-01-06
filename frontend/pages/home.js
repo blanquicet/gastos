@@ -375,14 +375,12 @@ function renderIncomeCategories() {
             ${data.entries.map(entry => `
               <div class="income-detail-entry">
                 <div class="entry-info">
-                  <div class="entry-description-row">
-                    <span class="entry-description">${entry.description || entry.member_name}</span>
-                    <span class="entry-member-badge">${entry.member_name}</span>
-                  </div>
+                  <span class="entry-description">${entry.description || entry.member_name}</span>
                   <span class="entry-amount">${formatCurrency(entry.amount)}</span>
                   <div class="entry-date">${formatDateTime(entry.created_at)}</div>
                 </div>
                 <div class="entry-actions">
+                  <span class="entry-member-badge">${entry.member_name}</span>
                   <button class="three-dots-btn" data-income-id="${entry.id}">⋮</button>
                   <div class="three-dots-menu" id="income-menu-${entry.id}">
                     <button class="menu-item" data-action="delete" data-id="${entry.id}">Eliminar</button>
