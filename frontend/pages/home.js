@@ -59,21 +59,21 @@ function formatDateTime(dateString) {
 function formatDate(dateString) {
   if (!dateString) return '';
   
-  // Handle both "YYYY-MM-DD" format and ISO timestamp
-  const date = new Date(dateString);
+  // Extract just the date part (YYYY-MM-DD) from ISO timestamp
+  const datePart = dateString.split('T')[0];
+  const [year, month, day] = datePart.split('-').map(Number);
+  
+  // Create date in local timezone (avoid UTC conversion issues)
+  const date = new Date(year, month - 1, day);
   
   // Check if date is valid
   if (isNaN(date.getTime())) return '';
   
-  const day = date.getDate();
-  
   // Get month abbreviation and capitalize properly (Ene, Feb, Mar, etc.)
   const monthLong = date.toLocaleDateString('es-CO', { month: 'short' });
-  const month = monthLong.replace('.', '').charAt(0).toUpperCase() + monthLong.replace('.', '').slice(1);
+  const monthName = monthLong.replace('.', '').charAt(0).toUpperCase() + monthLong.replace('.', '').slice(1);
   
-  const year = date.getFullYear();
-  
-  return `${day} ${month} ${year}`;
+  return `${day} ${monthName} ${year}`;
 }
 
 /**
