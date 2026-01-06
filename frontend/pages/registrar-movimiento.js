@@ -80,45 +80,57 @@ export function render(user) {
 
       <form id="movForm" novalidate>
         <div class="grid">
+          <div class="field col-span-2">
+            <span>¿Qué deseas registrar?</span>
+            <div class="tipo-selector">
+              <button type="button" class="tipo-btn" data-tipo="FAMILIAR">
+                <div class="tipo-icon">🏠</div>
+                <div class="tipo-label">Gasto del hogar</div>
+              </button>
+              <button type="button" class="tipo-btn" data-tipo="COMPARTIDO">
+                <div class="tipo-icon split-icon">⇄</div>
+                <div class="tipo-label">Dividir gasto</div>
+              </button>
+              <button type="button" class="tipo-btn" data-tipo="PAGO_DEUDA">
+                <div class="tipo-icon">💸</div>
+                <div class="tipo-label">Pago de deuda</div>
+              </button>
+              <button type="button" class="tipo-btn" data-tipo="INGRESO">
+                <div class="tipo-icon">💰</div>
+                <div class="tipo-label">Ingreso</div>
+              </button>
+            </div>
+            <input type="hidden" name="tipo" id="tipo" required />
+            
+          </div>
+
           <label class="field">
             <span>Fecha</span>
             <input name="fecha" id="fecha" type="date" value="${getTodayLocal()}" required />
-            <small class="hint">Obligatorio</small>
-          </label>
-
-          <label class="field">
-            <span>¿Qué deseas registrar?</span>
-            <select name="tipo" id="tipo" required>
-              <option value="" selected disabled>Seleccionar</option>
-              <option value="INGRESO">Ingreso</option>
-              <option value="FAMILIAR">Gasto del hogar</option>
-              <option value="COMPARTIDO">Dividir gasto</option>
-              <option value="PAGO_DEUDA">Pago de deuda</option>
-            </select>
-            <small class="hint">Obligatorio</small>
+            
           </label>
 
           <label class="field col-span-2">
-            <span>Descripción</span>
+            <span>Nota</span>
             <input name="descripcion" id="descripcion" type="text" placeholder="Ej: Almuerzo, Uber a casa, Guaritos…" required />
-            <small class="hint">Opcional</small>
+            
           </label>
 
-          <label class="field col-span-2">
+          <label class="field col-span-2 hidden" id="categoriaWrap">
             <span>Categoría</span>
             <select name="categoria" id="categoria" required>
               <option value="" selected disabled>Seleccionar</option>
             </select>
-            <small class="hint">Obligatorio</small>
+            
           </label>
 
           <label class="field col-span-2">
             <span>Monto total</span>
-            <div class="input-wrapper" id="valorWrapper" style="display: flex; align-items: center; border: 1px solid #ccc; border-radius: 4px; padding: 0; background-color: white;">
-              <span style="color: #999; padding-left: 8px; padding-right: 2px; user-select: none; font-size: 14px; flex-shrink: 0;">COP</span>
-              <input name="valor" id="valor" type="text" inputmode="decimal" placeholder="0" required style="border: none; outline: none; flex: 1; padding: 8px 8px 8px 2px; background-color: transparent; text-align: right; min-width: 0;" />
+            <div class="input-wrapper" id="valorWrapper" style="display: flex; align-items: center; border: 1px solid #e5e7eb; border-radius: 12px; padding: 0; background-color: white;">
+              <span style="color: #9ca3af; padding-left: 14px; padding-right: 4px; user-select: none; font-size: 14px; flex-shrink: 0; font-weight: 500;">COP</span>
+              <input name="valor" id="valor" type="text" inputmode="decimal" placeholder="0" required style="border: none; outline: none; flex: 1; padding: 12px 14px 12px 2px; background-color: transparent; text-align: right; min-width: 0;" />
             </div>
-            <small class="hint">Obligatorio</small>
+            
           </label>
 
           <!-- Income-specific fields -->
@@ -146,7 +158,7 @@ export function render(user) {
                 <option value="adjustment">Ajuste Contable</option>
               </optgroup>
             </select>
-            <small class="hint">Obligatorio</small>
+            
           </label>
 
           <label class="field col-span-2 hidden" id="ingresoCuentaWrap">
@@ -173,7 +185,7 @@ export function render(user) {
           <label class="field hidden" id="pagadorWrap">
             <span>¿Quién pagó?</span>
             <select name="pagadorCompartido" id="pagadorCompartido"></select>
-            <small class="hint">Obligatorio</small>
+            
           </label>
 
           <!-- Método de pago -->
@@ -336,15 +348,35 @@ export async function setup() {
   // Reset participants for COMPARTIDO
   resetParticipants();
 
+  // Setup tipo button listeners
+  const tipoBtns = document.querySelectorAll('.tipo-btn');
+  tipoBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tipo = btn.dataset.tipo;
+      
+      // Remove active class from all buttons
+      tipoBtns.forEach(b => b.classList.remove('active'));
+      
+      // Add active class to clicked button
+      btn.classList.add('active');
+      
+      // Set hidden input value
+      tipoEl.value = tipo;
+      
+      // Trigger tipo change event
+      onTipoChange();
+    });
+  });
+
   // Check URL params for pre-selection
   const urlParams = new URLSearchParams(window.location.search);
   const tipoParam = urlParams.get('tipo');
-  if (tipoParam && tipoEl) {
-    tipoEl.value = tipoParam;
+  if (tipoParam) {
+    const targetBtn = document.querySelector(`.tipo-btn[data-tipo="${tipoParam}"]`);
+    if (targetBtn) {
+      targetBtn.click();
+    }
   }
-
-  // Event listeners
-  tipoEl.addEventListener('change', onTipoChange);
   pagadorEl.addEventListener('change', onPagadorChange);
   pagadorCompartidoEl.addEventListener('change', onPagadorChange);
   equitableEl.addEventListener('change', onEquitableChange);
@@ -558,10 +590,12 @@ function onTipoChange() {
     renderIngresoCuentaSelect(null);
   }
 
-  // For income, hide category (not needed)
-  const categoriaField = document.querySelector('#categoria').closest('.field');
-  if (categoriaField) {
-    categoriaField.classList.toggle('hidden', isIngreso);
+  // Show/hide category field
+  // Hidden when: no tipo selected, INGRESO, or PAGO_DEUDA
+  const categoriaWrap = document.getElementById('categoriaWrap');
+  if (categoriaWrap) {
+    const shouldHideCategoria = !tipo || isIngreso || isPagoDeuda;
+    categoriaWrap.classList.toggle('hidden', shouldHideCategoria);
   }
 
   updateSubmitButton(isCompartido);
@@ -824,10 +858,10 @@ function renderParticipants() {
     const inputWrapper = document.createElement('div');
     inputWrapper.style.display = 'flex';
     inputWrapper.style.alignItems = 'center';
-    inputWrapper.style.border = '1px solid #ccc';
-    inputWrapper.style.borderRadius = '4px';
+    inputWrapper.style.border = '1px solid #e5e7eb';
+    inputWrapper.style.borderRadius = '12px';
     inputWrapper.style.padding = '0';
-    inputWrapper.style.backgroundColor = pctInput.disabled ? '#f5f5f5' : 'white';
+    inputWrapper.style.backgroundColor = pctInput.disabled ? '#f9fafb' : 'white';
     inputWrapper.style.maxWidth = '100%';
     inputWrapper.style.boxSizing = 'border-box';
 
@@ -839,26 +873,27 @@ function renderParticipants() {
     pctInput.style.textAlign = 'right';
     pctInput.style.minWidth = '0';
     pctInput.style.fontSize = showAsValue ? '13px' : '14px';
-    pctInput.style.padding = showAsValue ? '8px 8px 8px 2px' : '8px 2px 8px 8px';
+    pctInput.style.padding = showAsValue ? '12px 14px 12px 2px' : '12px 2px 12px 14px';
 
     // Add prefix/suffix label inside
     const label = document.createElement('span');
     label.textContent = showAsValue ? 'COP' : '%';
-    label.style.color = '#999';
+    label.style.color = '#9ca3af';
     label.style.userSelect = 'none';
     label.style.fontSize = '14px';
     label.style.flexShrink = '0';
+    label.style.fontWeight = '500';
     
     if (showAsValue) {
       // COP prefix (left side)
-      label.style.paddingLeft = '8px';
-      label.style.paddingRight = '2px';
+      label.style.paddingLeft = '14px';
+      label.style.paddingRight = '4px';
       inputWrapper.appendChild(label);
       inputWrapper.appendChild(pctInput);
     } else {
       // % suffix (right side)
       label.style.paddingLeft = '2px';
-      label.style.paddingRight = '8px';
+      label.style.paddingRight = '14px';
       inputWrapper.appendChild(pctInput);
       inputWrapper.appendChild(label);
     }
@@ -948,7 +983,7 @@ function readForm() {
   if (!fecha) throw new Error('Fecha es obligatoria.');
   if (!tipo) throw new Error('Tipo de movimiento es obligatorio.');
   if (!Number.isFinite(valor) || valor <= 0) throw new Error('Monto total debe ser un número mayor a 0.');
-  if (!descripcion) throw new Error('Descripción es obligatoria.');
+  if (!descripcion) throw new Error('Nota es obligatoria.');
 
   // Handle INGRESO separately
   if (tipo === 'INGRESO') {
@@ -979,7 +1014,10 @@ function readForm() {
 
   if (tipo !== 'FAMILIAR' && !pagador) throw new Error('Pagador es obligatorio.');
 
-  if (!categoria) throw new Error('Categoría es obligatoria.');
+  // Categoria is required for FAMILIAR and COMPARTIDO only (not for PAGO_DEUDA)
+  if ((tipo === 'FAMILIAR' || tipo === 'COMPARTIDO') && !categoria) {
+    throw new Error('Categoría es obligatoria.');
+  }
 
   const requiresMethod = tipo === 'FAMILIAR' || primaryUsers.includes(pagador);
   if (requiresMethod && !metodo) throw new Error('Método de pago es obligatorio.');
