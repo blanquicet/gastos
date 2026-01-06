@@ -217,10 +217,21 @@ async function testHouseholdValidation() {
     // Try to submit with invalid phone
     // Clear and refill email to ensure it's valid
     await page.locator('#contact-email').clear();
-    await page.locator('#contact-email').fill('valid@email.com'); // fix email
+    await page.locator('#contact-email').fill('test@test.test'); // fix email with obviously valid format
     await page.locator('#contact-email').blur(); // Ensure value is set and validated
     await page.waitForTimeout(500); // Give time for validation
+    
+    // Debug: Check what the actual values are
+    const emailValue = await page.locator('#contact-email').inputValue();
+    const phoneValue = await page.locator('#contact-phone').inputValue();
+    console.log('📧 Email value before phone submission:', JSON.stringify(emailValue));
+    console.log('📱 Phone value before submission:', JSON.stringify(phoneValue));
+    
+    await page.locator('#contact-phone').clear();
     await page.locator('#contact-phone').fill('123'); // invalid phone
+    
+    const phoneValue2 = await page.locator('#contact-phone').inputValue();
+    console.log('📱 Phone value AFTER fill:', JSON.stringify(phoneValue2));
     
     await page.getByRole('button', { name: 'Agregar', exact: true }).click();
     await page.waitForTimeout(1000);
