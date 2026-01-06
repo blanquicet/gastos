@@ -2110,6 +2110,35 @@ button.loading::after {
   z-index: 1000;
 }
 
+/* Filter loading overlay */
+.filter-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.95);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  z-index: 10;
+}
+
+.filter-loading-overlay .spinner {
+  width: 32px;
+  height: 32px;
+  border-width: 3px;
+}
+
+.filter-loading-overlay p {
+  margin-top: 12px;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 500;
+}
+
 .filter-section {
   padding: 20px;
   border-bottom: 1px solid #f3f4f6;

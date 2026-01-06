@@ -266,6 +266,12 @@ function renderFilterDropdown() {
         <button class="btn-secondary btn-small" id="clear-all-filters">Mostrar todo</button>
         <button class="btn-primary btn-small" id="apply-filters">Aplicar</button>
       </div>
+      
+      <!-- Filter loading overlay -->
+      <div class="filter-loading-overlay" id="filter-loading" style="display: none;">
+        <div class="spinner"></div>
+        <p>Filtrando...</p>
+      </div>
     </div>
   `;
 }
@@ -406,7 +412,7 @@ export function render(user) {
       ${renderTabs()}
       
       <div class="dashboard-content">
-        ${activeTab === 'ingresos' ? `
+        ${activeTab === 'ingresos' && incomeData ? `
           ${renderMonthSelector()}
           
           <div class="total-display">
@@ -417,6 +423,8 @@ export function render(user) {
           <div id="categories-container">
             ${renderIncomeCategories()}
           </div>
+        ` : activeTab === 'ingresos' ? `
+          <!-- Content will be loaded after data fetch in setup() -->
         ` : `
           <div class="coming-soon">
             <div class="coming-soon-icon">${activeTab === 'gastos' ? '🛒' : '💳'}</div>
@@ -819,6 +827,10 @@ function setupFilterListeners() {
       console.log('APPLY FILTERS clicked');
       console.log('Before normalization - members:', selectedMemberIds, 'types:', selectedIncomeTypes);
       
+      // Show filter loading overlay
+      const filterLoading = document.getElementById('filter-loading');
+      if (filterLoading) filterLoading.style.display = 'flex';
+      
       // Normalize members based on actual checkbox state, not array content
       const memberCheckboxes = document.querySelectorAll('[data-filter-type="member"]');
       const checkedMembers = Array.from(memberCheckboxes).filter(cb => cb.checked);
@@ -875,6 +887,9 @@ function setupFilterListeners() {
       }
       await loadIncomeData();
       refreshDisplay();
+      
+      // Hide filter loading overlay
+      if (filterLoading) filterLoading.style.display = 'none';
     });
   }
 

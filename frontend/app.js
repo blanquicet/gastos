@@ -28,18 +28,24 @@ function initRouter() {
     const appEl = document.getElementById('app');
     appEl.innerHTML = LoginPage.render();
     LoginPage.setup();
+    const loadingEl = document.getElementById('loading');
+    if (loadingEl) loadingEl.style.display = 'none';
   });
 
   router.route('/forgot-password', async () => {
     const appEl = document.getElementById('app');
     appEl.innerHTML = ForgotPasswordPage.render();
     ForgotPasswordPage.init();
+    const loadingEl = document.getElementById('loading');
+    if (loadingEl) loadingEl.style.display = 'none';
   });
 
   router.route('/reset-password', async () => {
     const appEl = document.getElementById('app');
     appEl.innerHTML = ResetPasswordPage.render();
     ResetPasswordPage.init();
+    const loadingEl = document.getElementById('loading');
+    if (loadingEl) loadingEl.style.display = 'none';
   });
 
   router.route('/', async () => {
@@ -54,7 +60,9 @@ function initRouter() {
     currentUser = user;
     const appEl = document.getElementById('app');
     appEl.innerHTML = HomePage.render(user);
-    HomePage.setup();
+    await HomePage.setup();
+    const loadingEl = document.getElementById('loading');
+    if (loadingEl) loadingEl.style.display = 'none';
   });
 
   router.route('/registrar-movimiento', async () => {
@@ -69,7 +77,9 @@ function initRouter() {
     currentUser = user;
     const appEl = document.getElementById('app');
     appEl.innerHTML = RegistrarMovimientoPage.render(user);
-    RegistrarMovimientoPage.setup();
+    await RegistrarMovimientoPage.setup();
+    const loadingEl = document.getElementById('loading');
+    if (loadingEl) loadingEl.style.display = 'none';
   });
 
   router.route('/perfil', async () => {
@@ -84,7 +94,9 @@ function initRouter() {
     currentUser = user;
     const appEl = document.getElementById('app');
     appEl.innerHTML = ProfilePage.render(user);
-    ProfilePage.setup();
+    await ProfilePage.setup();
+    const loadingEl = document.getElementById('loading');
+    if (loadingEl) loadingEl.style.display = 'none';
   });
 
   router.route('/hogar/crear', async () => {
@@ -99,7 +111,9 @@ function initRouter() {
     currentUser = user;
     const appEl = document.getElementById('app');
     appEl.innerHTML = HouseholdCreatePage.render(user);
-    HouseholdCreatePage.setup();
+    await HouseholdCreatePage.setup();
+    const loadingEl = document.getElementById('loading');
+    if (loadingEl) loadingEl.style.display = 'none';
   });
 
   router.route('/hogar', async () => {
@@ -114,15 +128,13 @@ function initRouter() {
     currentUser = user;
     const appEl = document.getElementById('app');
     appEl.innerHTML = HouseholdPage.render(user);
-    HouseholdPage.setup();
+    await HouseholdPage.setup();
+    const loadingEl = document.getElementById('loading');
+    if (loadingEl) loadingEl.style.display = 'none';
   });
 
   // Auth guard - check before every route
   router.beforeEach(async (to) => {
-    // Hide loading spinner
-    const loadingEl = document.getElementById('loading');
-    if (loadingEl) loadingEl.style.display = 'none';
-
     // Public routes that don't require authentication
     const publicRoutes = ['/login', '/forgot-password', '/reset-password'];
     const isPublicRoute = publicRoutes.includes(to);
