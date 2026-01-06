@@ -110,9 +110,9 @@ function getIncomeTypeIcon(type) {
     'bonus': '🎁',
     'reimbursement': '↩️',
     'other_income': '💵',
-    'savings_withdrawal': '📦',
+    'savings_withdrawal': '🐷',
     'previous_balance': '📊',
-    'adjustment': '⚖️'
+    'adjustment': '🔧'
   };
   return icons[type] || '💵';
 }
