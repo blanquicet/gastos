@@ -2206,6 +2206,16 @@ button.loading::after {
   margin-top: 4px;
   padding-left: 12px;
   border-left: 2px solid #f3f4f6;
+  max-height: 500px;
+  overflow: hidden;
+  transition: max-height 0.3s ease, opacity 0.3s ease;
+  opacity: 1;
+}
+
+.filter-sub-options.collapsed {
+  max-height: 0;
+  opacity: 0;
+  margin-top: 0;
 }
 
 .filter-category {
@@ -2237,10 +2247,21 @@ button.loading::after {
   font-weight: 600;
   margin-bottom: 4px;
   color: #111827;
+  position: relative;
 }
 
 .filter-category-label:hover {
-  background: transparent;
+  background: #f9fafb;
+}
+
+.category-toggle-icon {
+  margin-left: auto;
+  color: #6b7280;
+  transition: transform 0.3s ease;
+}
+
+.category-toggle-icon.rotated {
+  transform: rotate(180deg);
 }
 
 .filter-checkbox {

@@ -233,13 +233,16 @@ function renderFilterDropdown() {
         </div>
         
         <div class="filter-category">
-          <label class="filter-checkbox-label filter-category-label">
+          <label class="filter-checkbox-label filter-category-label" data-category-toggle="Ingresos">
             <input type="checkbox" class="filter-checkbox filter-category-checkbox" 
                    data-category="Ingresos"
                    ${allIngresosSelected ? 'checked' : ''}>
             <span><strong>Ingresos</strong></span>
+            <svg class="category-toggle-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M4.293 5.293a1 1 0 011.414 0L8 7.586l2.293-2.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"/>
+            </svg>
           </label>
-          <div class="filter-options filter-sub-options">
+          <div class="filter-options filter-sub-options collapsed" data-category-content="Ingresos">
             ${ingresosTypes.map(type => {
               const isChecked = showAllTypes || (selectedIncomeTypes && selectedIncomeTypes.includes(type));
               return `
@@ -257,13 +260,16 @@ function renderFilterDropdown() {
         </div>
 
         <div class="filter-category">
-          <label class="filter-checkbox-label filter-category-label">
+          <label class="filter-checkbox-label filter-category-label" data-category-toggle="Movimientos">
             <input type="checkbox" class="filter-checkbox filter-category-checkbox" 
                    data-category="Movimientos"
                    ${allMovimientosSelected ? 'checked' : ''}>
             <span><strong>Movimientos</strong></span>
+            <svg class="category-toggle-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M4.293 5.293a1 1 0 011.414 0L8 7.586l2.293-2.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"/>
+            </svg>
           </label>
-          <div class="filter-options filter-sub-options">
+          <div class="filter-options filter-sub-options collapsed" data-category-content="Movimientos">
             ${movimientosTypes.map(type => {
               const isChecked = showAllTypes || (selectedIncomeTypes && selectedIncomeTypes.includes(type));
               return `
@@ -1053,6 +1059,30 @@ function setupFilterListeners() {
         } else {
           // Remove these types from the filter list
           selectedIncomeTypes = selectedIncomeTypes.filter(t => !categoryTypes.includes(t));
+        }
+      }
+    });
+  });
+
+  // Category toggle (expand/collapse subcategories)
+  document.querySelectorAll('[data-category-toggle]').forEach(label => {
+    label.addEventListener('click', (e) => {
+      // Don't toggle if clicking on the checkbox itself
+      if (e.target.type === 'checkbox') {
+        return;
+      }
+      
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const category = label.dataset.categoryToggle;
+      const content = document.querySelector(`[data-category-content="${category}"]`);
+      const icon = label.querySelector('.category-toggle-icon');
+      
+      if (content) {
+        content.classList.toggle('collapsed');
+        if (icon) {
+          icon.classList.toggle('rotated');
         }
       }
     });
