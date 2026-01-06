@@ -1,0 +1,525 @@
+import { chromium } from 'playwright';
+import pg from 'pg';
+const { Pool } = pg;
+
+/**
+ * Test Movement Registration - PAGO_DEUDA Type
+ * 
+ * Tests the movement registration form for PAGO_DEUDA (debt payment) movements:
+ * 1. Register two users and create household
+ * 2. Add payment method
+ * 3. Add contact
+ * 4. Test PAGO_DEUDA movement creation (member to member)
+ * 5. Test PAGO_DEUDA movement creation (member to contact)
+ * 6. Test validation (pagador != tomador)
+ * 7. Verify movements saved to database
+ * 8. Cleanup test data
+ */
+
+async function testMovementPagoDeuda() {
+  const headless = process.env.CI === 'true' || process.env.HEADLESS === 'true';
+  const appUrl = process.env.APP_URL || 'http://localhost:8080';
+  const dbUrl = process.env.DATABASE_URL || 'postgres://gastos:gastos_dev_password@localhost:5432/gastos?sslmode=disable';
+  
+  const browser = await chromium.launch({ headless });
+  
+  // Database connection
+  const pool = new Pool({
+    connectionString: dbUrl
+  });
+
+  const timestamp = Date.now();
+  const user1Email = `mov-debt-user1-${timestamp}@example.com`;
+  const user2Email = `mov-debt-user2-${timestamp}@example.com`;
+  const password = 'TestPassword123!';
+  const householdName = `Debt Test ${timestamp}`;
+
+  let user1Id = null;
+  let user2Id = null;
+  let householdId = null;
+  let contactId = null;
+
+  try {
+    console.log('🚀 Starting Movement PAGO_DEUDA Test');
+    console.log('👤 User 1:', user1Email);
+    console.log('👤 User 2:', user2Email);
+    console.log('🏠 Household:', householdName);
+    console.log('');
+
+    // ==================================================================
+    // STEP 1: Register User 1 and Create Household
+    // ==================================================================
+    console.log('📝 Step 1: Registering User 1 and creating household...');
+    const context1 = await browser.newContext();
+    const page1 = await context1.newPage();
+    
+    // Listen for console errors
+    const consoleErrors = [];
+    page1.on('console', msg => {
+      if (msg.type() === 'error') {
+        consoleErrors.push(msg.text());
+      }
+    });
+    
+    await page1.goto(appUrl);
+    await page1.waitForTimeout(1000);
+    
+    await page1.getByRole('link', { name: 'Regístrate' }).click();
+    await page1.waitForTimeout(500);
+    
+    await page1.locator('#registerName').fill('User One Debt');
+    await page1.locator('#registerEmail').fill(user1Email);
+    await page1.locator('#registerPassword').fill(password);
+    await page1.locator('#registerConfirm').fill(password);
+    
+    await page1.getByRole('button', { name: 'Registrarse' }).click();
+    await page1.waitForTimeout(2000);
+    
+    // Get user ID from database
+    const user1Result = await pool.query('SELECT id FROM users WHERE email = $1', [user1Email]);
+    user1Id = user1Result.rows[0].id;
+    
+    // Create household
+    await page1.locator('#hamburger-btn').click();
+    await page1.waitForTimeout(500);
+    await page1.getByRole('link', { name: 'Perfil' }).click();
+    await page1.waitForTimeout(1000);
+    
+    await page1.getByRole('button', { name: 'Crear hogar' }).click();
+    await page1.waitForTimeout(1000);
+    
+    await page1.locator('#household-name').fill(householdName);
+    await page1.getByRole('button', { name: 'Crear hogar' }).click();
+    await page1.waitForTimeout(2000);
+    
+    // Get household ID from database
+    const householdResult = await pool.query('SELECT id FROM households WHERE name = $1', [householdName]);
+    householdId = householdResult.rows[0].id;
+    
+    console.log('✅ User 1 registered and household created');
+
+    // ==================================================================
+    // STEP 2: Register User 2 and Join Household
+    // ==================================================================
+    console.log('📝 Step 2: Registering User 2 and joining household...');
+    const context2 = await browser.newContext();
+    const page2 = await context2.newPage();
+    
+    await page2.goto(appUrl);
+    await page2.waitForTimeout(1000);
+    
+    await page2.getByRole('link', { name: 'Regístrate' }).click();
+    await page2.waitForTimeout(500);
+    
+    await page2.locator('#registerName').fill('User Two Debt');
+    await page2.locator('#registerEmail').fill(user2Email);
+    await page2.locator('#registerPassword').fill(password);
+    await page2.locator('#registerConfirm').fill(password);
+    
+    await page2.getByRole('button', { name: 'Registrarse' }).click();
+    await page2.waitForTimeout(2000);
+    
+    // Get user2 ID from database
+    const user2Result = await pool.query('SELECT id FROM users WHERE email = $1', [user2Email]);
+    user2Id = user2Result.rows[0].id;
+    
+    // User 1 invites User 2 (auto-accepted since email matches)
+    await page1.goto(`${appUrl}/hogar`);
+    await page1.waitForTimeout(2000);
+    
+    // Clear any previous errors before invitation
+    consoleErrors.length = 0;
+    
+    const inviteBtn = page1.locator('#invite-member-btn');
+    await inviteBtn.waitFor({ state: 'visible', timeout: 5000 });
+    await inviteBtn.click();
+    await page1.waitForTimeout(500);
+    
+    const emailInput = page1.locator('#invite-email');
+    await emailInput.waitFor({ state: 'visible', timeout: 5000 });
+    await emailInput.fill(user2Email);
+    
+    const submitBtn = page1.getByRole('button', { name: 'Enviar invitación' });
+    await submitBtn.click();
+    await page1.waitForTimeout(2000);
+    
+    // Wait for and close success modal
+    await page1.waitForSelector('.modal', { timeout: 5000 });
+    await page1.waitForTimeout(500);
+    await page1.locator('.modal button').click(); // Click OK
+    await page1.waitForTimeout(2000); // Wait for reload
+    
+    // Check for any console errors during invitation
+    if (consoleErrors.length > 0) {
+      console.error('⚠️  Console errors during invitation:', consoleErrors);
+    }
+    
+    // Verify User 2 is now a household member in the database
+    const memberCheck = await pool.query(
+      'SELECT user_id FROM household_members WHERE household_id = $1 AND user_id = $2',
+      [householdId, user2Id]
+    );
+    
+    if (memberCheck.rows.length === 0) {
+      // Check invitations table to see if invitation exists
+      const inviteCheck = await pool.query(
+        'SELECT * FROM household_invitations WHERE household_id = $1 AND email = $2',
+        [householdId, user2Email]
+      );
+      console.error('❌ User 2 not found as household member');
+      console.error('📋 Invitation record:', inviteCheck.rows);
+      
+      // Also check all household members
+      const allMembers = await pool.query(
+        'SELECT user_id, role FROM household_members WHERE household_id = $1',
+        [householdId]
+      );
+      console.error('👥 All household members:', allMembers.rows);
+      
+      throw new Error('User 2 failed to join household');
+    }
+    
+    console.log('✅ User 2 joined household');
+
+    // ==================================================================
+    // STEP 3: Add Contact
+    // ==================================================================
+    console.log('📝 Step 3: Adding contact...');
+    
+    await page1.goto(`${appUrl}/hogar`);
+    await page1.waitForTimeout(2000);
+    
+    await page1.getByRole('button', { name: '+ Agregar contacto' }).click();
+    await page1.waitForTimeout(500);
+    
+    await page1.locator('#contact-name').fill('Pedro External');
+    await page1.locator('#contact-email').fill('pedro@example.com');
+    
+    await page1.getByRole('button', { name: 'Agregar', exact: true }).click();
+    await page1.waitForTimeout(3000); // Wait for reload
+    
+    // Get contact ID from database
+    const contactResult = await pool.query(
+      'SELECT id FROM contacts WHERE household_id = $1 AND name = $2',
+      [householdId, 'Pedro External']
+    );
+    contactId = contactResult.rows[0].id;
+    
+    console.log('✅ Contact added');
+
+    // ==================================================================
+    // STEP 4: Add Payment Method for User 1
+    // ==================================================================
+    console.log('📝 Step 4: Adding payment method for User 1...');
+    
+    await page1.goto(`${appUrl}/perfil`);
+    await page1.waitForTimeout(2000);
+    
+    // Wait for the add button to be visible
+    await page1.locator('#add-payment-method-btn').waitFor({ state: 'visible', timeout: 10000 });
+    await page1.locator('#add-payment-method-btn').click();
+    await page1.waitForTimeout(500);
+    
+    await page1.locator('#pm-name').fill('Nequi Test');
+    await page1.selectOption('select#pm-type', 'other');
+    
+    // Ensure NOT shared
+    const isSharedCheckbox = page1.locator('#pm-shared');
+    const isChecked = await isSharedCheckbox.isChecked();
+    if (isChecked) {
+      await isSharedCheckbox.uncheck();
+    }
+    
+    await page1.getByRole('button', { name: 'Agregar', exact: true }).click();
+    await page1.waitForTimeout(1500);
+    
+    // Close modal
+    await page1.keyboard.press('Escape');
+    await page1.waitForTimeout(500);
+    
+    console.log('✅ Payment method added');
+
+    // ==================================================================
+    // STEP 5: Create PAGO_DEUDA (Member to Member)
+    // ==================================================================
+    console.log('📝 Step 5: Creating PAGO_DEUDA movement (member to member)...');
+    
+    // Clear previous console errors
+    consoleErrors.length = 0;
+    
+    await page1.goto(`${appUrl}/registrar-movimiento`, { waitUntil: 'networkidle' });
+    await page1.waitForTimeout(2000);
+    
+    // Check for JavaScript errors (only after navigating to movement form)
+    const relevantErrors = consoleErrors.filter(err => 
+      err.includes('movement') || err.includes('form config') || err.includes('registrar')
+    );
+    
+    if (relevantErrors.length > 0) {
+      console.error('❌ JavaScript errors found:', relevantErrors);
+      throw new Error('JavaScript errors in movement form');
+    }
+    
+    // Select PAGO_DEUDA type
+    await page1.locator('button[data-tipo="PAGO_DEUDA"]').click();
+    await page1.waitForTimeout(500);
+    
+    // Fill form
+    await page1.locator('#descripcion').fill('Pago deuda almuerzo');
+    await page1.locator('#valor').fill('25000');
+    
+    // Wait for pagador dropdown to be populated
+    await page1.waitForTimeout(1000);
+    
+    await page1.selectOption('#pagador', 'User One Debt');
+    await page1.waitForTimeout(500);
+    await page1.selectOption('#metodo', 'Nequi Test');
+    
+    // Wait for tomador dropdown to be populated
+    await page1.waitForTimeout(500);
+    
+    await page1.selectOption('#tomador', 'User Two Debt');
+    
+    // Select category (required for PAGO_DEUDA)
+    await page1.selectOption('#categoria', 'Préstamo');
+    
+    // Submit form
+    await page1.locator('#submitBtn').click();
+    await page1.waitForTimeout(3000);
+    
+    // Check success message
+    const successStatus = await page1.locator('#status').textContent();
+    if (!successStatus.includes('correctamente')) {
+      console.error('❌ Expected success message, got:', successStatus);
+      throw new Error('PAGO_DEUDA movement creation failed');
+    }
+    
+    console.log('✅ PAGO_DEUDA movement created (member to member)');
+
+    // ==================================================================
+    // STEP 6: Verify Movement in Database
+    // ==================================================================
+    console.log('📝 Step 6: Verifying movement in PostgreSQL...');
+    
+    const movementResult = await pool.query(
+      'SELECT * FROM movements WHERE household_id = $1 AND description = $2',
+      [householdId, 'Pago deuda almuerzo']
+    );
+    
+    if (movementResult.rows.length === 0) {
+      throw new Error('Movement not found in database');
+    }
+    
+    const movement = movementResult.rows[0];
+    
+    // Verify movement data
+    if (movement.type !== 'DEBT_PAYMENT') {
+      throw new Error(`Expected type DEBT_PAYMENT, got ${movement.type}`);
+    }
+    if (parseFloat(movement.amount) !== 25000) {
+      throw new Error(`Expected amount 25000, got ${movement.amount}`);
+    }
+    if (movement.payer_user_id !== user1Id) {
+      throw new Error(`Expected payer ${user1Id}, got ${movement.payer_user_id}`);
+    }
+    if (movement.counterparty_user_id !== user2Id) {
+      throw new Error(`Expected counterparty ${user2Id}, got ${movement.counterparty_user_id}`);
+    }
+    
+    console.log('✅ Movement verified in PostgreSQL');
+    console.log('   Type:', movement.type);
+    console.log('   Amount:', movement.amount);
+    console.log('   Payer: User 1');
+    console.log('   Counterparty: User 2');
+
+    // ==================================================================
+    // STEP 7: Create PAGO_DEUDA (Member to Contact)
+    // ==================================================================
+    console.log('📝 Step 7: Creating PAGO_DEUDA movement (member to contact)...');
+    
+    await page1.goto(`${appUrl}/registrar-movimiento`, { waitUntil: 'networkidle' });
+    await page1.waitForTimeout(2000);
+    
+    await page1.locator('button[data-tipo="PAGO_DEUDA"]').click();
+    await page1.waitForTimeout(500);
+    
+    await page1.locator('#descripcion').fill('Pago deuda taxi');
+    await page1.locator('#valor').fill('15000');
+    await page1.selectOption('#pagador', 'User One Debt');
+    await page1.waitForTimeout(500);
+    await page1.selectOption('#metodo', 'Nequi Test');
+    await page1.selectOption('#tomador', 'Pedro External');
+    await page1.selectOption('#categoria', 'Préstamo');
+    
+    await page1.locator('#submitBtn').click();
+    await page1.waitForTimeout(3000);
+    
+    const successStatus2 = await page1.locator('#status').textContent();
+    if (!successStatus2.includes('correctamente')) {
+      console.error('❌ Expected success message, got:', successStatus2);
+      throw new Error('PAGO_DEUDA to contact creation failed');
+    }
+    
+    console.log('✅ PAGO_DEUDA movement created (member to contact)');
+
+    // Verify in database
+    const movement2Result = await pool.query(
+      'SELECT * FROM movements WHERE household_id = $1 AND description = $2',
+      [householdId, 'Pago deuda taxi']
+    );
+    
+    const movement2 = movement2Result.rows[0];
+    
+    if (movement2.payer_user_id !== user1Id) {
+      throw new Error(`Expected payer ${user1Id}, got ${movement2.payer_user_id}`);
+    }
+    if (movement2.counterparty_contact_id !== contactId) {
+      throw new Error(`Expected counterparty contact ${contactId}, got ${movement2.counterparty_contact_id}`);
+    }
+    
+    console.log('✅ Movement to contact verified');
+
+    // ==================================================================
+    // STEP 8: Test Validation (Pagador == Tomador)
+    // ==================================================================
+    console.log('📝 Step 8: Testing validation (pagador != tomador)...');
+    
+    await page1.goto(`${appUrl}/registrar-movimiento`, { waitUntil: 'networkidle' });
+    await page1.waitForTimeout(2000);
+    
+    await page1.locator('button[data-tipo="PAGO_DEUDA"]').click();
+    await page1.waitForTimeout(500);
+    
+    await page1.locator('#descripcion').fill('Test validation');
+    await page1.locator('#valor').fill('10000');
+    await page1.selectOption('#pagador', 'User One Debt');
+    await page1.waitForTimeout(500);
+    await page1.selectOption('#metodo', 'Nequi Test');
+    await page1.selectOption('#tomador', 'User One Debt'); // Same as pagador
+    
+    await page1.locator('#submitBtn').click();
+    await page1.waitForTimeout(1000);
+    
+    // Should show validation error
+    const validationStatus = await page1.locator('#status').textContent();
+    if (!validationStatus.includes('misma persona') && !validationStatus.toLowerCase().includes('same')) {
+      console.error('❌ Expected validation error, got:', validationStatus);
+      throw new Error('Pagador == Tomador validation not working');
+    }
+    
+    console.log('✅ Validation working correctly (pagador != tomador)');
+
+    // ==================================================================
+    // STEP 9: Test PAGO_DEUDA Without Payment Method (Contact as Payer)
+    // ==================================================================
+    console.log('📝 Step 9: Testing PAGO_DEUDA with contact as payer (no payment method)...');
+    
+    await page1.goto(`${appUrl}/registrar-movimiento`, { waitUntil: 'networkidle' });
+    await page1.waitForTimeout(2000);
+    
+    await page1.locator('button[data-tipo="PAGO_DEUDA"]').click();
+    await page1.waitForTimeout(500);
+    
+    await page1.locator('#descripcion').fill('Pago de Pedro');
+    await page1.locator('#valor').fill('20000');
+    await page1.selectOption('#pagador', 'Pedro External');
+    await page1.waitForTimeout(500);
+    
+    // Payment method should be hidden for contacts
+    const metodoWrapVisible = await page1.locator('#metodoWrap').isVisible();
+    if (metodoWrapVisible) {
+      throw new Error('Payment method should be hidden for contact payers');
+    }
+    
+    await page1.selectOption('#tomador', 'User One Debt');
+    
+    await page1.locator('#submitBtn').click();
+    await page1.waitForTimeout(3000);
+    
+    const successStatus3 = await page1.locator('#status').textContent();
+    if (!successStatus3.includes('correctamente')) {
+      throw new Error('PAGO_DEUDA from contact creation failed');
+    }
+    
+    console.log('✅ PAGO_DEUDA from contact created successfully');
+
+    // Verify no payment method in database
+    const movement3Result = await pool.query(
+      'SELECT * FROM movements WHERE household_id = $1 AND description = $2',
+      [householdId, 'Pago de Pedro']
+    );
+    
+    const movement3 = movement3Result.rows[0];
+    
+    if (movement3.payment_method_id !== null) {
+      throw new Error('Payment method should be null for contact payers');
+    }
+    if (movement3.payer_contact_id !== contactId) {
+      throw new Error(`Expected payer contact ${contactId}, got ${movement3.payer_contact_id}`);
+    }
+    
+    console.log('✅ Contact as payer verified (no payment method)');
+
+    // ==================================================================
+    // Cleanup
+    // ==================================================================
+    console.log('🧹 Cleaning up test data...');
+    
+    await pool.query('DELETE FROM movements WHERE household_id = $1', [householdId]);
+    await pool.query('DELETE FROM contacts WHERE household_id = $1', [householdId]);
+    await pool.query('DELETE FROM household_members WHERE household_id = $1', [householdId]);
+    await pool.query('DELETE FROM payment_methods WHERE owner_id IN ($1, $2)', [user1Id, user2Id]);
+    await pool.query('DELETE FROM households WHERE id = $1', [householdId]);
+    await pool.query('DELETE FROM users WHERE id IN ($1, $2)', [user1Id, user2Id]);
+    
+    console.log('✅ Cleanup complete');
+    console.log('');
+    console.log('✅ ✅ ✅ ALL PAGO_DEUDA MOVEMENT TESTS PASSED! ✅ ✅ ✅');
+
+    await browser.close();
+    await pool.end();
+    
+  } catch (error) {
+    console.error('❌ Test failed:', error.message);
+    
+    // Save screenshot on failure
+    try {
+      const page = (await browser.contexts())[0]?.pages()[0];
+      if (page) {
+        const screenshotPath = process.env.CI 
+          ? 'test-results/movement-pago-deuda-failure.png'
+          : '/tmp/movement-pago-deuda-failure.png';
+        await page.screenshot({ path: screenshotPath, fullPage: true });
+        console.log('📸 Screenshot saved to:', screenshotPath);
+      }
+    } catch (screenshotError) {
+      console.error('Failed to save screenshot:', screenshotError);
+    }
+    
+    // Cleanup on failure
+    try {
+      if (householdId) {
+        await pool.query('DELETE FROM movements WHERE household_id = $1', [householdId]);
+        await pool.query('DELETE FROM contacts WHERE household_id = $1', [householdId]);
+        await pool.query('DELETE FROM household_members WHERE household_id = $1', [householdId]);
+      }
+      if (user1Id && user2Id) {
+        await pool.query('DELETE FROM payment_methods WHERE owner_id IN ($1, $2)', [user1Id, user2Id]);
+      }
+      if (householdId) {
+        await pool.query('DELETE FROM households WHERE id = $1', [householdId]);
+      }
+      if (user1Id && user2Id) {
+        await pool.query('DELETE FROM users WHERE id IN ($1, $2)', [user1Id, user2Id]);
+      }
+    } catch (cleanupError) {
+      console.error('Cleanup failed:', cleanupError);
+    }
+    
+    await browser.close();
+    await pool.end();
+    throw error;
+  }
+}
+
+testMovementPagoDeuda();

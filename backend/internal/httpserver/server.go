@@ -111,10 +111,28 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 	var n8nClient *n8nclient.Client
 	if cfg.N8NWebhookURL != "" && cfg.N8NAPIKey != "" {
 		n8nClient = n8nclient.New(cfg.N8NWebhookURL, cfg.N8NAPIKey, cfg.N8NIsTest)
-		movementsHandler = movements.NewHandler(n8nClient, logger)
-		logger.Info("n8n client configured for movements", "webhook", cfg.N8NWebhookURL, "is_test", cfg.N8NIsTest)
+		logger.Info("n8n client configured for dual write",
+			"webhook", cfg.N8NWebhookURL,
+			"is_test", cfg.N8NIsTest)
+		
+		// Create movements service and handler
+		movementsRepo := movements.NewRepository(pool)
+		movementsService := movements.NewService(
+			movementsRepo,
+			householdRepo,
+			paymentMethodsRepo,
+			n8nClient,
+			logger,
+		)
+		movementsHandler = movements.NewHandler(
+			movementsService,
+			authService,
+			cfg.SessionCookieName,
+			n8nClient, // For backwards compatibility with legacy endpoint
+			logger,
+		)
 	} else {
-		logger.Info("n8n client not configured; movement endpoints will be disabled")
+		logger.Info("n8n client not configured; movements will only be saved to PostgreSQL")
 	}
 	
 	// Create income service and handler (needs n8n client for dual write)
@@ -235,9 +253,21 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 	mux.HandleFunc("PATCH /payment-methods/{id}", paymentMethodsHandler.UpdatePaymentMethod)
 	mux.HandleFunc("DELETE /payment-methods/{id}", paymentMethodsHandler.DeletePaymentMethod)
 
-	// Movement endpoints (proxy to n8n during migration period)
+	// Movement endpoints
 	if movementsHandler != nil {
-		mux.HandleFunc("POST /movements", movementsHandler.RecordMovement)
+		// CRUD endpoints
+		mux.HandleFunc("POST /movements", movementsHandler.HandleCreate)
+		mux.HandleFunc("GET /movements", movementsHandler.HandleList)
+		mux.HandleFunc("GET /movements/{id}", movementsHandler.HandleGetByID)
+		mux.HandleFunc("PATCH /movements/{id}", movementsHandler.HandleUpdate)
+		mux.HandleFunc("DELETE /movements/{id}", movementsHandler.HandleDelete)
+		
+		// Debt consolidation (for Resume page)
+		mux.HandleFunc("GET /movements/debts/consolidate", movementsHandler.HandleGetDebtConsolidation)
+		
+		// Legacy endpoint (backwards compatibility with n8n direct calls)
+		// This can be removed after frontend is updated
+		// mux.HandleFunc("POST /movements/legacy", movementsHandler.RecordMovement)
 	}
 	
 	// Movement form config endpoint

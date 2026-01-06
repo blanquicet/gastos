@@ -1,13 +1,24 @@
 #!/bin/bash
 set -e
 
-echo "🚀 Starting E2E Test Environment"
+# Simple test runner for individual E2E tests
+# Usage: ./run-single-test.sh movement-familiar.js
+
+if [ $# -eq 0 ]; then
+    echo "Usage: ./run-single-test.sh <test-file.js>"
+    echo "Example: ./run-single-test.sh movement-familiar.js"
+    exit 1
+fi
+
+TEST_FILE=$1
+
+echo "🚀 Starting E2E Test: $TEST_FILE"
 echo "================================"
 
 # Check if database is running
 if ! pg_isready -h localhost -p 5432 -U gastos 2>/dev/null; then
     echo "❌ PostgreSQL is not running on localhost:5432"
-    echo "Please start the database first"
+    echo "Please start the database with: cd backend && docker compose up -d"
     exit 1
 fi
 
@@ -35,35 +46,43 @@ echo "🔧 Starting backend server..."
 ./gastos-api > /tmp/backend.log 2>&1 &
 BACKEND_PID=$!
 
+# Function to cleanup on exit
+cleanup() {
+    echo ""
+    echo "🧹 Cleaning up..."
+    if [ ! -z "$BACKEND_PID" ]; then
+        kill $BACKEND_PID 2>/dev/null || true
+        wait $BACKEND_PID 2>/dev/null || true
+    fi
+    echo "✅ Cleanup complete"
+}
+
+trap cleanup EXIT INT TERM
+
 # Wait for backend to be healthy
 echo "⏳ Waiting for backend to be ready..."
 sleep 3
 timeout 30 bash -c 'until curl -sf http://localhost:8080/health > /dev/null; do sleep 1; done' || {
     echo "❌ Backend failed to start"
-    kill $BACKEND_PID 2>/dev/null || true
+    echo "Check /tmp/backend.log for errors"
     exit 1
 }
 
 echo "✅ Backend is healthy"
 echo ""
 
-# Run the tests
-echo "🧪 Running E2E tests..."
+# Run the test
+echo "🧪 Running test: $TEST_FILE"
 cd tests
-npm run test:e2e
+node "e2e/$TEST_FILE"
+TEST_EXIT_CODE=$?
 
-# Store test result
-TEST_RESULT=$?
-
-# Cleanup
-echo ""
-echo "🧹 Cleaning up..."
-kill $BACKEND_PID 2>/dev/null || true
-
-if [ $TEST_RESULT -eq 0 ]; then
-    echo "✅ All tests passed!"
+if [ $TEST_EXIT_CODE -eq 0 ]; then
+    echo ""
+    echo "✅ Test passed!"
 else
-    echo "❌ Some tests failed"
+    echo ""
+    echo "❌ Test failed with exit code $TEST_EXIT_CODE"
+    echo "Check /tmp/backend.log for backend errors"
+    exit $TEST_EXIT_CODE
 fi
-
-exit $TEST_RESULT

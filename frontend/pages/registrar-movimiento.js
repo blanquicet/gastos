@@ -17,6 +17,7 @@ let users = [];
 let usersMap = {}; // Map of name -> user object
 let primaryUsers = [];
 let paymentMethods = []; // Full payment method objects with owner_id and is_shared
+let paymentMethodsMap = {}; // Map of name -> payment method object
 let categories = [];
 let accounts = []; // Accounts for income registration
 let formConfigLoaded = false;
@@ -237,6 +238,7 @@ export function render(user) {
  * Load form configuration from API
  */
 async function loadFormConfig() {
+  // Note: formConfigLoaded is reset in setup() to ensure fresh data on each page visit
   if (formConfigLoaded) return;
   
   try {
@@ -258,8 +260,12 @@ async function loadFormConfig() {
     });
     primaryUsers = config.users.filter(u => u.type === 'member').map(u => u.name);
     
-    // Store full payment method objects
+    // Store full payment method objects and create map
     paymentMethods = config.payment_methods || [];
+    paymentMethodsMap = {};
+    paymentMethods.forEach(pm => {
+      paymentMethodsMap[pm.name] = pm;
+    });
     
     // Use categories from API
     categories = config.categories || [];
@@ -276,6 +282,7 @@ async function loadFormConfig() {
     usersMap = {};
     primaryUsers = [];
     paymentMethods = [];
+    paymentMethodsMap = {};
     categories = [];
     accounts = [];
   }
@@ -332,6 +339,9 @@ export async function setup() {
 
   // Initialize navbar
   Navbar.setup();
+
+  // Reset config loaded flag to force fresh data on each page visit
+  formConfigLoaded = false;
 
   // Load form configuration from API
   await loadFormConfig();
@@ -591,10 +601,11 @@ function onTipoChange() {
   }
 
   // Show/hide category field
-  // Hidden when: no tipo selected, INGRESO, or PAGO_DEUDA
+  // Hidden when: no tipo selected or INGRESO
+  // Note: PAGO_DEUDA requires category when payer is household member
   const categoriaWrap = document.getElementById('categoriaWrap');
   if (categoriaWrap) {
-    const shouldHideCategoria = !tipo || isIngreso || isPagoDeuda;
+    const shouldHideCategoria = !tipo || isIngreso;
     categoriaWrap.classList.toggle('hidden', shouldHideCategoria);
   }
 
@@ -1048,20 +1059,86 @@ function readForm() {
     if (new Set(lower).size !== lower.length) throw new Error('No puedes repetir participantes.');
   }
 
-  const contraparte = tipo === 'PAGO_DEUDA' ? tomador : '';
-
-  return {
-    fecha,
-    tipo: 'gasto', // All movements are "gasto" until we split gastos/prestamos
-    sub_tipo: tipo,
-    descripcion,
-    categoria,
-    valor,
-    pagador,
-    contraparte,
-    metodo_pago: metodo,
-    participantes: tipo === 'COMPARTIDO' ? participants.map(p => ({ nombre: p.name, porcentaje: Number(p.pct || 0) / 100 })) : []
+  // Build new API payload with IDs
+  // Map movement type: FAMILIAR -> HOUSEHOLD, COMPARTIDO -> SPLIT, PAGO_DEUDA -> DEBT_PAYMENT
+  const typeMap = {
+    'FAMILIAR': 'HOUSEHOLD',
+    'COMPARTIDO': 'SPLIT',
+    'PAGO_DEUDA': 'DEBT_PAYMENT'
   };
+
+  const payload = {
+    type: typeMap[tipo],
+    description: descripcion,
+    amount: valor,
+    movement_date: fecha,
+    currency: 'COP'
+  };
+
+  // Add category (required for HOUSEHOLD, optional for DEBT_PAYMENT if payer is member)
+  if (categoria) {
+    payload.category = categoria;
+  }
+
+  // Add payer (user_id or contact_id)
+  if (tipo === 'FAMILIAR') {
+    // For FAMILIAR, payer is always the current user
+    if (currentUser && currentUser.id) {
+      payload.payer_user_id = currentUser.id;
+    }
+  } else if (pagador) {
+    // Check if pagador is a member or contact
+    const payerUser = usersMap[pagador];
+    if (payerUser) {
+      if (payerUser.type === 'member') {
+        payload.payer_user_id = payerUser.id;
+      } else if (payerUser.type === 'contact') {
+        payload.payer_contact_id = payerUser.id;
+      }
+    }
+  }
+
+  // Add payment method ID
+  if (metodo) {
+    const pm = paymentMethodsMap[metodo];
+    if (pm && pm.id) {
+      payload.payment_method_id = pm.id;
+    }
+  }
+
+  // Add counterparty for PAGO_DEUDA
+  if (tipo === 'PAGO_DEUDA' && tomador) {
+    const tomadorUser = usersMap[tomador];
+    if (tomadorUser) {
+      if (tomadorUser.type === 'member') {
+        payload.counterparty_user_id = tomadorUser.id;
+      } else if (tomadorUser.type === 'contact') {
+        payload.counterparty_contact_id = tomadorUser.id;
+      }
+    }
+  }
+
+  // Add participants for COMPARTIDO
+  if (tipo === 'COMPARTIDO' && participants.length > 0) {
+    payload.participants = participants.map(p => {
+      const participantUser = usersMap[p.name];
+      const participant = {
+        percentage: Number(p.pct || 0) / 100
+      };
+      
+      if (participantUser) {
+        if (participantUser.type === 'member') {
+          participant.participant_user_id = participantUser.id;
+        } else if (participantUser.type === 'contact') {
+          participant.participant_contact_id = participantUser.id;
+        }
+      }
+      
+      return participant;
+    });
+  }
+
+  return payload;
 }
 
 /**
@@ -1119,26 +1196,55 @@ async function onSubmit(e) {
 
       setStatus('Ingreso registrado correctamente.', 'ok');
     } else {
-      // Handle regular movements (gastos)
+      // Handle regular movements (gastos) - now using new backend API
       setStatus('Registrando movimiento...', 'loading');
 
-      const res = await fetch(getMovementsApiUrl(), {
+      const res = await fetch(`${API_URL}/movements`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify(payload)
       });
 
-      const text = await res.text();
       if (!res.ok) {
+        // Parse error response
+        let errorMsg = `HTTP ${res.status}`;
+        try {
+          const errorText = await res.text();
+          if (errorText) {
+            errorMsg = errorText;
+          }
+        } catch (e) {
+          // Ignore parse errors
+        }
+        
         // Check if it's a n8n service unavailable (503)
         if (res.status === 503) {
-          throw new Error('⚠️ n8n no está disponible - El movimiento NO se guardó. Por favor contacta al administrador.');
+          // For movements with new backend, data IS saved to PostgreSQL even if n8n fails
+          setStatus('⚠️ Movimiento guardado en PostgreSQL pero no sincronizado con Google Sheets. La sincronización se realizará más tarde.', 'warning');
+          
+          // Reset form after 3 seconds
+          setTimeout(() => {
+            document.getElementById('movForm').reset();
+            document.getElementById('fecha').value = getTodayLocal();
+            document.getElementById('tipo').value = '';
+            onTipoChange();
+            setStatus('', '');
+          }, 3000);
+          
+          submitBtn.disabled = false;
+          submitBtn.textContent = originalText;
+          return;
         }
-        throw new Error(`HTTP ${res.status} - ${text}`);
+        
+        throw new Error(errorMsg);
       }
 
+      // Success - movement created
+      const response = await res.json();
+      console.log('Movement created:', response);
       setStatus('Movimiento registrado correctamente.', 'ok');
     }
 

@@ -93,14 +93,16 @@ async function loadProfile() {
 
     // Load accounts if user has household
     if (accountsResponse.ok) {
-      accounts = await accountsResponse.json();
+      const accountsData = await accountsResponse.json();
+      accounts = accountsData || [];
     } else {
       accounts = [];
     }
 
     // Load payment methods if user has household
     if (paymentMethodsResponse.ok) {
-      paymentMethods = await paymentMethodsResponse.json();
+      const paymentMethodsData = await paymentMethodsResponse.json();
+      paymentMethods = paymentMethodsData || [];
     } else {
       paymentMethods = [];
     }
@@ -149,7 +151,7 @@ function renderProfileContent() {
     <div class="profile-section">
       <h2 class="section-title">Mis cuentas</h2>
       <p class="section-description">Donde vive tu dinero: cuentas bancarias y efectivo</p>
-      ${accounts.length > 0 ? `
+      ${(accounts && accounts.length > 0) ? `
         <div style="margin-bottom: 16px;">
           <button id="add-account-btn" class="btn-secondary btn-small">+ Agregar cuenta</button>
         </div>
@@ -160,7 +162,7 @@ function renderProfileContent() {
     <div class="profile-section">
       <h2 class="section-title">Mis métodos de pago</h2>
       <p class="section-description">Tarjetas y formas de pago que usas para tus gastos</p>
-      ${paymentMethods.length > 0 ? `
+      ${(paymentMethods && paymentMethods.length > 0) ? `
         <div style="margin-bottom: 16px;">
           <button id="add-payment-method-btn" class="btn-secondary btn-small">+ Agregar método</button>
         </div>
@@ -205,6 +207,15 @@ function renderHouseholdSection() {
  * Render accounts list
  */
 function renderAccountsList() {
+  if (!accounts || !Array.isArray(accounts)) {
+    return `
+      <div class="empty-state">
+        <p class="empty-state-text">No tienes cuentas registradas</p>
+        <button id="add-account-btn" class="btn-secondary" style="margin-top: 16px;">Agregar cuenta</button>
+      </div>
+    `;
+  }
+
   const emptyState = accounts.length === 0 ? `
     <div class="empty-state">
       <p class="empty-state-text">No tienes cuentas registradas</p>
@@ -271,6 +282,15 @@ function formatCurrency(num) {
  * Render payment methods list
  */
 function renderPaymentMethodsList() {
+  if (!paymentMethods || !Array.isArray(paymentMethods)) {
+    return `
+      <div class="no-household">
+        <p class="no-household-text">No tienes métodos de pago configurados</p>
+        <button id="add-payment-method-btn" class="btn-secondary" style="margin-top: 16px;">Agregar método de pago</button>
+      </div>
+    `;
+  }
+
   const emptyState = paymentMethods.length === 0 ? `
     <div class="no-household">
       <p class="no-household-text">No tienes métodos de pago configurados</p>

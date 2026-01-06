@@ -4,13 +4,17 @@
   "description": "E2E tests for Gastos backend",
   "type": "module",
   "scripts": {
-    "test:e2e": "node e2e/password-reset.js && node e2e/auth-validation.js && node e2e/household-management.js && node e2e/household-validation.js && node e2e/contact-activation.js && node e2e/payment-methods.js",
+    "test:e2e": "node e2e/password-reset.js && node e2e/auth-validation.js && node e2e/household-management.js && node e2e/household-validation.js && node e2e/contact-activation.js && node e2e/payment-methods.js && node e2e/movement-familiar.js && node e2e/movement-compartido.js && node e2e/movement-pago-deuda.js",
     "test:password-reset": "node e2e/password-reset.js",
     "test:auth-validation": "node e2e/auth-validation.js",
     "test:household": "node e2e/household-management.js",
     "test:household-validation": "node e2e/household-validation.js",
     "test:contact-activation": "node e2e/contact-activation.js",
-    "test:payment-methods": "node e2e/payment-methods.js"
+    "test:payment-methods": "node e2e/payment-methods.js",
+    "test:movement-familiar": "node e2e/movement-familiar.js",
+    "test:movement-compartido": "node e2e/movement-compartido.js",
+    "test:movement-pago-deuda": "node e2e/movement-pago-deuda.js",
+    "test:movements": "node e2e/movement-familiar.js && node e2e/movement-compartido.js && node e2e/movement-pago-deuda.js"
   },
   "dependencies": {
     "pg": "^8.16.3",
