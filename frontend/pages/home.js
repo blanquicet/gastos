@@ -110,41 +110,53 @@ function renderTabs() {
 }
 
 /**
- * Render month selector with member filter
+ * Render month selector
  */
 function renderMonthSelector() {
-  const memberOptions = [
-    { id: null, name: '👥 Todos los miembros' },
+  return `
+    <div class="month-selector">
+      <button id="prev-month-btn" class="month-nav-btn">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"/>
+        </svg>
+      </button>
+      <div class="month-display">${getMonthDateRange(currentMonth)}</div>
+      <button id="next-month-btn" class="month-nav-btn">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/>
+        </svg>
+      </button>
+    </div>
+  `;
+}
+
+/**
+ * Render member filter (same style as month selector)
+ */
+function renderMemberFilter() {
+  const members = [
+    { id: null, name: 'Todo el hogar' },
     ...householdMembers.map(m => ({ id: m.user_id, name: m.name }))
   ];
 
-  const selectedMember = memberOptions.find(m => m.id === selectedMemberId) || memberOptions[0];
+  const currentIndex = members.findIndex(m => m.id === selectedMemberId);
+  const selectedMember = members[currentIndex] || members[0];
+  const hasPrev = currentIndex > 0;
+  const hasNext = currentIndex < members.length - 1;
 
   return `
-    <div class="month-selector">
-      <div class="month-nav-group">
-        <button id="prev-month-btn" class="month-nav-btn">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-            <path d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"/>
-          </svg>
-        </button>
-        <div class="month-display">${getMonthDateRange(currentMonth)}</div>
-        <button id="next-month-btn" class="month-nav-btn">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-            <path d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/>
-          </svg>
-        </button>
-      </div>
-      
-      <div class="member-filter">
-        <select id="member-filter-select" class="member-filter-select">
-          ${memberOptions.map(option => `
-            <option value="${option.id || ''}" ${option.id === selectedMemberId ? 'selected' : ''}>
-              ${option.name}
-            </option>
-          `).join('')}
-        </select>
-      </div>
+    <div class="member-filter-nav">
+      <button id="prev-member-btn" class="month-nav-btn" ${!hasPrev ? 'disabled' : ''}>
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"/>
+        </svg>
+      </button>
+      <div class="month-display">${selectedMember.name}</div>
+      <button id="next-member-btn" class="month-nav-btn" ${!hasNext ? 'disabled' : ''}>
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/>
+        </svg>
+      </button>
     </div>
   `;
 }
@@ -259,6 +271,7 @@ export function render(user) {
       <div class="dashboard-content">
         ${activeTab === 'ingresos' ? `
           ${renderMonthSelector()}
+          ${renderMemberFilter()}
           
           <div class="total-display">
             <div class="total-label">Total</div>
@@ -488,6 +501,7 @@ export async function setup() {
   if (contentContainer && activeTab === 'ingresos') {
     contentContainer.innerHTML = `
       ${renderMonthSelector()}
+      ${renderMemberFilter()}
       
       <div class="total-display">
         <div class="total-label">Total</div>
@@ -518,6 +532,7 @@ export async function setup() {
       if (contentContainer) {
         contentContainer.innerHTML = activeTab === 'ingresos' ? `
           ${renderMonthSelector()}
+          ${renderMemberFilter()}
           
           <div class="total-display">
             <div class="total-label">Total</div>
@@ -555,7 +570,8 @@ export async function setup() {
 function setupMonthNavigation() {
   const prevBtn = document.getElementById('prev-month-btn');
   const nextBtn = document.getElementById('next-month-btn');
-  const memberFilter = document.getElementById('member-filter-select');
+  const prevMemberBtn = document.getElementById('prev-member-btn');
+  const nextMemberBtn = document.getElementById('next-member-btn');
 
   if (prevBtn) {
     // Remove old listener if exists
@@ -581,11 +597,34 @@ function setupMonthNavigation() {
     });
   }
 
-  if (memberFilter) {
-    memberFilter.addEventListener('change', async (e) => {
-      selectedMemberId = e.target.value || null;
-      await loadIncomeData();
-      refreshDisplay();
+  // Member navigation
+  if (prevMemberBtn) {
+    prevMemberBtn.addEventListener('click', async () => {
+      const members = [
+        { id: null, name: 'Todo el hogar' },
+        ...householdMembers.map(m => ({ id: m.user_id, name: m.name }))
+      ];
+      const currentIndex = members.findIndex(m => m.id === selectedMemberId);
+      if (currentIndex > 0) {
+        selectedMemberId = members[currentIndex - 1].id;
+        await loadIncomeData();
+        refreshDisplay();
+      }
+    });
+  }
+
+  if (nextMemberBtn) {
+    nextMemberBtn.addEventListener('click', async () => {
+      const members = [
+        { id: null, name: 'Todo el hogar' },
+        ...householdMembers.map(m => ({ id: m.user_id, name: m.name }))
+      ];
+      const currentIndex = members.findIndex(m => m.id === selectedMemberId);
+      if (currentIndex < members.length - 1) {
+        selectedMemberId = members[currentIndex + 1].id;
+        await loadIncomeData();
+        refreshDisplay();
+      }
     });
   }
 }
