@@ -1143,6 +1143,21 @@ export async function setup() {
 }
 
 /**
+ * Show loading state in categories container
+ */
+function showLoadingState() {
+  const container = document.getElementById('categories-container');
+  if (container) {
+    container.innerHTML = `
+      <div class="loading-state">
+        <div class="loading-spinner"></div>
+        <p>Cargando...</p>
+      </div>
+    `;
+  }
+}
+
+/**
  * Setup month navigation listeners
  */
 function setupMonthNavigation() {
@@ -1152,6 +1167,7 @@ function setupMonthNavigation() {
   if (prevBtn) {
     prevBtn.onclick = async () => {
       currentMonth = previousMonth(currentMonth);
+      showLoadingState();
       await loadIncomeData();
       refreshDisplay();
     };
@@ -1160,6 +1176,7 @@ function setupMonthNavigation() {
   if (nextBtn) {
     nextBtn.onclick = async () => {
       currentMonth = nextMonth(currentMonth);
+      showLoadingState();
       await loadIncomeData();
       refreshDisplay();
     };
