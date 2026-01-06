@@ -1,6 +1,6 @@
 # Phase 4: Accounts & Income Tracking
 
-> **Status:** 🚧 IN PROGRESS (Phase 4.2 Complete ✅)
+> **Status:** ✅ COMPLETE
 >
 > This phase introduces the concept of **Accounts** (where money lives) and **Income Tracking** 
 > to enable future cash flow analysis and financial planning.
@@ -1541,32 +1541,19 @@ Jose has existing income data in Excel to migrate:
   - [x] Test totals calculation (real vs internal)
   - [x] Test validation (account types, authorization)
 
-### Phase 4.3: UI - Registrar Movimiento (Day 2)
-- [ ] Add "Ingreso" radio option
-- [ ] Dynamic fields for income
-- [ ] Income type selector with categories
-- [ ] Account selector (only savings/cash)
-- [ ] Submit to backend (dual write)
-- [ ] Error handling
-
-### Phase 4.4: UI - Dashboard Home (Day 3)
-- [ ] Create pages/home.js
-- [ ] Month navigation component
-- [ ] Income list (collapsed/expanded)
-- [ ] Totals by category
-- [ ] "Gastos próximamente" placeholder
-- [ ] Update router: / → Home
-- [ ] Update navbar: "Home" first
-
-### Phase 4.5: Testing & Migration (Day 4)
-- [ ] E2E test: Complete income flow
-- [ ] E2E test: Dashboard navigation
-- [ ] Excel migration script
-- [ ] Run migration for Jose's existing data
-- [ ] Documentation updates
+### Phase 4.3: UI - Dashboard Home ✅ COMPLETE
+- [x] Create pages/home.js
+- [x] Month navigation component
+- [x] Income list (collapsed/expanded)
+- [x] Totals by category with real income vs internal movements
+- [x] Filter by member and income type
+- [x] Update router: / → Home
+- [x] Update navbar: "Home" first
+- [x] CRUD operations (create, edit, delete income)
+- [x] Mobile-responsive design
 
 ---
 
-**Last Updated:** 2026-01-05  
-**Status:** 🚧 IN PROGRESS - Phase 4.2 Complete ✅  
-**Next Action:** Phase 4.3 - UI for Registrar Movimiento (add income option)
+**Last Updated:** 2026-01-06  
+**Status:** ✅ COMPLETE  
+**Next Steps:** See FUTURE_VISION.md for Phase 5+ roadmap
