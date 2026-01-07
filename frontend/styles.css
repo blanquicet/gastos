@@ -2023,7 +2023,62 @@ button.loading::after {
   display: none;
 }
 
-.income-detail-entry {
+/* Sub-category card (for grouped categories) */
+.category-sub-card {
+  margin: 12px 0;
+  padding: 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.category-sub-card:hover {
+  background: #f9fafb;
+}
+
+.category-sub-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.category-sub-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.category-sub-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.category-sub-amount {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.category-sub-percentage {
+  font-size: 13px;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.category-sub-details {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.category-sub-details.hidden {
+  display: none;
+}
+
+.income-detail-entry,
+.movement-detail-entry {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -2031,7 +2086,8 @@ button.loading::after {
   border-bottom: 1px solid #f3f4f6;
 }
 
-.income-detail-entry:last-child {
+.income-detail-entry:last-child,
+.movement-detail-entry:last-child {
   border-bottom: none;
 }
 
@@ -2061,7 +2117,8 @@ button.loading::after {
   margin-top: 2px;
 }
 
-.entry-member-badge {
+.entry-member-badge,
+.entry-payment-badge {
   display: inline-block;
   font-size: 11px;
   font-weight: 600;
@@ -2071,6 +2128,13 @@ button.loading::after {
   color: #6b7280;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+/* Optional: Different color for payment badges if desired */
+.entry-payment-badge {
+  background-color: #e0f2fe;
+  color: #0369a1;
+  text-transform: none; /* Don't uppercase payment method names */
 }
 
 .entry-amount {
@@ -2553,5 +2617,200 @@ button.loading::after {
   
   .tipo-label {
     font-size: 12px;
+  }
+}
+
+/* ================================
+   Modern Expense Group Cards (Gastos)
+   ================================ */
+
+.expense-group-card {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.expense-group-card:hover {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.expense-group-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.expense-group-icon-container {
+  width: 56px;
+  height: 56px;
+  background: #f3f4f6;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.expense-group-icon {
+  font-size: 28px;
+}
+
+.expense-group-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.expense-group-name {
+  font-size: 17px;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 4px;
+}
+
+.expense-group-amount {
+  font-size: 15px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.expense-group-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.expense-group-percentage {
+  background: #f3f4f6;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.expense-group-chevron {
+  color: #9ca3af;
+  transition: transform 0.2s ease;
+}
+
+.expense-group-chevron.rotated {
+  transform: rotate(90deg);
+}
+
+.expense-group-details {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.expense-group-details.hidden {
+  display: none;
+}
+
+/* Expense Category Items (sub-categories within groups) */
+.expense-category-item {
+  padding: 14px 0;
+  border-bottom: 1px solid #f3f4f6;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.expense-category-item:last-child {
+  border-bottom: none;
+}
+
+/* Add gray background container when category is expanded - wraps header + movements */
+.expense-category-item:has(.expense-category-details:not(.hidden)) {
+  background: #f3f4f6;
+  padding: 16px;
+  margin: 8px 0;
+  border-radius: 12px;
+  border-bottom: none;
+}
+
+.expense-category-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.expense-category-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.expense-category-name {
+  font-size: 15px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.expense-category-amount {
+  font-size: 14px;
+  color: #9ca3af;
+}
+
+.expense-category-percentage {
+  font-size: 13px;
+  font-weight: 600;
+  color: #9ca3af;
+  flex-shrink: 0;
+}
+
+.expense-category-details {
+  margin-top: 12px;
+}
+
+.expense-category-details.hidden {
+  display: none;
+}
+
+/* Movement detail entries within categories */
+.expense-category-details .movement-detail-entry {
+  padding: 14px 12px;
+  background: white; /* White background for each movement */
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.expense-category-details .movement-detail-entry:last-child {
+  margin-bottom: 0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .expense-group-card {
+    padding: 16px;
+    border-radius: 12px;
+  }
+  
+  .expense-group-icon-container {
+    width: 48px;
+    height: 48px;
+  }
+  
+  .expense-group-icon {
+    font-size: 24px;
+  }
+  
+  .expense-group-name {
+    font-size: 16px;
+  }
+  
+  .expense-group-amount {
+    font-size: 14px;
+  }
+  
+  .expense-group-percentage {
+    font-size: 13px;
+    padding: 5px 12px;
   }
 }

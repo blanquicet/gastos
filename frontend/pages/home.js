@@ -16,10 +16,13 @@ import { showConfirmation, showSuccess, showError } from '../utils.js';
 let currentUser = null;
 let currentMonth = null; // YYYY-MM format
 let incomeData = null;
-let activeTab = 'ingresos'; // 'gastos', 'ingresos', 'tarjetas'
+let movementsData = null; // Gastos data
+let activeTab = 'gastos'; // 'gastos', 'ingresos', 'tarjetas' - DEFAULT TO GASTOS
 let householdMembers = []; // List of household members for filtering
 let selectedMemberIds = []; // Array of selected member IDs (empty = all)
 let selectedIncomeTypes = []; // Array of selected income types (empty = all)
+let selectedCategories = []; // Array of selected categories for gastos filter (empty = all)
+let selectedPaymentMethods = []; // Array of selected payment method IDs for gastos filter (empty = all)
 let isFilterOpen = false; // Track if filter dropdown is open
 
 /**
@@ -138,6 +141,58 @@ function getIncomeTypeIcon(type) {
     'adjustment': '🔧'
   };
   return icons[type] || '💵';
+}
+
+/**
+ * Get icon for movement category
+ */
+function getCategoryIcon(category) {
+  const icons = {
+    // Casa
+    'Casa - Gastos fijos': '🏠',
+    'Casa - Provisionar mes entrante': '💰',
+    'Casa - Cositas para casa': '🏡',
+    'Casa - Imprevistos': '⚡',
+    'Kellys': '🧹',
+    'Mercado': '🛒',
+    'Regalos': '🎁',
+    
+    // Jose
+    'Jose - Vida cotidiana': '👨',
+    'Jose - Gastos fijos': '👨‍💼',
+    'Jose - Imprevistos': '⚡',
+    
+    // Caro
+    'Caro - Vida cotidiana': '👩',
+    'Caro - Gastos fijos': '👩‍💼',
+    'Caro - Imprevistos': '⚡',
+    
+    // Carro
+    'Uber/Gasolina/Peajes/Parqueaderos': '🚗',
+    'Pago de SOAT/impuestos/mantenimiento': '📋',
+    'Carro - Seguro': '🛡️',
+    'Carro - Imprevistos': '⚡',
+    
+    // Ahorros
+    'Ahorros para SOAT/impuestos/mantenimiento': '🏦',
+    'Ahorros para cosas de la casa': '🏦',
+    'Ahorros para vacaciones': '🏦',
+    'Ahorros para regalos': '🏦',
+    
+    // Inversiones
+    'Inversiones Caro': '📈',
+    'Inversiones Jose': '📈',
+    'Inversiones Juntos': '📈',
+    
+    // Ocio
+    'Vacaciones': '✈️',
+    'Salidas juntos': '🍽️',
+    
+    // Ungrouped
+    'Gastos médicos': '⚕️',
+    'Préstamo': '💸'
+  };
+  return icons[category] || '💵';
 }
 
 /**
@@ -446,7 +501,9 @@ export function render(user) {
     currentMonth = getCurrentMonth();
   }
 
-  const totalAmount = incomeData?.totals?.total_amount || 0;
+  const totalAmount = activeTab === 'gastos'
+    ? (movementsData?.totals?.total_amount || 0)
+    : (incomeData?.totals?.total_amount || 0);
 
   return `
     <main class="dashboard">
@@ -458,7 +515,23 @@ export function render(user) {
       ${renderTabs()}
       
       <div class="dashboard-content">
-        ${activeTab === 'ingresos' && incomeData ? `
+        ${activeTab === 'gastos' && movementsData ? `
+          ${renderMonthSelector()}
+          
+          <div class="total-display">
+            <div class="total-label">Total</div>
+            <div class="total-amount">${formatCurrency(totalAmount)}</div>
+          </div>
+
+          <div id="categories-container">
+            ${renderMovementCategories()}
+          </div>
+        ` : activeTab === 'gastos' ? `
+          <div class="loading-state">
+            <div class="loading-spinner"></div>
+            <p>Cargando...</p>
+          </div>
+        ` : activeTab === 'ingresos' && incomeData ? `
           ${renderMonthSelector()}
           
           <div class="total-display">
@@ -476,7 +549,7 @@ export function render(user) {
           </div>
         ` : `
           <div class="coming-soon">
-            <div class="coming-soon-icon">${activeTab === 'gastos' ? '🛒' : '💳'}</div>
+            <div class="coming-soon-icon">💳</div>
             <p>Próximamente</p>
           </div>
         `}
@@ -607,19 +680,427 @@ async function loadIncomeData() {
 }
 
 /**
- * Refresh display
+ * Load movements data for the current month (HOUSEHOLD type only)
+ */
+async function loadMovementsData() {
+  try {
+    let url = `${API_URL}/movements?type=HOUSEHOLD&month=${currentMonth}`;
+    
+    console.log('Loading movements data for month:', currentMonth);
+    console.log('Filter state:', {
+      selectedCategories,
+      selectedPaymentMethods
+    });
+    
+    const response = await fetch(url, {
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      console.error('Error loading movements data:', response.status);
+      const errorText = await response.text();
+      console.error('Error details:', errorText);
+      movementsData = null;
+      return;
+    }
+
+    const data = await response.json();
+    
+    // Client-side filtering
+    if (data && data.movements) {
+      let filteredMovements = data.movements;
+      
+      console.log('Original movements:', filteredMovements.length);
+      
+      // Filter by categories if specific categories selected
+      if (selectedCategories === null) {
+        // null means show nothing
+        filteredMovements = [];
+        console.log('Categories filter is null -> show nothing');
+      } else if (selectedCategories.length > 0) {
+        filteredMovements = filteredMovements.filter(movement => {
+          const isIncluded = selectedCategories.includes(movement.category);
+          return isIncluded;
+        });
+        console.log('After category filter:', filteredMovements.length);
+      }
+      
+      // Filter by payment methods if specific payment methods selected
+      if (selectedPaymentMethods === null) {
+        // null means show nothing
+        filteredMovements = [];
+        console.log('Payment methods filter is null -> show nothing');
+      } else if (selectedPaymentMethods.length > 0) {
+        filteredMovements = filteredMovements.filter(movement => 
+          selectedPaymentMethods.includes(movement.payment_method_id)
+        );
+        console.log('After payment method filter:', filteredMovements.length);
+      }
+      
+      // Recalculate totals
+      const totalAmount = filteredMovements.reduce((sum, movement) => sum + movement.amount, 0);
+      
+      // Recalculate by_category totals
+      const byCategory = {};
+      filteredMovements.forEach(movement => {
+        if (movement.category) {
+          byCategory[movement.category] = (byCategory[movement.category] || 0) + movement.amount;
+        }
+      });
+      
+      movementsData = {
+        movements: filteredMovements,
+        totals: {
+          total_amount: totalAmount,
+          by_category: byCategory
+        },
+        category_groups: data.category_groups // Preserve category groups from API
+      };
+    } else {
+      movementsData = data;
+    }
+    
+    console.log('Filtered movements data:', movementsData);
+  } catch (error) {
+    console.error('Error loading movements data:', error);
+    movementsData = null;
+  }
+}
+
+/**
+ * Get category groups from API response or build from available categories
+ */
+function getCategoryGroups() {
+  // If API provided category groups, use them directly
+  if (movementsData?.category_groups && movementsData.category_groups.length > 0) {
+    return movementsData.category_groups;
+  }
+  
+  // Fallback: return empty array if no backend data
+  return [];
+}
+
+/**
+ * Render filter dropdown for movements (gastos)
+ */
+function renderMovementsFilterDropdown() {
+  // Get unique categories and payment methods from current data
+  const allCategories = movementsData?.movements 
+    ? [...new Set(movementsData.movements
+        .filter(m => m.category !== 'Préstamo') // Exclude Préstamo from filter
+        .map(m => m.category)
+        .filter(Boolean))]
+    : [];
+  
+  const allPaymentMethods = movementsData?.movements
+    ? [...new Set(movementsData.movements
+        .filter(m => m.payment_method_id && m.payment_method_name)
+        .map(m => ({ id: m.payment_method_id, name: m.payment_method_name })))]
+    : [];
+  
+  // Deduplicate payment methods by ID
+  const uniquePaymentMethods = Array.from(
+    new Map(allPaymentMethods.map(pm => [pm.id, pm])).values()
+  );
+  
+  const groupedCategories = getCategoryGroups();
+  
+  const showAllCategories = Array.isArray(selectedCategories) && selectedCategories.length === 0;
+  const showAllPaymentMethods = Array.isArray(selectedPaymentMethods) && selectedPaymentMethods.length === 0;
+  
+  return `
+    <div class="filter-dropdown" id="filter-dropdown" style="display: ${isFilterOpen ? 'block' : 'none'}">
+      <div class="filter-section">
+        <div class="filter-section-header">
+          <span class="filter-section-title">Categorías</span>
+          <div class="filter-section-actions">
+            <button class="filter-link-btn" id="select-all-categories">Todos</button>
+            <button class="filter-link-btn" id="clear-all-categories">Limpiar</button>
+          </div>
+        </div>
+        
+        ${groupedCategories.map(group => {
+          const allGroupChecked = showAllCategories || group.categories.every(c => selectedCategories.includes(c));
+          
+          return `
+            <div class="filter-category">
+              <label class="filter-checkbox-label filter-category-label" data-category-toggle="${group.name}">
+                <input type="checkbox" class="filter-checkbox filter-category-checkbox" 
+                       data-category-group="${group.name}"
+                       ${allGroupChecked ? 'checked' : ''}>
+                <span>${group.name}</span>
+                <svg class="category-toggle-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M4.293 5.293a1 1 0 011.414 0L8 7.586l2.293-2.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"/>
+                </svg>
+              </label>
+              <div class="filter-options filter-sub-options collapsed" data-category-content="${group.name}">
+                ${group.categories.map(category => {
+                  const isChecked = showAllCategories || selectedCategories.includes(category);
+                  return `
+                    <label class="filter-checkbox-label">
+                      <input type="checkbox" class="filter-checkbox" 
+                             data-filter-type="category" 
+                             data-category-group="${group.name}"
+                             data-value="${category}" 
+                             ${isChecked ? 'checked' : ''}>
+                      <span>${category}</span>
+                    </label>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+
+      <div class="filter-section">
+        <div class="filter-section-header">
+          <span class="filter-section-title">Métodos de pago</span>
+          <div class="filter-section-actions">
+            <button class="filter-link-btn" id="select-all-payment-methods">Todos</button>
+            <button class="filter-link-btn" id="clear-all-payment-methods">Limpiar</button>
+          </div>
+        </div>
+        <div class="filter-options">
+          ${uniquePaymentMethods.map(pm => {
+            const isChecked = showAllPaymentMethods || selectedPaymentMethods.includes(pm.id);
+            return `
+              <label class="filter-checkbox-label">
+                <input type="checkbox" class="filter-checkbox" 
+                       data-filter-type="payment-method" 
+                       data-value="${pm.id}" 
+                       ${isChecked ? 'checked' : ''}>
+                <span>${pm.name}</span>
+              </label>
+            `;
+          }).join('')}
+        </div>
+      </div>
+
+      <div class="filter-footer">
+        <button class="btn-secondary btn-small" id="clear-all-filters">Mostrar todo</button>
+        <button class="btn-primary btn-small" id="apply-filters">Aplicar</button>
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Get icon for category group
+ */
+function getCategoryGroupIcon(groupName) {
+  const icons = {
+    'Casa': '🏠',
+    'Jose': '👨',
+    'Caro': '👩',
+    'Carro': '🚗',
+    'Ahorros': '🏦',
+    'Inversiones': '📈',
+    'Ocio': '🎉'
+  };
+  return icons[groupName] || '📁';
+}
+
+/**
+ * Strip group prefix from category name for display
+ */
+function getSimplifiedCategoryName(category, groupName) {
+  // If category starts with "GroupName - ", remove it
+  const prefix = `${groupName} - `;
+  if (category.startsWith(prefix)) {
+    return category.substring(prefix.length);
+  }
+  return category;
+}
+
+/**
+ * Render movement categories (gastos) grouped by category groups
+ */
+function renderMovementCategories() {
+  const hasActiveFilters = 
+    (selectedCategories !== null && selectedCategories.length > 0) ||
+    (selectedPaymentMethods !== null && selectedPaymentMethods.length > 0);
+  
+  if (!movementsData || !movementsData.movements || movementsData.movements.length === 0) {
+    const message = hasActiveFilters 
+      ? 'No hay gastos que coincidan con los filtros seleccionados'
+      : 'No hay gastos registrados este mes';
+    
+    return `
+      <div class="empty-state">
+        <div class="empty-icon">🛒</div>
+        <p>${message}</p>
+        ${!hasActiveFilters ? '<button id="add-expense-btn-empty" class="btn-primary">+ Agregar gasto</button>' : ''}
+      </div>
+      <div class="floating-actions">
+        <button id="filter-btn" class="btn-filter-floating" title="Filtrar">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M3 3a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-.293.707L12 10.414V17a1 1 0 01-.447.894l-2 1.333A1 1 0 018 18.333V10.414L3.293 5.707A1 1 0 013 5V3z"/>
+          </svg>
+        </button>
+        ${renderMovementsFilterDropdown()}
+        <button id="add-expense-btn" class="btn-add-floating">+</button>
+      </div>
+    `;
+  }
+
+  const movements = movementsData.movements;
+  const total = movementsData.totals.total_amount;
+  const categoryGroups = getCategoryGroups();
+
+  // Filter out "Préstamo" category from the view
+  const filteredMovements = movements.filter(m => m.category !== 'Préstamo');
+
+  // Build a map of category -> group name for quick lookup
+  const categoryToGroup = {};
+  categoryGroups.forEach(group => {
+    group.categories.forEach(cat => {
+      categoryToGroup[cat] = group.name;
+    });
+  });
+  
+  // Group movements by category group
+  const byGroup = {};
+  filteredMovements.forEach(movement => {
+    const category = movement.category || 'Sin categoría';
+    const groupName = categoryToGroup[category] || 'Otros';
+    
+    if (!byGroup[groupName]) {
+      byGroup[groupName] = { 
+        total: 0, 
+        categories: {} 
+      };
+    }
+    
+    if (!byGroup[groupName].categories[category]) {
+      byGroup[groupName].categories[category] = {
+        total: 0,
+        movements: []
+      };
+    }
+    
+    byGroup[groupName].total += movement.amount;
+    byGroup[groupName].categories[category].total += movement.amount;
+    byGroup[groupName].categories[category].movements.push(movement);
+  });
+
+  // Sort groups by total (descending)
+  const sortedGroups = Object.keys(byGroup).sort((a, b) => 
+    byGroup[b].total - byGroup[a].total
+  );
+
+  const groupsHtml = sortedGroups.map(groupName => {
+    const groupData = byGroup[groupName];
+    const groupPercentage = ((groupData.total / total) * 100).toFixed(1);
+    const groupIcon = getCategoryGroupIcon(groupName);
+    const safeGroupId = groupName.replace(/[^a-zA-Z0-9]/g, '_');
+
+    // Sort categories within group by total (descending)
+    const sortedCategories = Object.keys(groupData.categories).sort((a, b) => 
+      groupData.categories[b].total - groupData.categories[a].total
+    );
+
+    return `
+      <div class="expense-group-card" data-group="${groupName}">
+        <div class="expense-group-header">
+          <div class="expense-group-icon-container">
+            <span class="expense-group-icon">${groupIcon}</span>
+          </div>
+          <div class="expense-group-info">
+            <div class="expense-group-name">${groupName}</div>
+            <div class="expense-group-amount">${formatCurrency(groupData.total)}</div>
+          </div>
+          <div class="expense-group-actions">
+            <span class="expense-group-percentage">${groupPercentage}%</span>
+            <svg class="expense-group-chevron" width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <path d="M7.5 5L12.5 10L7.5 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </div>
+        <div class="expense-group-details hidden" id="group-details-${safeGroupId}">
+          ${sortedCategories.map(category => {
+            const categoryData = groupData.categories[category];
+            const categoryPercentage = ((categoryData.total / groupData.total) * 100).toFixed(1);
+            const simplifiedName = getSimplifiedCategoryName(category, groupName);
+            const safeCategoryId = category.replace(/[^a-zA-Z0-9]/g, '_');
+            
+            // Sort movements by date (most recent first)
+            const sortedMovements = categoryData.movements.sort((a, b) => 
+              new Date(b.movement_date) - new Date(a.movement_date)
+            );
+
+            return `
+              <div class="expense-category-item" data-category="${category}">
+                <div class="expense-category-header">
+                  <div class="expense-category-info">
+                    <span class="expense-category-name">${simplifiedName}</span>
+                    <span class="expense-category-amount">${formatCurrency(categoryData.total)}</span>
+                  </div>
+                  <span class="expense-category-percentage">${categoryPercentage}%</span>
+                </div>
+                <div class="expense-category-details hidden" id="category-details-${safeCategoryId}">
+                  ${sortedMovements.map(movement => `
+                    <div class="movement-detail-entry">
+                      <div class="entry-info">
+                        <span class="entry-description">${movement.description || 'Sin descripción'}</span>
+                        <span class="entry-amount">${formatCurrency(movement.amount)}</span>
+                        <div class="entry-date">${formatDate(movement.movement_date)}</div>
+                      </div>
+                      <div class="entry-actions">
+                        ${movement.payment_method_name ? `<span class="entry-payment-badge">${movement.payment_method_name}</span>` : ''}
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <!-- Filter loading overlay -->
+    <div class="filter-loading-overlay" id="filter-loading" style="display: none;">
+      <div class="spinner"></div>
+      <p>Filtrando...</p>
+    </div>
+    <div class="categories-grid">
+      ${groupsHtml}
+    </div>
+    <div class="floating-actions">
+      <button id="filter-btn" class="btn-filter-floating" title="Filtrar">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M3 3a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-.293.707L12 10.414V17a1 1 0 01-.447.894l-2 1.333A1 1 0 018 18.333V10.414L3.293 5.707A1 1 0 013 5V3z"/>
+        </svg>
+      </button>
+      ${renderMovementsFilterDropdown()}
+      <button id="add-expense-btn" class="btn-add-floating">+</button>
+    </div>
+  `;
+}
+
+/**
+ * Refresh display (handles both gastos and ingresos tabs)
  */
 function refreshDisplay() {
   const container = document.getElementById('categories-container');
   if (container) {
-    container.innerHTML = renderIncomeCategories();
+    if (activeTab === 'gastos') {
+      container.innerHTML = renderMovementCategories();
+    } else if (activeTab === 'ingresos') {
+      container.innerHTML = renderIncomeCategories();
+    }
     setupCategoryListeners();
     setupFilterListeners(); // Re-setup filter listeners after re-render
   }
 
   const totalEl = document.querySelector('.total-amount');
   if (totalEl) {
-    const totalAmount = incomeData?.totals?.total_amount || 0;
+    const totalAmount = activeTab === 'gastos' 
+      ? (movementsData?.totals?.total_amount || 0)
+      : (incomeData?.totals?.total_amount || 0);
     totalEl.textContent = formatCurrency(totalAmount);
   }
 
@@ -663,22 +1144,60 @@ async function handleDeleteIncome(incomeId) {
 }
 
 /**
- * Setup category card listeners
+ * Setup category card listeners (for both gastos and ingresos)
  */
 function setupCategoryListeners() {
-  // Category card click to expand/collapse
-  const categoryCards = document.querySelectorAll('.category-card');
-  categoryCards.forEach(card => {
-    card.querySelector('.category-header')?.addEventListener('click', () => {
-      const type = card.dataset.type;
-      const details = document.getElementById(`details-${type}`);
-      if (details) {
-        details.classList.toggle('hidden');
+  // Expense group card click to expand/collapse (for gastos)
+  const groupCards = document.querySelectorAll('.expense-group-card');
+  groupCards.forEach(card => {
+    card.querySelector('.expense-group-header')?.addEventListener('click', () => {
+      const groupName = card.dataset.group;
+      if (groupName) {
+        const safeId = groupName.replace(/[^a-zA-Z0-9]/g, '_');
+        const details = document.getElementById(`group-details-${safeId}`);
+        const chevron = card.querySelector('.expense-group-chevron');
+        if (details) {
+          details.classList.toggle('hidden');
+          if (chevron) {
+            chevron.classList.toggle('rotated');
+          }
+        }
       }
     });
   });
 
-  // Three-dots menu toggle for income entries
+  // Expense category item click to expand/collapse (for gastos sub-categories)
+  const categoryItems = document.querySelectorAll('.expense-category-item');
+  categoryItems.forEach(item => {
+    item.querySelector('.expense-category-header')?.addEventListener('click', () => {
+      const category = item.dataset.category;
+      if (category) {
+        const safeId = category.replace(/[^a-zA-Z0-9]/g, '_');
+        const details = document.getElementById(`category-details-${safeId}`);
+        if (details) {
+          details.classList.toggle('hidden');
+        }
+      }
+    });
+  });
+
+  // Category card click to expand/collapse (for ingresos)
+  const categoryCards = document.querySelectorAll('.category-card:not(.category-group-card)');
+  categoryCards.forEach(card => {
+    card.querySelector('.category-header')?.addEventListener('click', () => {
+      // For income cards, use dataset.type
+      const identifier = card.dataset.type;
+      if (identifier) {
+        const safeId = identifier.replace(/[^a-zA-Z0-9]/g, '_');
+        const details = document.getElementById(`details-${safeId}`);
+        if (details) {
+          details.classList.toggle('hidden');
+        }
+      }
+    });
+  });
+
+  // Three-dots menu toggle for income entries (only for ingresos tab)
   document.querySelectorAll('.three-dots-btn[data-income-id]').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
@@ -717,7 +1236,7 @@ function setupCategoryListeners() {
     }
   });
 
-  // Menu action buttons
+  // Menu action buttons (for income)
   document.querySelectorAll('.three-dots-menu .menu-item').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       e.preventDefault();
@@ -735,18 +1254,34 @@ function setupCategoryListeners() {
   });
 
   // Add income button (in category list)
-  const addBtn = document.getElementById('add-income-btn');
-  if (addBtn) {
-    addBtn.addEventListener('click', () => {
+  const addIncomeBtn = document.getElementById('add-income-btn');
+  if (addIncomeBtn) {
+    addIncomeBtn.addEventListener('click', () => {
       router.navigate('/registrar-movimiento?tipo=INGRESO');
     });
   }
 
   // Add income button (in empty state)
-  const addBtnEmpty = document.getElementById('add-income-btn-empty');
-  if (addBtnEmpty) {
-    addBtnEmpty.addEventListener('click', () => {
+  const addIncomeBtnEmpty = document.getElementById('add-income-btn-empty');
+  if (addIncomeBtnEmpty) {
+    addIncomeBtnEmpty.addEventListener('click', () => {
       router.navigate('/registrar-movimiento?tipo=INGRESO');
+    });
+  }
+
+  // Add expense button (in category list)
+  const addExpenseBtn = document.getElementById('add-expense-btn');
+  if (addExpenseBtn) {
+    addExpenseBtn.addEventListener('click', () => {
+      router.navigate('/registrar-movimiento?tipo=GASTO');
+    });
+  }
+
+  // Add expense button (in empty state)
+  const addExpenseBtnEmpty = document.getElementById('add-expense-btn-empty');
+  if (addExpenseBtnEmpty) {
+    addExpenseBtnEmpty.addEventListener('click', () => {
+      router.navigate('/registrar-movimiento?tipo=GASTO');
     });
   }
 
@@ -768,7 +1303,7 @@ function setupCategoryListeners() {
 }
 
 /**
- * Setup filter dropdown event listeners
+ * Setup filter dropdown event listeners (handles both gastos and ingresos)
  */
 function setupFilterListeners() {
   // Close filter dropdown when clicking outside
@@ -781,6 +1316,184 @@ function setupFilterListeners() {
     }
   });
 
+  if (activeTab === 'gastos') {
+    setupMovementsFilterListeners();
+  } else if (activeTab === 'ingresos') {
+    setupIncomeFilterListeners();
+  }
+}
+
+/**
+ * Setup filter listeners for movements (gastos tab)
+ */
+function setupMovementsFilterListeners() {
+  // Get all unique categories from loaded data
+  const allCategories = movementsData?.movements 
+    ? [...new Set(movementsData.movements.map(m => m.category).filter(Boolean))]
+    : [];
+  
+  const allPaymentMethods = movementsData?.movements
+    ? [...new Set(movementsData.movements
+        .filter(m => m.payment_method_id)
+        .map(m => m.payment_method_id))]
+    : [];
+
+  // Select all categories
+  const selectAllCategories = document.getElementById('select-all-categories');
+  if (selectAllCategories) {
+    selectAllCategories.addEventListener('click', () => {
+      selectedCategories = [];
+      document.querySelectorAll('[data-filter-type="category"]').forEach(cb => cb.checked = true);
+      document.querySelectorAll('.filter-category-checkbox').forEach(cb => cb.checked = true);
+    });
+  }
+
+  // Clear all categories
+  const clearAllCategories = document.getElementById('clear-all-categories');
+  if (clearAllCategories) {
+    clearAllCategories.addEventListener('click', () => {
+      selectedCategories = [];
+      document.querySelectorAll('[data-filter-type="category"]').forEach(cb => cb.checked = false);
+      document.querySelectorAll('.filter-category-checkbox').forEach(cb => cb.checked = false);
+    });
+  }
+
+  // Select all payment methods
+  const selectAllPaymentMethods = document.getElementById('select-all-payment-methods');
+  if (selectAllPaymentMethods) {
+    selectAllPaymentMethods.addEventListener('click', () => {
+      selectedPaymentMethods = [];
+      document.querySelectorAll('[data-filter-type="payment-method"]').forEach(cb => cb.checked = true);
+    });
+  }
+
+  // Clear all payment methods
+  const clearAllPaymentMethods = document.getElementById('clear-all-payment-methods');
+  if (clearAllPaymentMethods) {
+    clearAllPaymentMethods.addEventListener('click', () => {
+      selectedPaymentMethods = [];
+      document.querySelectorAll('[data-filter-type="payment-method"]').forEach(cb => cb.checked = false);
+    });
+  }
+
+  // Clear all filters (reset to show all)
+  const clearAllFilters = document.getElementById('clear-all-filters');
+  if (clearAllFilters) {
+    clearAllFilters.addEventListener('click', () => {
+      selectedCategories = [];
+      selectedPaymentMethods = [];
+      
+      document.querySelectorAll('[data-filter-type="category"]').forEach(cb => cb.checked = true);
+      document.querySelectorAll('.filter-category-checkbox').forEach(cb => cb.checked = true);
+      document.querySelectorAll('[data-filter-type="payment-method"]').forEach(cb => cb.checked = true);
+    });
+  }
+
+  // Apply filters
+  const applyFilters = document.getElementById('apply-filters');
+  if (applyFilters) {
+    applyFilters.addEventListener('click', async () => {
+      console.log('APPLY FILTERS clicked (gastos)');
+      
+      // Close filter dropdown immediately
+      isFilterOpen = false;
+      const dropdown = document.getElementById('filter-dropdown');
+      if (dropdown) dropdown.style.display = 'none';
+      
+      // Show filter loading overlay
+      const filterLoading = document.getElementById('filter-loading');
+      if (filterLoading) filterLoading.style.display = 'flex';
+      
+      // Normalize categories
+      const categoryCheckboxes = document.querySelectorAll('[data-filter-type="category"]');
+      const checkedCategories = Array.from(categoryCheckboxes).filter(cb => cb.checked);
+      
+      if (checkedCategories.length === 0) {
+        selectedCategories = null; // show nothing
+      } else if (checkedCategories.length === allCategories.length) {
+        selectedCategories = []; // show all
+      } else {
+        selectedCategories = checkedCategories.map(cb => cb.dataset.value);
+      }
+      
+      // Normalize payment methods
+      const pmCheckboxes = document.querySelectorAll('[data-filter-type="payment-method"]');
+      const checkedPMs = Array.from(pmCheckboxes).filter(cb => cb.checked);
+      
+      if (checkedPMs.length === 0) {
+        selectedPaymentMethods = null; // show nothing
+      } else if (checkedPMs.length === allPaymentMethods.length) {
+        selectedPaymentMethods = []; // show all
+      } else {
+        selectedPaymentMethods = checkedPMs.map(cb => cb.dataset.value);
+      }
+      
+      console.log('After normalization - categories:', selectedCategories, 'payment methods:', selectedPaymentMethods);
+      
+      await loadMovementsData();
+      refreshDisplay();
+      
+      // Hide filter loading overlay
+      const filterLoadingEnd = document.getElementById('filter-loading');
+      if (filterLoadingEnd) filterLoadingEnd.style.display = 'none';
+    });
+  }
+
+  // Category checkboxes
+  document.querySelectorAll('[data-filter-type="category"]').forEach(checkbox => {
+    checkbox.addEventListener('change', (e) => {
+      const category = e.target.dataset.value;
+      const groupName = e.target.dataset.categoryGroup;
+      
+      // Update group checkbox state
+      if (groupName) {
+        const groupCheckbox = document.querySelector(`[data-category-group="${groupName}"].filter-category-checkbox`);
+        const groupCategories = document.querySelectorAll(`[data-filter-type="category"][data-category-group="${groupName}"]`);
+        const allChecked = Array.from(groupCategories).every(cb => cb.checked);
+        if (groupCheckbox) {
+          groupCheckbox.checked = allChecked;
+        }
+      }
+    });
+  });
+
+  // Category group checkboxes
+  document.querySelectorAll('.filter-category-checkbox').forEach(checkbox => {
+    checkbox.addEventListener('change', (e) => {
+      const groupName = e.target.dataset.categoryGroup;
+      const isChecked = e.target.checked;
+      
+      // Check/uncheck all categories in group
+      document.querySelectorAll(`[data-filter-type="category"][data-category-group="${groupName}"]`).forEach(cb => {
+        cb.checked = isChecked;
+      });
+    });
+  });
+
+  // Category toggle (expand/collapse subcategories)
+  document.querySelectorAll('[data-category-toggle]').forEach(label => {
+    label.addEventListener('click', (e) => {
+      if (e.target.type === 'checkbox') return;
+      
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const groupName = label.dataset.categoryToggle;
+      const content = document.querySelector(`[data-category-content="${groupName}"]`);
+      const icon = label.querySelector('.category-toggle-icon');
+      
+      if (content) {
+        content.classList.toggle('collapsed');
+        if (icon) icon.classList.toggle('rotated');
+      }
+    });
+  });
+}
+
+/**
+ * Setup filter listeners for income (ingresos tab)
+ */
+function setupIncomeFilterListeners() {
   // Select all members
   const selectAllMembers = document.getElementById('select-all-members');
   if (selectAllMembers) {
@@ -1130,24 +1843,43 @@ export async function setup() {
   // Load household members for filter
   await loadHouseholdMembers();
 
-  // Load income data
-  await loadIncomeData();
+  // Load data based on active tab (gastos by default)
+  if (activeTab === 'gastos') {
+    await loadMovementsData();
+  } else {
+    await loadIncomeData();
+  }
   
   // Initial render of content - UPDATE THE DOM after loading data
   const contentContainer = document.querySelector('.dashboard-content');
-  if (contentContainer && activeTab === 'ingresos') {
-    contentContainer.innerHTML = `
-      ${renderMonthSelector()}
-      
-      <div class="total-display">
-        <div class="total-label">Total</div>
-        <div class="total-amount">${formatCurrency(incomeData?.totals?.total_amount || 0)}</div>
-      </div>
+  if (contentContainer) {
+    if (activeTab === 'gastos' && movementsData) {
+      contentContainer.innerHTML = `
+        ${renderMonthSelector()}
+        
+        <div class="total-display">
+          <div class="total-label">Total</div>
+          <div class="total-amount">${formatCurrency(movementsData?.totals?.total_amount || 0)}</div>
+        </div>
 
-      <div id="categories-container">
-        ${renderIncomeCategories()}
-      </div>
-    `;
+        <div id="categories-container">
+          ${renderMovementCategories()}
+        </div>
+      `;
+    } else if (activeTab === 'ingresos' && incomeData) {
+      contentContainer.innerHTML = `
+        ${renderMonthSelector()}
+        
+        <div class="total-display">
+          <div class="total-label">Total</div>
+          <div class="total-amount">${formatCurrency(incomeData?.totals?.total_amount || 0)}</div>
+        </div>
+
+        <div id="categories-container">
+          ${renderIncomeCategories()}
+        </div>
+      `;
+    }
   }
 
   // Setup tab listeners
@@ -1163,30 +1895,53 @@ export async function setup() {
       tabButtons.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       
+      // Load data for the new tab if not already loaded
+      if (activeTab === 'gastos' && !movementsData) {
+        await loadMovementsData();
+      } else if (activeTab === 'ingresos' && !incomeData) {
+        await loadIncomeData();
+      }
+      
       // Update content
       const contentContainer = document.querySelector('.dashboard-content');
       if (contentContainer) {
-        contentContainer.innerHTML = activeTab === 'ingresos' ? `
-          ${renderMonthSelector()}
-          
-          <div class="total-display">
-            <div class="total-label">Total</div>
-            <div class="total-amount">${formatCurrency(incomeData?.totals?.total_amount || 0)}</div>
-          </div>
+        if (activeTab === 'gastos') {
+          contentContainer.innerHTML = `
+            ${renderMonthSelector()}
+            
+            <div class="total-display">
+              <div class="total-label">Total</div>
+              <div class="total-amount">${formatCurrency(movementsData?.totals?.total_amount || 0)}</div>
+            </div>
 
-          <div id="categories-container">
-            ${renderIncomeCategories()}
-          </div>
-        ` : `
-          <div class="coming-soon">
-            <div class="coming-soon-icon">${activeTab === 'gastos' ? '🛒' : '💳'}</div>
-            <p>Próximamente</p>
-          </div>
-        `;
-        
-        if (activeTab === 'ingresos') {
+            <div id="categories-container">
+              ${renderMovementCategories()}
+            </div>
+          `;
           setupMonthNavigation();
           setupCategoryListeners();
+        } else if (activeTab === 'ingresos') {
+          contentContainer.innerHTML = `
+            ${renderMonthSelector()}
+            
+            <div class="total-display">
+              <div class="total-label">Total</div>
+              <div class="total-amount">${formatCurrency(incomeData?.totals?.total_amount || 0)}</div>
+            </div>
+
+            <div id="categories-container">
+              ${renderIncomeCategories()}
+            </div>
+          `;
+          setupMonthNavigation();
+          setupCategoryListeners();
+        } else {
+          contentContainer.innerHTML = `
+            <div class="coming-soon">
+              <div class="coming-soon-icon">💳</div>
+              <p>Próximamente</p>
+            </div>
+          `;
         }
       }
     });
@@ -1225,7 +1980,11 @@ function setupMonthNavigation() {
     prevBtn.onclick = async () => {
       currentMonth = previousMonth(currentMonth);
       showLoadingState();
-      await loadIncomeData();
+      if (activeTab === 'gastos') {
+        await loadMovementsData();
+      } else {
+        await loadIncomeData();
+      }
       refreshDisplay();
     };
   }
@@ -1234,7 +1993,11 @@ function setupMonthNavigation() {
     nextBtn.onclick = async () => {
       currentMonth = nextMonth(currentMonth);
       showLoadingState();
-      await loadIncomeData();
+      if (activeTab === 'gastos') {
+        await loadMovementsData();
+      } else {
+        await loadIncomeData();
+      }
       refreshDisplay();
     };
   }

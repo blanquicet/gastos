@@ -222,8 +222,9 @@ func (s *service) ListByHousehold(ctx context.Context, userID string, filters *L
 	}
 
 	return &ListMovementsResponse{
-		Movements: movements,
-		Totals:    totals,
+		Movements:      movements,
+		Totals:         totals,
+		CategoryGroups: GetDefaultCategoryGroups(),
 	}, nil
 }
 
