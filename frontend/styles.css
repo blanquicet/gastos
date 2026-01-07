@@ -1943,6 +1943,10 @@ button.loading::after {
 }
 
 /* Category Cards */
+#categories-container {
+  position: relative;
+}
+
 .categories-grid {
   display: flex;
   flex-direction: column;

@@ -260,7 +260,7 @@ function renderFilterDropdown() {
             <input type="checkbox" class="filter-checkbox filter-category-checkbox" 
                    data-category="Ingresos"
                    ${allIngresosSelected ? 'checked' : ''}>
-            <span><strong>Ingresos</strong></span>
+            <span>Ingresos</span>
             <svg class="category-toggle-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
               <path d="M4.293 5.293a1 1 0 011.414 0L8 7.586l2.293-2.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"/>
             </svg>
@@ -287,7 +287,7 @@ function renderFilterDropdown() {
             <input type="checkbox" class="filter-checkbox filter-category-checkbox" 
                    data-category="Movimientos"
                    ${allMovimientosSelected ? 'checked' : ''}>
-            <span><strong>Movimientos</strong></span>
+            <span>Movimientos</span>
             <svg class="category-toggle-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
               <path d="M4.293 5.293a1 1 0 011.414 0L8 7.586l2.293-2.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"/>
             </svg>
@@ -313,12 +313,6 @@ function renderFilterDropdown() {
       <div class="filter-footer">
         <button class="btn-secondary btn-small" id="clear-all-filters">Mostrar todo</button>
         <button class="btn-primary btn-small" id="apply-filters">Aplicar</button>
-      </div>
-      
-      <!-- Filter loading overlay -->
-      <div class="filter-loading-overlay" id="filter-loading" style="display: none;">
-        <div class="spinner"></div>
-        <p>Filtrando...</p>
       </div>
     </div>
   `;
@@ -423,6 +417,11 @@ function renderIncomeCategories() {
     }).join('');
 
   return `
+    <!-- Filter loading overlay -->
+    <div class="filter-loading-overlay" id="filter-loading" style="display: none;">
+      <div class="spinner"></div>
+      <p>Filtrando...</p>
+    </div>
     <div class="categories-grid">
       ${categoriesHtml}
     </div>
@@ -877,7 +876,14 @@ function setupFilterListeners() {
       console.log('APPLY FILTERS clicked');
       console.log('Before normalization - members:', selectedMemberIds, 'types:', selectedIncomeTypes);
       
-      // Show filter loading overlay
+      // Close filter dropdown immediately
+      isFilterOpen = false;
+      const dropdown = document.getElementById('filter-dropdown');
+      if (dropdown) {
+        dropdown.style.display = 'none';
+      }
+      
+      // Show filter loading overlay in main page
       const filterLoading = document.getElementById('filter-loading');
       if (filterLoading) filterLoading.style.display = 'flex';
       
@@ -930,16 +936,12 @@ function setupFilterListeners() {
       
       console.log('After normalization - members:', selectedMemberIds, 'types:', selectedIncomeTypes);
       
-      isFilterOpen = false;
-      const dropdown = document.getElementById('filter-dropdown');
-      if (dropdown) {
-        dropdown.style.display = 'none';
-      }
       await loadIncomeData();
       refreshDisplay();
       
       // Hide filter loading overlay
-      if (filterLoading) filterLoading.style.display = 'none';
+      const filterLoadingEnd = document.getElementById('filter-loading');
+      if (filterLoadingEnd) filterLoadingEnd.style.display = 'none';
     });
   }
 
@@ -1089,12 +1091,14 @@ function setupFilterListeners() {
 
   // Category toggle (expand/collapse subcategories)
   document.querySelectorAll('[data-category-toggle]').forEach(label => {
+    // Add click handler to the label itself
     label.addEventListener('click', (e) => {
-      // Don't toggle if clicking on the checkbox itself
+      // If clicking on the checkbox, don't toggle expansion - just let checkbox work
       if (e.target.type === 'checkbox') {
         return;
       }
       
+      // Clicking on name/arrow should toggle expansion
       e.preventDefault();
       e.stopPropagation();
       
