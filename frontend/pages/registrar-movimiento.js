@@ -347,10 +347,11 @@ export async function setup() {
   // Load form configuration from API
   await loadFormConfig();
 
-  // Check if we're in edit mode
+  // Check URL params for edit mode and tipo pre-selection
   const urlParams = new URLSearchParams(window.location.search);
   const editId = urlParams.get('edit');
   const isEditMode = !!editId;
+  const tipoParam = urlParams.get('tipo');
 
   // Initialize selects
   renderUserSelect(pagadorEl, users, true);
@@ -389,10 +390,8 @@ export async function setup() {
     });
   });
 
-  // Check URL params for pre-selection
-  const urlParams = new URLSearchParams(window.location.search);
-  const tipoParam = urlParams.get('tipo');
-  if (tipoParam) {
+  // Check URL params for tipo pre-selection
+  if (tipoParam && !isEditMode) {
     const targetBtn = document.querySelector(`.tipo-btn[data-tipo="${tipoParam}"]`);
     if (targetBtn) {
       targetBtn.click();
