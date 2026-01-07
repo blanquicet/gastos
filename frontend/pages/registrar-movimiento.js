@@ -24,6 +24,7 @@ let formConfigLoaded = false;
 
 let participants = []; // [{ name, pct }]
 let currentUser = null;
+let currentEditMovement = null; // Movement being edited (if in edit mode)
 
 /**
  * Helper: Format number with Spanish/Colombian format (e.g., 71.033,90)
@@ -346,6 +347,11 @@ export async function setup() {
   // Load form configuration from API
   await loadFormConfig();
 
+  // Check if we're in edit mode
+  const urlParams = new URLSearchParams(window.location.search);
+  const editId = urlParams.get('edit');
+  const isEditMode = !!editId;
+
   // Initialize selects
   renderUserSelect(pagadorEl, users, true);
   renderUserSelect(pagadorCompartidoEl, users, true);
@@ -357,6 +363,11 @@ export async function setup() {
 
   // Reset participants for COMPARTIDO
   resetParticipants();
+
+  // If edit mode, load movement data
+  if (isEditMode) {
+    await loadMovementForEdit(editId);
+  }
 
   // Setup tipo button listeners
   const tipoBtns = document.querySelectorAll('.tipo-btn');
@@ -1159,6 +1170,93 @@ function readForm() {
 }
 
 /**
+ * Load movement data for editing
+ */
+async function loadMovementForEdit(movementId) {
+  try {
+    setStatus('Cargando movimiento...', 'loading');
+    
+    const response = await fetch(`${API_URL}/movements/${movementId}`, {
+      credentials: 'include'
+    });
+    
+    if (!response.ok) {
+      throw new Error('Error al cargar el movimiento');
+    }
+    
+    const movement = await response.json();
+    currentEditMovement = movement;
+    
+    // Pre-fill form fields
+    const descripcionEl = document.getElementById('descripcion');
+    const valorEl = document.getElementById('valor');
+    const categoriaEl = document.getElementById('categoria');
+    const fechaEl = document.getElementById('fecha');
+    
+    if (descripcionEl) descripcionEl.value = movement.description || '';
+    if (valorEl) valorEl.value = movement.amount || '';
+    if (categoriaEl) categoriaEl.value = movement.category || '';
+    
+    if (fechaEl && movement.movement_date) {
+      // Convert to YYYY-MM-DD format
+      const date = new Date(movement.movement_date);
+      const yyyy = date.getFullYear();
+      const mm = String(date.getMonth() + 1).padStart(2, '0');
+      const dd = String(date.getDate()).padStart(2, '0');
+      fechaEl.value = `${yyyy}-${mm}-${dd}`;
+    }
+    
+    // Update button text
+    const submitBtn = document.getElementById('submitBtn');
+    if (submitBtn) {
+      submitBtn.textContent = 'Actualizar';
+    }
+    
+    // Update page title
+    const pageTitle = document.querySelector('h1');
+    if (pageTitle) {
+      pageTitle.textContent = 'Editar Gasto';
+    }
+    
+    // Disable fields that cannot be edited
+    const metodoEl = document.getElementById('metodo');
+    if (metodoEl) {
+      metodoEl.disabled = true;
+      metodoEl.title = 'No se puede cambiar el método de pago';
+      // Pre-select current payment method (read-only)
+      if (movement.payment_method_id) {
+        metodoEl.value = movement.payment_method_id;
+      }
+    }
+    
+    // Disable tipo selector buttons
+    const tipoBtns = document.querySelectorAll('.tipo-btn');
+    tipoBtns.forEach(btn => {
+      btn.disabled = true;
+      btn.style.opacity = '0.5';
+      btn.style.cursor = 'not-allowed';
+      btn.title = 'No se puede cambiar el tipo de movimiento';
+    });
+    
+    // Select the current tipo but keep it disabled
+    const currentTipoBtn = document.querySelector(`.tipo-btn[data-tipo="${movement.type}"]`);
+    if (currentTipoBtn) {
+      currentTipoBtn.classList.add('active');
+      document.getElementById('tipo').value = movement.type;
+      onTipoChange();
+    }
+    
+    setStatus('', '');
+  } catch (error) {
+    console.error('Error loading movement:', error);
+    setStatus('Error al cargar el movimiento para editar', 'err');
+    setTimeout(() => {
+      router.navigate('/');
+    }, 2000);
+  }
+}
+
+/**
  * Handle form submission
  */
 async function onSubmit(e) {
@@ -1214,16 +1312,39 @@ async function onSubmit(e) {
       setStatus('Ingreso registrado correctamente.', 'ok');
     } else {
       // Handle regular movements (gastos) - now using new backend API
-      setStatus('Registrando movimiento...', 'loading');
+      const isEditMode = !!currentEditMovement;
+      setStatus(isEditMode ? 'Actualizando movimiento...' : 'Registrando movimiento...', 'loading');
 
-      const res = await fetch(`${API_URL}/movements`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include',
-        body: JSON.stringify(payload)
-      });
+      let res;
+      if (isEditMode) {
+        // PATCH /movements/{id} for update
+        // Only send fields that can be updated
+        const updatePayload = {
+          description: payload.descripcion,
+          amount: parseFloat(payload.valor),
+          category: payload.categoria,
+          movement_date: payload.fecha
+        };
+
+        res = await fetch(`${API_URL}/movements/${currentEditMovement.id}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          credentials: 'include',
+          body: JSON.stringify(updatePayload)
+        });
+      } else {
+        // POST /movements for create
+        res = await fetch(`${API_URL}/movements`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          credentials: 'include',
+          body: JSON.stringify(payload)
+        });
+      }
 
       if (!res.ok) {
         // Parse error response
@@ -1238,7 +1359,7 @@ async function onSubmit(e) {
         }
         
         // Check if it's a n8n service unavailable (503)
-        if (res.status === 503) {
+        if (res.status === 503 && !isEditMode) {
           // For movements with new backend, data IS saved to PostgreSQL even if n8n fails
           setStatus('⚠️ Movimiento guardado en PostgreSQL pero no sincronizado con Google Sheets. La sincronización se realizará más tarde.', 'warning');
           
@@ -1259,10 +1380,19 @@ async function onSubmit(e) {
         throw new Error(errorMsg);
       }
 
-      // Success - movement created
+      // Success - movement created or updated
       const response = await res.json();
-      console.log('Movement created:', response);
-      setStatus('Movimiento registrado correctamente.', 'ok');
+      console.log(isEditMode ? 'Movement updated:' : 'Movement created:', response);
+      setStatus(isEditMode ? 'Movimiento actualizado correctamente.' : 'Movimiento registrado correctamente.', 'ok');
+    }
+
+    // If in edit mode, navigate back to home instead of resetting form
+    if (currentEditMovement) {
+      currentEditMovement = null;
+      setTimeout(() => {
+        router.navigate('/');
+      }, 1500);
+      return;
     }
 
     document.getElementById('movForm').reset();

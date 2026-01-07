@@ -1048,6 +1048,11 @@ function renderMovementCategories() {
                       </div>
                       <div class="entry-actions">
                         ${movement.payment_method_name ? `<span class="entry-payment-badge">${movement.payment_method_name}</span>` : ''}
+                        <button class="three-dots-btn" data-movement-id="${movement.id}">⋮</button>
+                        <div class="three-dots-menu" id="movement-menu-${movement.id}">
+                          <button class="menu-item" data-action="edit" data-id="${movement.id}">Editar</button>
+                          <button class="menu-item" data-action="delete" data-id="${movement.id}">Eliminar</button>
+                        </div>
                       </div>
                     </div>
                   `).join('')}
@@ -1142,6 +1147,48 @@ async function handleDeleteIncome(incomeId) {
     showError(error.message || 'Error al eliminar el ingreso');
   }
 }
+
+/**
+ * Handle edit movement
+ */
+async function handleEditMovement(movementId) {
+  // Navigate to edit form with movement ID
+  router.navigate(`/registrar-movimiento?tipo=GASTO&edit=${movementId}`);
+}
+
+/**
+ * Handle delete movement
+ */
+async function handleDeleteMovement(movementId) {
+  const confirmed = await showConfirmation(
+    '¿Eliminar gasto?',
+    '¿Estás seguro de que quieres eliminar este gasto? Esta acción no se puede deshacer.'
+  );
+
+  if (!confirmed) return;
+
+  try {
+    const response = await fetch(`${API_URL}/movements/${movementId}`, {
+      method: 'DELETE',
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      throw new Error(errorData?.error || 'Error al eliminar el movimiento');
+    }
+
+    showSuccess('Gasto eliminado', 'El gasto se eliminó correctamente');
+    
+    // Reload movements data and refresh display
+    await loadMovements();
+    refreshDisplay();
+  } catch (error) {
+    console.error('Error deleting movement:', error);
+    showError(error.message || 'Error al eliminar el movimiento');
+  }
+}
+
 
 /**
  * Setup category card listeners (for both gastos and ingresos)
@@ -1249,6 +1296,61 @@ function setupCategoryListeners() {
 
       if (action === 'delete') {
         await handleDeleteIncome(id);
+      }
+    });
+  });
+
+  // Three-dots menu toggle for movement entries (only for gastos tab)
+  document.querySelectorAll('.three-dots-btn[data-movement-id]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const movementId = e.currentTarget.dataset.movementId;
+      const menu = document.getElementById(`movement-menu-${movementId}`);
+      const isOpen = menu.style.display === 'block';
+      
+      // Close all menus
+      document.querySelectorAll('.three-dots-menu').forEach(m => {
+        m.style.display = 'none';
+        m.classList.remove('menu-above');
+      });
+      
+      // Toggle this menu
+      if (!isOpen) {
+        // Check if menu would overflow bottom of viewport
+        const btnRect = btn.getBoundingClientRect();
+        const menuHeight = 80; // Approximate height of menu with 2 items
+        const spaceBelow = window.innerHeight - btnRect.bottom;
+        
+        // If not enough space below, position above
+        if (spaceBelow < menuHeight) {
+          menu.classList.add('menu-above');
+        }
+        
+        menu.style.display = 'block';
+      }
+    });
+  });
+
+  // Menu action buttons (for movements)
+  document.querySelectorAll('.three-dots-menu .menu-item[data-action]').forEach(btn => {
+    // Only for movement menus (not income)
+    const menu = btn.closest('.three-dots-menu');
+    if (!menu || !menu.id.startsWith('movement-menu-')) return;
+    
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const action = e.currentTarget.dataset.action;
+      const id = e.currentTarget.dataset.id;
+
+      // Close menu
+      document.querySelectorAll('.three-dots-menu').forEach(m => m.style.display = 'none');
+
+      if (action === 'edit') {
+        await handleEditMovement(id);
+      } else if (action === 'delete') {
+        await handleDeleteMovement(id);
       }
     });
   });
