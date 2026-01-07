@@ -16,7 +16,8 @@ const { Pool } = pg;
  * 8. Verify GET /movements API
  * 9. Verify movements appear in dashboard/resumen
  * 10. Verify category grouping and amounts
- * 11. Cleanup test data
+ * 11. Test movement edit functionality and verify changes
+ * 12. Cleanup test data
  */
 
 async function testMovementFamiliar() {
@@ -424,6 +425,228 @@ async function testMovementFamiliar() {
     }
     
     console.log('✅ Total amount verified in dashboard');
+
+    // ==================================================================
+    // STEP 11: Test Movement Edit Functionality
+    // ==================================================================
+    console.log('📝 Step 11: Testing movement edit functionality...');
+    
+    // Reload the page to ensure clean state
+    await page.reload();
+    await page.waitForSelector('.expense-group-card');
+    await page.waitForTimeout(500);
+    
+    // Find the "Mercado del mes" movement and click its three-dots menu
+    console.log('   Finding "Mercado del mes" movement to edit...');
+    
+    let editMovementId = null;
+    const expenseGroups2 = await page.locator('.expense-group-card').all();
+    console.log(`   Found ${expenseGroups2.length} expense groups`);
+    
+    for (const group of expenseGroups2) {
+      // First, expand the expense group (Casa)
+      const groupHeader = group.locator('.expense-group-header');
+      const groupName = await groupHeader.locator('.expense-group-name').textContent();
+      console.log(`   Expanding group: ${groupName}`);
+      
+      await groupHeader.click();
+      await page.waitForTimeout(500);
+      
+      // Get categories from the group details (after expansion)
+      const categoryCards = await group.locator('.expense-group-details .expense-category-item').all();
+      console.log(`   Found ${categoryCards.length} categories in ${groupName}`);
+      
+      for (const categoryItem of categoryCards) {
+        const categoryName = await categoryItem.locator('.expense-category-name').textContent();
+        console.log(`   Checking category: ${categoryName}`);
+        
+        if (categoryName.includes('Mercado')) {
+          console.log(`   ✅ Found Mercado category, expanding...`);
+          // Now expand the category itself
+          const categoryHeader = categoryItem.locator('.expense-category-header');
+          await categoryHeader.click();
+          await page.waitForTimeout(500);
+          
+          // Find "Mercado del mes" entry
+          const entries = await categoryItem.locator('.movement-detail-entry').all();
+          console.log(`   Found ${entries.length} entries in Mercado`);
+          
+          for (const entry of entries) {
+            const description = await entry.locator('.entry-description').textContent();
+            console.log(`   Checking entry: ${description}`);
+            
+            if (description.includes('Mercado del mes')) {
+              console.log('   ✅ Found "Mercado del mes" movement');
+              
+              // Get the movement ID from the three-dots button
+              const threeDotsBtn = entry.locator('.three-dots-btn');
+              const movementIdAttr = await threeDotsBtn.getAttribute('data-movement-id');
+              editMovementId = movementIdAttr;
+              console.log(`   Movement ID: ${editMovementId}`);
+              
+              // Click three-dots menu
+              await threeDotsBtn.click();
+              await page.waitForTimeout(300);
+              
+              // Click "Editar" option
+              const editOption = entry.locator('.three-dots-menu .menu-item').filter({ hasText: 'Editar' });
+              await editOption.click();
+              
+              console.log('   Clicked "Editar" option');
+              break;
+            }
+          }
+          
+          if (editMovementId) break;
+        }
+      }
+      
+      if (editMovementId) break;
+    }
+    
+    if (!editMovementId) {
+      await page.screenshot({ path: '/tmp/before-error.png' });
+      console.log('   📸 Screenshot saved to /tmp/before-error.png');
+      throw new Error('Could not find "Mercado del mes" movement to edit');
+    }
+    
+    // Wait for edit form to load completely
+    await page.waitForURL(/registrar-movimiento\?tipo=GASTO&edit=/);
+    await page.waitForTimeout(1500); // Wait for loadMovementForEdit() to complete
+    console.log('   Edit form loaded');
+    
+    // Verify form is pre-filled
+    const currentDescription = await page.locator('#descripcion').inputValue();
+    const currentAmount = await page.locator('#valor').inputValue();
+    
+    if (!currentDescription.includes('Mercado del mes')) {
+      console.log(`   Current description: "${currentDescription}"`);
+      throw new Error('Description not pre-filled correctly');
+    }
+    
+    if (currentAmount !== '250000') {
+      console.log(`   Current amount: "${currentAmount}"`);
+      throw new Error(`Amount not pre-filled correctly. Expected 250000, got ${currentAmount}`);
+    }
+    
+    console.log('   ✅ Form pre-filled correctly');
+    
+    // Verify tipo buttons are disabled
+    const tipoBtn = page.locator('.tipo-btn[data-tipo="HOUSEHOLD"]');
+    const isDisabled = await tipoBtn.isDisabled();
+    
+    if (!isDisabled) {
+      throw new Error('Tipo button should be disabled in edit mode');
+    }
+    
+    console.log('   ✅ Tipo buttons are disabled');
+    
+    // Verify Cancel button is visible
+    const cancelBtn = page.locator('#cancelBtn');
+    const isCancelVisible = await cancelBtn.isVisible();
+    
+    if (!isCancelVisible) {
+      throw new Error('Cancel button should be visible in edit mode');
+    }
+    
+    console.log('   ✅ Cancel button is visible');
+    
+    // Edit the movement: change description and amount
+    await page.locator('#descripcion').fill('Mercado del mes EDITADO');
+    await page.locator('#valor').fill('275000');
+    
+    console.log('   Changed description and amount');
+    
+    // Submit the update
+    const updateBtn = page.locator('#submitBtn');
+    await updateBtn.click();
+    
+    // Wait for redirect back to dashboard
+    await page.waitForURL(`${appUrl}/`);
+    await page.waitForTimeout(1000);
+    
+    console.log('   ✅ Movement updated successfully');
+    
+    // Verify the update is reflected in the dashboard
+    console.log('   Verifying updated values in dashboard...');
+    
+    await page.reload();
+    await page.waitForSelector('.expense-group-card');
+    await page.waitForTimeout(500);
+    
+    let foundUpdated = false;
+    const expenseGroups3 = await page.locator('.expense-group-card').all();
+    
+    for (const group of expenseGroups3) {
+      // Expand expense group first
+      const groupHeader = group.locator('.expense-group-header');
+      await groupHeader.click();
+      await page.waitForTimeout(500);
+      
+      const categoryCards = await group.locator('.expense-group-details .expense-category-item').all();
+      
+      for (const categoryItem of categoryCards) {
+        const categoryName = await categoryItem.locator('.expense-category-name').textContent();
+        
+        if (categoryName.includes('Mercado')) {
+          // Expand category
+          const categoryHeader = categoryItem.locator('.expense-category-header');
+          await categoryHeader.click();
+          await page.waitForTimeout(500);
+          
+          const entries = await categoryItem.locator('.movement-detail-entry').all();
+          
+          for (const entry of entries) {
+            const description = await entry.locator('.entry-description').textContent();
+            const amount = await entry.locator('.entry-amount').textContent();
+            
+            if (description.includes('EDITADO')) {
+              foundUpdated = true;
+              console.log(`   ✅ Found updated description: ${description}`);
+              
+              // Verify amount updated (should be 275,000)
+              if (!amount.includes('275')) {
+                throw new Error(`Amount not updated correctly. Expected to contain 275, got ${amount}`);
+              }
+              
+              console.log(`   ✅ Amount updated correctly: ${amount}`);
+              break;
+            }
+          }
+          
+          if (foundUpdated) break;
+        }
+      }
+      
+      if (foundUpdated) break;
+    }
+    
+    if (!foundUpdated) {
+      throw new Error('Updated movement not found in dashboard');
+    }
+    
+    // Verify in database
+    const dbResult = await pool.query(
+      'SELECT description, amount FROM movements WHERE id = $1',
+      [editMovementId]
+    );
+    
+    if (dbResult.rows.length === 0) {
+      throw new Error('Movement not found in database after update');
+    }
+    
+    const dbMovement = dbResult.rows[0];
+    
+    if (dbMovement.description !== 'Mercado del mes EDITADO') {
+      throw new Error(`DB description not updated. Expected "Mercado del mes EDITADO", got "${dbMovement.description}"`);
+    }
+    
+    if (parseFloat(dbMovement.amount) !== 275000) {
+      throw new Error(`DB amount not updated. Expected 275000, got ${dbMovement.amount}`);
+    }
+    
+    console.log('   ✅ Changes verified in database');
+    console.log('✅ Movement edit functionality test passed');
 
     // ==================================================================
     // Cleanup
