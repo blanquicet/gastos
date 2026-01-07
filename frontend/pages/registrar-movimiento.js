@@ -1467,7 +1467,6 @@ async function onSubmit(e) {
 
       // Success - movement created or updated
       const response = await res.json();
-      console.log(isEditMode ? 'Movement updated:' : 'Movement created:', response);
       setStatus(isEditMode ? 'Movimiento actualizado correctamente.' : 'Movimiento registrado correctamente.', 'ok');
     }
 
