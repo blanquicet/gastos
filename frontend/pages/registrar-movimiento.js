@@ -1211,7 +1211,7 @@ async function loadMovementForEdit(movementId) {
     const fechaEl = document.getElementById('fecha');
     
     if (descripcionEl) descripcionEl.value = movement.description || '';
-    if (valorEl) valorEl.value = movement.amount || '';
+    if (valorEl) valorEl.value = formatNumber(movement.amount);
     if (categoriaEl) categoriaEl.value = movement.category || '';
     
     if (fechaEl && movement.movement_date) {
