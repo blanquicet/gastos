@@ -3,13 +3,13 @@ import pg from 'pg';
 const { Pool } = pg;
 
 /**
- * Test Movement Registration - FAMILIAR Type
+ * Test Movement Registration - HOUSEHOLD Type
  * 
- * Tests the movement registration form for FAMILIAR (household) movements:
+ * Tests the movement registration form for HOUSEHOLD movements:
  * 1. Register user and create household
  * 2. Add payment method
  * 3. Test form loads without errors
- * 4. Test FAMILIAR movement creation
+ * 4. Test HOUSEHOLD movement creation
  * 5. Verify movement saved to PostgreSQL
  * 6. Test validation (required fields)
  * 7. Create second movement in same category
@@ -40,7 +40,7 @@ async function testMovementFamiliar() {
   let householdId = null;
 
   try {
-    console.log('🚀 Starting Movement FAMILIAR Test');
+    console.log('🚀 Starting Movement HOUSEHOLD Test');
     console.log('👤 User:', userEmail);
     console.log('🏠 Household:', householdName);
     console.log('');
@@ -172,12 +172,12 @@ async function testMovementFamiliar() {
     console.log('✅ Form validation working correctly');
 
     // ==================================================================
-    // STEP 5: Create FAMILIAR Movement
+    // STEP 5: Create HOUSEHOLD Movement
     // ==================================================================
-    console.log('📝 Step 5: Creating FAMILIAR movement...');
+    console.log('📝 Step 5: Creating HOUSEHOLD movement...');
     
-    // Select FAMILIAR type
-    await page.locator('button[data-tipo="FAMILIAR"]').click();
+    // Select HOUSEHOLD type
+    await page.locator('button[data-tipo="HOUSEHOLD"]').click();
     await page.waitForTimeout(500);
     
     // Fill form
@@ -238,12 +238,12 @@ async function testMovementFamiliar() {
     // ==================================================================
     // STEP 7: Test Another Movement with Same Category
     // ==================================================================
-    console.log('📝 Step 7: Creating second FAMILIAR movement...');
+    console.log('📝 Step 7: Creating second HOUSEHOLD movement...');
     
     await page.goto(`${appUrl}/registrar-movimiento`, { waitUntil: 'networkidle' });
     await page.waitForTimeout(2000);
     
-    await page.locator('button[data-tipo="FAMILIAR"]').click();
+    await page.locator('button[data-tipo="HOUSEHOLD"]').click();
     await page.waitForTimeout(500);
     
     await page.locator('#descripcion').fill('Mercado semanal');
@@ -438,7 +438,7 @@ async function testMovementFamiliar() {
     
     console.log('✅ Cleanup complete');
     console.log('');
-    console.log('✅ ✅ ✅ ALL FAMILIAR MOVEMENT TESTS PASSED! ✅ ✅ ✅');
+    console.log('✅ ✅ ✅ ALL HOUSEHOLD MOVEMENT TESTS PASSED! ✅ ✅ ✅');
 
     await browser.close();
     await pool.end();

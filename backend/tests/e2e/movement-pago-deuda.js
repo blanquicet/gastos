@@ -3,14 +3,14 @@ import pg from 'pg';
 const { Pool } = pg;
 
 /**
- * Test Movement Registration - PAGO_DEUDA Type
+ * Test Movement Registration - DEBT_PAYMENT Type
  * 
- * Tests the movement registration form for PAGO_DEUDA (debt payment) movements:
+ * Tests the movement registration form for DEBT_PAYMENT movements:
  * 1. Register two users and create household
  * 2. Add payment method
  * 3. Add contact
- * 4. Test PAGO_DEUDA movement creation (member to member)
- * 5. Test PAGO_DEUDA movement creation (member to contact)
+ * 4. Test DEBT_PAYMENT movement creation (member to member)
+ * 5. Test DEBT_PAYMENT movement creation (member to contact)
  * 6. Test validation (pagador != tomador)
  * 7. Verify movements saved to database
  * 8. Cleanup test data
@@ -40,7 +40,7 @@ async function testMovementPagoDeuda() {
   let contactId = null;
 
   try {
-    console.log('🚀 Starting Movement PAGO_DEUDA Test');
+    console.log('🚀 Starting Movement DEBT_PAYMENT Test');
     console.log('👤 User 1:', user1Email);
     console.log('👤 User 2:', user2Email);
     console.log('🏠 Household:', householdName);
@@ -240,9 +240,9 @@ async function testMovementPagoDeuda() {
     console.log('✅ Payment method added');
 
     // ==================================================================
-    // STEP 5: Create PAGO_DEUDA (Member to Member)
+    // STEP 5: Create DEBT_PAYMENT (Member to Member)
     // ==================================================================
-    console.log('📝 Step 5: Creating PAGO_DEUDA movement (member to member)...');
+    console.log('📝 Step 5: Creating DEBT_PAYMENT movement (member to member)...');
     
     // Clear previous console errors
     consoleErrors.length = 0;
@@ -260,8 +260,8 @@ async function testMovementPagoDeuda() {
       throw new Error('JavaScript errors in movement form');
     }
     
-    // Select PAGO_DEUDA type
-    await page1.locator('button[data-tipo="PAGO_DEUDA"]').click();
+    // Select DEBT_PAYMENT type
+    await page1.locator('button[data-tipo="DEBT_PAYMENT"]').click();
     await page1.waitForTimeout(500);
     
     // Fill form
@@ -294,10 +294,10 @@ async function testMovementPagoDeuda() {
       if (consoleErrors.length > 0) {
         console.error('JavaScript errors:', consoleErrors);
       }
-      throw new Error('PAGO_DEUDA movement creation failed');
+      throw new Error('DEBT_PAYMENT movement creation failed');
     }
     
-    console.log('✅ PAGO_DEUDA movement created (member to member)');
+    console.log('✅ DEBT_PAYMENT movement created (member to member)');
 
     // ==================================================================
     // STEP 6: Verify Movement in Database
@@ -336,14 +336,14 @@ async function testMovementPagoDeuda() {
     console.log('   Counterparty: User 2');
 
     // ==================================================================
-    // STEP 7: Create PAGO_DEUDA (Member to Contact)
+    // STEP 7: Create DEBT_PAYMENT (Member to Contact)
     // ==================================================================
-    console.log('📝 Step 7: Creating PAGO_DEUDA movement (member to contact)...');
+    console.log('📝 Step 7: Creating DEBT_PAYMENT movement (member to contact)...');
     
     await page1.goto(`${appUrl}/registrar-movimiento`, { waitUntil: 'networkidle' });
     await page1.waitForTimeout(2000);
     
-    await page1.locator('button[data-tipo="PAGO_DEUDA"]').click();
+    await page1.locator('button[data-tipo="DEBT_PAYMENT"]').click();
     await page1.waitForTimeout(500);
     
     await page1.locator('#descripcion').fill('Pago deuda taxi');
@@ -365,7 +365,7 @@ async function testMovementPagoDeuda() {
       throw new Error('PAGO_DEUDA to contact creation failed');
     }
     
-    console.log('✅ PAGO_DEUDA movement created (member to contact)');
+    console.log('✅ DEBT_PAYMENT movement created (member to contact)');
 
     // Verify in database
     const movement2Result = await pool.query(
@@ -392,7 +392,7 @@ async function testMovementPagoDeuda() {
     await page1.goto(`${appUrl}/registrar-movimiento`, { waitUntil: 'networkidle' });
     await page1.waitForTimeout(2000);
     
-    await page1.locator('button[data-tipo="PAGO_DEUDA"]').click();
+    await page1.locator('button[data-tipo="DEBT_PAYMENT"]').click();
     await page1.waitForTimeout(500);
     
     await page1.locator('#descripcion').fill('Test validation');
@@ -422,7 +422,7 @@ async function testMovementPagoDeuda() {
     await page1.goto(`${appUrl}/registrar-movimiento`, { waitUntil: 'networkidle' });
     await page1.waitForTimeout(2000);
     
-    await page1.locator('button[data-tipo="PAGO_DEUDA"]').click();
+    await page1.locator('button[data-tipo="DEBT_PAYMENT"]').click();
     await page1.waitForTimeout(500);
     
     await page1.locator('#descripcion').fill('Pago de Pedro');
@@ -479,7 +479,7 @@ async function testMovementPagoDeuda() {
     
     console.log('✅ Cleanup complete');
     console.log('');
-    console.log('✅ ✅ ✅ ALL PAGO_DEUDA MOVEMENT TESTS PASSED! ✅ ✅ ✅');
+    console.log('✅ ✅ ✅ ALL DEBT_PAYMENT MOVEMENT TESTS PASSED! ✅ ✅ ✅');
 
     await browser.close();
     await pool.end();

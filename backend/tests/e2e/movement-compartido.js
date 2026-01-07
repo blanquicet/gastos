@@ -3,12 +3,12 @@ import pg from 'pg';
 const { Pool } = pg;
 
 /**
- * Test Movement Registration - COMPARTIDO Type
+ * Test Movement Registration - SPLIT Type
  * 
- * Tests the movement registration form for COMPARTIDO (split) movements:
+ * Tests the movement registration form for SPLIT movements:
  * 1. Register user and create household with contacts
  * 2. Add payment method
- * 3. Test COMPARTIDO movement creation with participants
+ * 3. Test SPLIT movement creation with participants
  * 4. Test equitable split
  * 5. Test custom percentages
  * 6. Test validation (percentages must sum 100%)
@@ -38,7 +38,7 @@ async function testMovementCompartido() {
   let contactId = null;
 
   try {
-    console.log('🚀 Starting Movement COMPARTIDO Test');
+    console.log('🚀 Starting Movement SPLIT Test');
     console.log('👤 User:', userEmail);
     console.log('🏠 Household:', householdName);
     console.log('');
@@ -154,9 +154,9 @@ async function testMovementCompartido() {
     console.log('✅ Payment method added');
 
     // ==================================================================
-    // STEP 4: Create COMPARTIDO Movement (Equitable Split)
+    // STEP 4: Create SPLIT Movement (Equitable Split)
     // ==================================================================
-    console.log('📝 Step 4: Creating COMPARTIDO movement with equitable split...');
+    console.log('📝 Step 4: Creating SPLIT movement with equitable split...');
     
     // Clear previous console errors
     consoleErrors.length = 0;
@@ -174,8 +174,8 @@ async function testMovementCompartido() {
       throw new Error('JavaScript errors in movement form');
     }
     
-    // Select COMPARTIDO type
-    await page.locator('button[data-tipo="COMPARTIDO"]').click();
+    // Select SPLIT type
+    await page.locator('button[data-tipo="SPLIT"]').click();
     await page.waitForTimeout(500);
     
     // Fill form
@@ -211,10 +211,10 @@ async function testMovementCompartido() {
     const successStatus = await page.locator('#status').textContent();
     if (!successStatus.includes('correctamente')) {
       console.error('❌ Expected success message, got:', successStatus);
-      throw new Error('COMPARTIDO movement creation failed');
+      throw new Error('SPLIT movement creation failed');
     }
     
-    console.log('✅ COMPARTIDO movement created successfully');
+    console.log('✅ SPLIT movement created successfully');
 
     // ==================================================================
     // STEP 5: Verify Movement and Participants in Database
@@ -281,12 +281,12 @@ async function testMovementCompartido() {
     // ==================================================================
     // STEP 6: Create COMPARTIDO with Custom Percentages
     // ==================================================================
-    console.log('📝 Step 6: Creating COMPARTIDO with custom percentages...');
+    console.log('📝 Step 6: Creating SPLIT with custom percentages...');
     
     await page.goto(`${appUrl}/registrar-movimiento`, { waitUntil: 'networkidle' });
     await page.waitForTimeout(2000);
     
-    await page.locator('button[data-tipo="COMPARTIDO"]').click();
+    await page.locator('button[data-tipo="SPLIT"]').click();
     await page.waitForTimeout(500);
     
     await page.locator('#descripcion').fill('Almuerzo dividido desigual');
@@ -358,7 +358,7 @@ async function testMovementCompartido() {
     await page.goto(`${appUrl}/registrar-movimiento`, { waitUntil: 'networkidle' });
     await page.waitForTimeout(2000);
     
-    await page.locator('button[data-tipo="COMPARTIDO"]').click();
+    await page.locator('button[data-tipo="SPLIT"]').click();
     await page.waitForTimeout(500);
     
     await page.locator('#descripcion').fill('Test validation');
@@ -416,7 +416,7 @@ async function testMovementCompartido() {
     
     console.log('✅ Cleanup complete');
     console.log('');
-    console.log('✅ ✅ ✅ ALL COMPARTIDO MOVEMENT TESTS PASSED! ✅ ✅ ✅');
+    console.log('✅ ✅ ✅ ALL SPLIT MOVEMENT TESTS PASSED! ✅ ✅ ✅');
 
     await browser.close();
     await pool.end();
