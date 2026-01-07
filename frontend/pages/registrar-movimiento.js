@@ -601,7 +601,8 @@ function onTipoChange() {
   }
 
   // Show/hide category field
-  // Hidden when: no tipo selected, INGRESO, or PAGO_DEUDA
+  // Hidden when: no tipo selected, INGRESO, or PAGO_DEUDA (until payer is selected)
+  // For PAGO_DEUDA: category visibility is controlled by onPagadorChange()
   const categoriaWrap = document.getElementById('categoriaWrap');
   if (categoriaWrap) {
     const shouldHideCategoria = !tipo || isIngreso || isPagoDeuda;
@@ -693,6 +694,23 @@ function onPagadorChange() {
       metodoWrap.classList.add('hidden');
       metodoEl.required = false;
       metodoEl.value = '';
+    }
+    
+    // For PAGO_DEUDA: category required only when payer is household member
+    if (tipo === 'PAGO_DEUDA') {
+      const categoriaWrap = document.getElementById('categoriaWrap');
+      const categoriaEl = document.getElementById('categoria');
+      
+      if (isMember) {
+        // Payer is member: category required
+        categoriaWrap.classList.remove('hidden');
+        categoriaEl.required = true;
+      } else {
+        // Payer is contact: category not required, hide field
+        categoriaWrap.classList.add('hidden');
+        categoriaEl.required = false;
+        categoriaEl.value = '';
+      }
     }
   }
 

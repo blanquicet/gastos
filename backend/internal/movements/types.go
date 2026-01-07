@@ -209,7 +209,10 @@ func (i *CreateMovementInput) Validate() error {
 		if hasCounterpartyUser && hasCounterpartyContact {
 			return errors.New("cannot specify both counterparty_user_id and counterparty_contact_id")
 		}
-		// Category is optional for DEBT_PAYMENT
+		// Category required if payer is household member
+		if hasPayerUser && (i.Category == nil || *i.Category == "") {
+			return ErrCategoryRequired
+		}
 		// No participants allowed
 		if len(i.Participants) > 0 {
 			return ErrParticipantsNotAllowed

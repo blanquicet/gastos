@@ -280,7 +280,10 @@ async function testMovementPagoDeuda() {
     
     await page1.selectOption('#tomador', 'User Two Debt');
     
-    // Submit form (no category needed for PAGO_DEUDA)
+    // Select category (required when payer is household member)
+    await page1.selectOption('#categoria', 'Préstamo');
+    
+    // Submit form
     await page1.locator('#submitBtn').click();
     await page1.waitForTimeout(5000); // Increased timeout
     
@@ -350,7 +353,8 @@ async function testMovementPagoDeuda() {
     await page1.selectOption('#metodo', 'Nequi Test');
     await page1.selectOption('#tomador', 'Pedro External');
     
-    // No category needed for PAGO_DEUDA
+    // Select category (required when payer is household member)
+    await page1.selectOption('#categoria', 'Préstamo');
     
     await page1.locator('#submitBtn').click();
     await page1.waitForTimeout(3000);
