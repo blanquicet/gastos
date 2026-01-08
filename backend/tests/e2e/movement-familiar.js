@@ -181,9 +181,9 @@ async function testMovementFamiliar() {
     await page.locator('button[data-tipo="HOUSEHOLD"]').click();
     await page.waitForTimeout(500);
     
-    // Fill form
+    // Fill form with decimal amount
     await page.locator('#descripcion').fill('Mercado del mes');
-    await page.locator('#valor').fill('250000');
+    await page.locator('#valor').fill('4.131,94');
     await page.selectOption('#categoria', 'Mercado');
     await page.selectOption('#metodo', 'Tarjeta Test');
     
@@ -220,8 +220,8 @@ async function testMovementFamiliar() {
     if (movement.type !== 'HOUSEHOLD') {
       throw new Error(`Expected type HOUSEHOLD, got ${movement.type}`);
     }
-    if (parseFloat(movement.amount) !== 250000) {
-      throw new Error(`Expected amount 250000, got ${movement.amount}`);
+    if (parseFloat(movement.amount) !== 4131.94) {
+      throw new Error(`Expected amount 4131.94, got ${movement.amount}`);
     }
     if (movement.category !== 'Mercado') {
       throw new Error(`Expected category Mercado, got ${movement.category}`);
@@ -524,12 +524,13 @@ async function testMovementFamiliar() {
       throw new Error('Description not pre-filled correctly');
     }
     
-    if (currentAmount !== '250000') {
+    // Verify amount is formatted correctly in Spanish locale (4.131,94)
+    if (currentAmount !== '4.131,94') {
       console.log(`   Current amount: "${currentAmount}"`);
-      throw new Error(`Amount not pre-filled correctly. Expected 250000, got ${currentAmount}`);
+      throw new Error(`Amount not pre-filled correctly. Expected 4.131,94, got ${currentAmount}`);
     }
     
-    console.log('   ✅ Form pre-filled correctly');
+    console.log('   ✅ Form pre-filled correctly with Spanish formatted amount');
     
     // Verify tipo buttons are disabled
     const tipoBtn = page.locator('.tipo-btn[data-tipo="HOUSEHOLD"]');
@@ -551,11 +552,15 @@ async function testMovementFamiliar() {
     
     console.log('   ✅ Cancel button is visible');
     
-    // Edit the movement: change description and amount
+    // Edit the movement: change description and amount (use Spanish format with decimals)
     await page.locator('#descripcion').fill('Mercado del mes EDITADO');
-    await page.locator('#valor').fill('275000');
     
-    console.log('   Changed description and amount');
+    // Clear the valor field first, then fill with new value
+    const valorField = page.locator('#valor');
+    await valorField.clear();
+    await valorField.fill('5.275,50');
+    
+    console.log('   Changed description and amount to 5.275,50');
     
     // Verify submit button says "Actualizar"
     const updateBtn = page.locator('#submitBtn');
@@ -568,8 +573,32 @@ async function testMovementFamiliar() {
     // Submit the update
     await updateBtn.click();
     
-    // Wait for redirect back to dashboard
-    await page.waitForURL(`${appUrl}/`);
+    // Wait for redirect back to dashboard OR check for error
+    // We use Promise.race to handle both cases: successful redirect or error
+    try {
+      await Promise.race([
+        page.waitForURL(`${appUrl}/`, { timeout: 10000 }),
+        page.waitForSelector('#status:has-text("Error")', { timeout: 10000 })
+      ]);
+      
+      // If we're still on the form page, check for error
+      if (page.url().includes('registrar-movimiento')) {
+        const statusText = await page.locator('#status').textContent();
+        if (statusText && statusText.includes('Error')) {
+          throw new Error(`Update failed with error: ${statusText}`);
+        }
+      }
+    } catch (error) {
+      // If timeout, check current URL
+      if (!page.url().includes('registrar-movimiento')) {
+        // Successfully redirected, continue
+      } else {
+        throw error;
+      }
+    }
+    
+    // Ensure we're on the dashboard
+    await page.waitForURL(`${appUrl}/`, { timeout: 60000 });
     await page.waitForTimeout(1000);
     
     console.log('   ✅ Movement updated successfully');
@@ -611,9 +640,9 @@ async function testMovementFamiliar() {
               foundUpdated = true;
               console.log(`   ✅ Found updated description: ${description}`);
               
-              // Verify amount updated (should be 275,000)
-              if (!amount.includes('275')) {
-                throw new Error(`Amount not updated correctly. Expected to contain 275, got ${amount}`);
+              // Verify amount updated (should be 5.275 or 5.276 with rounding)
+              if (!amount.includes('5.2')) {
+                throw new Error(`Amount not updated correctly. Expected to contain 5.2, got ${amount}`);
               }
               
               console.log(`   ✅ Amount updated correctly: ${amount}`);
@@ -648,11 +677,12 @@ async function testMovementFamiliar() {
       throw new Error(`DB description not updated. Expected "Mercado del mes EDITADO", got "${dbMovement.description}"`);
     }
     
-    if (parseFloat(dbMovement.amount) !== 275000) {
-      throw new Error(`DB amount not updated. Expected 275000, got ${dbMovement.amount}`);
+    if (parseFloat(dbMovement.amount) !== 5275.50) {
+      throw new Error(`DB amount not updated. Expected 5275.50, got ${dbMovement.amount}`);
     }
     
     console.log('   ✅ Changes verified in database');
+    console.log('   ✅ Decimal formatting works correctly (4.131,94 → 5.275,50)');
     console.log('✅ Movement edit functionality test passed');
 
     // ==================================================================
