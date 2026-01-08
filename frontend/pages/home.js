@@ -16,7 +16,8 @@ import { showConfirmation, showSuccess, showError } from '../utils.js';
 let currentUser = null;
 let currentMonth = null; // YYYY-MM format
 let incomeData = null;
-let movementsData = null; // Gastos data
+let movementsData = null; // Gastos data (filtered)
+let originalMovementsData = null; // Original unfiltered movements data from API
 let activeTab = 'gastos'; // 'gastos', 'ingresos', 'tarjetas' - DEFAULT TO GASTOS
 let householdMembers = []; // List of household members for filtering
 let selectedMemberIds = []; // Array of selected member IDs (empty = all)
@@ -677,6 +678,9 @@ async function loadMovementsData() {
 
     const data = await response.json();
     
+    // Save original unfiltered data for use in filter dropdown
+    originalMovementsData = data;
+    
     // Client-side filtering
     if (data && data.movements) {
       let filteredMovements = data.movements;
@@ -750,15 +754,17 @@ function getCategoryGroups() {
  */
 function renderMovementsFilterDropdown() {
   // Get unique categories and payment methods from current data
-  const allCategories = movementsData?.movements 
+  const allCategories = movementsData?.movements
     ? [...new Set(movementsData.movements
         .filter(m => m.category !== 'Préstamo') // Exclude Préstamo from filter
         .map(m => m.category)
         .filter(Boolean))]
     : [];
-  
-  const allPaymentMethods = movementsData?.movements
-    ? [...new Set(movementsData.movements
+   
+  // Use original unfiltered data for payment methods list
+  const dataSource = originalMovementsData || movementsData;
+  const allPaymentMethods = dataSource?.movements
+    ? [...new Set(dataSource.movements
         .filter(m => m.payment_method_id && m.payment_method_name)
         .map(m => ({ id: m.payment_method_id, name: m.payment_method_name })))]
     : [];
