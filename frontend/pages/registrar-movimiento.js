@@ -579,7 +579,9 @@ export async function setup() {
 
   // Check URL params for tipo pre-selection
   if (tipoParam && !isEditMode) {
-    const targetBtn = document.querySelector(`.tipo-btn[data-tipo="${tipoParam}"]`);
+    // Map GASTO to HOUSEHOLD (for backward compatibility)
+    const tipoToSelect = tipoParam === 'GASTO' ? 'HOUSEHOLD' : tipoParam;
+    const targetBtn = document.querySelector(`.tipo-btn[data-tipo="${tipoToSelect}"]`);
     if (targetBtn) {
       targetBtn.click();
     }
