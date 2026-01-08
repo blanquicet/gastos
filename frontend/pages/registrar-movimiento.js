@@ -1469,12 +1469,10 @@ async function loadMovementForEdit(movementId) {
     if (categoriaEl) categoriaEl.value = movement.category || '';
     
     if (fechaEl && movement.movement_date) {
-      // Convert to YYYY-MM-DD format
-      const date = new Date(movement.movement_date);
-      const yyyy = date.getFullYear();
-      const mm = String(date.getMonth() + 1).padStart(2, '0');
-      const dd = String(date.getDate()).padStart(2, '0');
-      fechaEl.value = `${yyyy}-${mm}-${dd}`;
+      // Extract date in YYYY-MM-DD format without timezone conversion
+      // movement_date comes as "2025-12-31" or "2025-12-31T00:00:00Z"
+      const dateStr = movement.movement_date.split('T')[0]; // Get only YYYY-MM-DD part
+      fechaEl.value = dateStr;
     }
     
     // Update buttons and title for edit mode
