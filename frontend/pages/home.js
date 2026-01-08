@@ -1146,7 +1146,7 @@ async function handleDeleteMovement(movementId) {
     showSuccess('Gasto eliminado', 'El gasto se eliminó correctamente');
     
     // Reload movements data and refresh display
-    await loadMovements();
+    await loadMovementsData();
     refreshDisplay();
   } catch (error) {
     console.error('Error deleting movement:', error);
@@ -1248,8 +1248,14 @@ function setupCategoryListeners() {
     }
   });
 
-  // Menu action buttons (for income)
+  // Menu action buttons (for income only)
   document.querySelectorAll('.three-dots-menu .menu-item').forEach(btn => {
+    // Get parent menu
+    const menu = btn.closest('.three-dots-menu');
+    
+    // Skip if this menu is for movements (has movement-menu-* id)
+    if (menu && menu.id.startsWith('movement-menu-')) return;
+    
     btn.addEventListener('click', async (e) => {
       e.preventDefault();
       e.stopPropagation();

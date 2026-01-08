@@ -74,7 +74,7 @@ export function render(user) {
     <main class="card">
       <header class="header">
         <div class="header-row">
-          <h1>Registrar movimiento</h1>
+          <h1 id="pageTitle">Registrar movimiento</h1>
           ${Navbar.render(user, '/registrar-movimiento')}
         </div>
         <p class="subtitle">Registra ingresos, gastos o préstamos</p>
@@ -368,8 +368,9 @@ export async function setup() {
   // Reset participants for SPLIT
   resetParticipants();
 
-  // If edit mode, load movement data
+  // If edit mode, show loading screen and load movement data
   if (isEditMode) {
+    showFullScreenLoading();
     await loadMovementForEdit(editId);
   }
 
@@ -1179,19 +1180,59 @@ function readForm() {
 }
 
 /**
+ * Show full-screen loading overlay
+ */
+function showFullScreenLoading() {
+  const pageTitle = document.getElementById('pageTitle');
+  if (pageTitle) {
+    pageTitle.textContent = 'Editar Movimiento';
+  }
+  
+  const form = document.getElementById('movForm');
+  if (form) {
+    form.style.display = 'none';
+  }
+  
+  const main = document.querySelector('main.card');
+  if (main) {
+    const loadingDiv = document.createElement('div');
+    loadingDiv.id = 'fullScreenLoading';
+    loadingDiv.style.cssText = `
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 400px;
+      gap: 16px;
+    `;
+    loadingDiv.innerHTML = `
+      <div class="spinner" style="width: 40px; height: 40px; border-width: 4px;"></div>
+      <p style="color: #6b7280; font-size: 16px;">Cargando movimiento...</p>
+    `;
+    main.appendChild(loadingDiv);
+  }
+}
+
+/**
+ * Hide full-screen loading overlay
+ */
+function hideFullScreenLoading() {
+  const loadingDiv = document.getElementById('fullScreenLoading');
+  if (loadingDiv) {
+    loadingDiv.remove();
+  }
+  
+  const form = document.getElementById('movForm');
+  if (form) {
+    form.style.display = '';
+  }
+}
+
+/**
  * Load movement data for editing
  */
 async function loadMovementForEdit(movementId) {
-  const formEl = document.getElementById('registrarMovimientoForm');
-  
   try {
-    setStatus('Cargando movimiento...', 'loading');
-    
-    // Disable entire form while loading
-    if (formEl) {
-      const inputs = formEl.querySelectorAll('input, select, button, textarea');
-      inputs.forEach(el => el.disabled = true);
-    }
     
     const response = await fetch(`${API_URL}/movements/${movementId}`, {
       credentials: 'include'
@@ -1203,6 +1244,9 @@ async function loadMovementForEdit(movementId) {
     
     const movement = await response.json();
     currentEditMovement = movement;
+    
+    // Hide loading overlay
+    hideFullScreenLoading();
     
     // Pre-fill form fields
     const descripcionEl = document.getElementById('descripcion');
@@ -1231,12 +1275,6 @@ async function loadMovementForEdit(movementId) {
     }
     if (cancelBtn) {
       cancelBtn.classList.remove('hidden');
-    }
-    
-    // Update page title
-    const pageTitle = document.querySelector('h1');
-    if (pageTitle) {
-      pageTitle.textContent = 'Editar Gasto';
     }
     
     // Select the current tipo and set it in the form (no mapping needed, types match)
@@ -1283,17 +1321,6 @@ async function loadMovementForEdit(movementId) {
       }
     }
     
-    // Re-enable editable fields
-    if (formEl) {
-      const inputs = formEl.querySelectorAll('input, select, button, textarea');
-      inputs.forEach(el => {
-        // Only enable if not explicitly disabled above (tipo buttons)
-        if (!el.hasAttribute('data-keep-disabled')) {
-          el.disabled = false;
-        }
-      });
-    }
-    
     // Set the payment method value (now editable!)
     // Use setTimeout to ensure the select is properly rendered before setting value
     if (metodoEl && selectedPaymentMethodName) {
@@ -1308,17 +1335,10 @@ async function loadMovementForEdit(movementId) {
       }, 0);
     }
     
-    
-    setStatus('', '');
   } catch (error) {
     console.error('Error loading movement:', error);
+    hideFullScreenLoading();
     setStatus('Error al cargar el movimiento para editar', 'err');
-    
-    // Re-enable form on error so user can navigate away
-    if (formEl) {
-      const inputs = formEl.querySelectorAll('input, select, button');
-      inputs.forEach(el => el.disabled = false);
-    }
     
     setTimeout(() => {
       router.navigate('/');

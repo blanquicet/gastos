@@ -686,6 +686,152 @@ async function testMovementFamiliar() {
     console.log('✅ Movement edit functionality test passed');
 
     // ==================================================================
+    // STEP 12: Test Movement Delete Functionality
+    // ==================================================================
+    console.log('📝 Step 12: Testing movement delete functionality...');
+    
+    // Navigate back to dashboard
+    await page.goto(`${appUrl}/`, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(2000);
+    
+    // Find "Mercado semanal" movement to delete
+    console.log('   Finding "Mercado semanal" movement to delete...');
+    
+    let deleteMovementId = null;
+    const expenseGroups4 = await page.locator('.expense-group-card').all();
+    
+    for (const group of expenseGroups4) {
+      const groupHeader = group.locator('.expense-group-header');
+      await groupHeader.click();
+      await page.waitForTimeout(500);
+      
+      const categoryCards = await group.locator('.expense-group-details .expense-category-item').all();
+      
+      for (const categoryItem of categoryCards) {
+        const categoryName = await categoryItem.locator('.expense-category-name').textContent();
+        
+        if (categoryName.includes('Mercado')) {
+          const categoryHeader = categoryItem.locator('.expense-category-header');
+          await categoryHeader.click();
+          await page.waitForTimeout(500);
+          
+          const entries = await categoryItem.locator('.movement-detail-entry').all();
+          
+          for (const entry of entries) {
+            const description = await entry.locator('.entry-description').textContent();
+            
+            if (description.includes('Mercado semanal')) {
+              console.log('   ✅ Found "Mercado semanal" movement');
+              
+              const threeDotsBtn = entry.locator('.three-dots-btn');
+              const movementIdAttr = await threeDotsBtn.getAttribute('data-movement-id');
+              deleteMovementId = movementIdAttr;
+              console.log(`   Movement ID: ${deleteMovementId}`);
+              
+              // Click three-dots menu
+              await threeDotsBtn.click();
+              await page.waitForTimeout(300);
+              
+              // Click "Eliminar" option
+              const deleteOption = entry.locator('.three-dots-menu .menu-item').filter({ hasText: 'Eliminar' });
+              await deleteOption.click();
+              
+              console.log('   Clicked "Eliminar" option');
+              break;
+            }
+          }
+          
+          if (deleteMovementId) break;
+        }
+      }
+      
+      if (deleteMovementId) break;
+    }
+    
+    if (!deleteMovementId) {
+      throw new Error('Could not find "Mercado semanal" movement to delete');
+    }
+    
+    // Wait for confirmation modal to appear
+    await page.waitForTimeout(500);
+    
+    // Verify confirmation modal text
+    const modalText = await page.locator('.confirmation-modal').textContent();
+    if (!modalText.includes('¿Eliminar gasto?')) {
+      throw new Error('Delete confirmation modal not shown or has wrong text');
+    }
+    console.log('   ✅ Delete confirmation modal appeared');
+    
+    // Click confirm button
+    const confirmBtn = page.locator('.confirmation-modal .btn-danger');
+    await confirmBtn.click();
+    
+    // Wait for deletion to complete and success message
+    await page.waitForTimeout(2000);
+    
+    console.log('   ✅ Movement deleted successfully');
+    
+    // Verify movement is removed from dashboard
+    await page.reload();
+    await page.waitForSelector('.expense-group-card');
+    await page.waitForTimeout(500);
+    
+    let foundDeleted = false;
+    const expenseGroups5 = await page.locator('.expense-group-card').all();
+    
+    for (const group of expenseGroups5) {
+      const groupHeader = group.locator('.expense-group-header');
+      await groupHeader.click();
+      await page.waitForTimeout(500);
+      
+      const categoryCards = await group.locator('.expense-group-details .expense-category-item').all();
+      
+      for (const categoryItem of categoryCards) {
+        const categoryName = await categoryItem.locator('.expense-category-name').textContent();
+        
+        if (categoryName.includes('Mercado')) {
+          const categoryHeader = categoryItem.locator('.expense-category-header');
+          await categoryHeader.click();
+          await page.waitForTimeout(500);
+          
+          const entries = await categoryItem.locator('.movement-detail-entry').all();
+          
+          for (const entry of entries) {
+            const description = await entry.locator('.entry-description').textContent();
+            
+            if (description.includes('Mercado semanal')) {
+              foundDeleted = true;
+              break;
+            }
+          }
+          
+          if (foundDeleted) break;
+        }
+      }
+      
+      if (foundDeleted) break;
+    }
+    
+    if (foundDeleted) {
+      throw new Error('Deleted movement still appears in dashboard');
+    }
+    
+    console.log('   ✅ Movement removed from dashboard');
+    
+    // Verify movement is deleted from database
+    const deletedResult = await pool.query(
+      'SELECT * FROM movements WHERE id = $1',
+      [deleteMovementId]
+    );
+    
+    if (deletedResult.rows.length > 0) {
+      throw new Error('Movement still exists in database after deletion');
+    }
+    
+    console.log('   ✅ Movement deleted from database');
+    console.log('✅ Movement delete functionality test passed');
+
+    // ==================================================================
     // Cleanup
     // ==================================================================
     console.log('🧹 Cleaning up test data...');
