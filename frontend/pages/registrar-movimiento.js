@@ -70,17 +70,32 @@ function getTodayLocal() {
 export function render(user) {
   currentUser = user;
 
-  return `
-    <main class="card">
-      <header class="header">
-        <div class="header-row">
-          <h1 id="pageTitle">Registrar movimiento</h1>
-          ${Navbar.render(user, '/registrar-movimiento')}
-        </div>
-        <p class="subtitle">Registra ingresos, gastos o préstamos</p>
-      </header>
+  // Check if we're in edit mode or have tipo pre-selection
+  const urlParams = new URLSearchParams(window.location.search);
+  const editId = urlParams.get('edit');
+  const tipoParam = urlParams.get('tipo');
+  
+  // If editing or pre-selecting tipo, show loading state immediately
+  if (editId || tipoParam) {
+    const title = editId ? 'Editar Movimiento' : 'Registrar movimiento';
+    const message = editId ? 'Cargando movimiento...' : 'Cargando formulario...';
+    
+    return `
+      <main class="card">
+        <header class="header">
+          <div class="header-row">
+            <h1 id="pageTitle">${title}</h1>
+            ${Navbar.render(user, '/registrar-movimiento')}
+          </div>
+          <p class="subtitle">Registra ingresos, gastos o préstamos</p>
+        </header>
 
-      <form id="movForm" novalidate>
+        <div id="fullScreenLoading" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 400px; gap: 16px;">
+          <div class="spinner" style="width: 40px; height: 40px; border-width: 4px;"></div>
+          <p style="color: #6b7280; font-size: 16px;">${message}</p>
+        </div>
+
+        <form id="movForm" novalidate style="display: none;">
         <div class="grid">
           <div class="field col-span-2">
             <span>¿Qué deseas registrar?</span>
@@ -236,7 +251,20 @@ export function render(user) {
       </form>
     </main>
   `;
-}
+  }
+  
+  // Normal render without loading (when navigating directly without params)
+  return `
+    <main class="card">
+      <header class="header">
+        <div class="header-row">
+          <h1 id="pageTitle">Registrar movimiento</h1>
+          ${Navbar.render(user, '/registrar-movimiento')}
+        </div>
+        <p class="subtitle">Registra ingresos, gastos o préstamos</p>
+      </header>
+
+      <form id="movForm" novalidate>
 
 /**
  * Load form configuration from API
@@ -352,12 +380,6 @@ export async function setup() {
   const editId = urlParams.get('edit');
   const isEditMode = !!editId;
   const tipoParam = urlParams.get('tipo');
-  
-  // If we have a tipo param or edit mode, show loading screen
-  if (tipoParam || isEditMode) {
-    const loadingMessage = isEditMode ? 'Cargando movimiento...' : 'Cargando formulario...';
-    showFullScreenLoading(loadingMessage);
-  }
 
   // Load form configuration from API
   await loadFormConfig();
@@ -1187,36 +1209,47 @@ function readForm() {
 }
 
 /**
- * Show full-screen loading overlay
+ * Show full-screen loading overlay (only updates message if already rendered)
  */
 function showFullScreenLoading(message = 'Cargando movimiento...') {
-  const pageTitle = document.getElementById('pageTitle');
-  if (pageTitle && message === 'Cargando movimiento...') {
-    pageTitle.textContent = 'Editar Movimiento';
-  }
-  
-  const form = document.getElementById('movForm');
-  if (form) {
-    form.style.display = 'none';
-  }
-  
-  const main = document.querySelector('main.card');
-  if (main) {
-    const loadingDiv = document.createElement('div');
-    loadingDiv.id = 'fullScreenLoading';
-    loadingDiv.style.cssText = `
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 400px;
-      gap: 16px;
-    `;
-    loadingDiv.innerHTML = `
-      <div class="spinner" style="width: 40px; height: 40px; border-width: 4px;"></div>
-      <p style="color: #6b7280; font-size: 16px;">${message}</p>
-    `;
-    main.appendChild(loadingDiv);
+  const loadingDiv = document.getElementById('fullScreenLoading');
+  if (loadingDiv) {
+    // Already rendered, just update message if needed
+    const messageEl = loadingDiv.querySelector('p');
+    if (messageEl) {
+      messageEl.textContent = message;
+    }
+    loadingDiv.style.display = 'flex';
+  } else {
+    // Create loading div if not already rendered (shouldn't happen with new flow)
+    const pageTitle = document.getElementById('pageTitle');
+    if (pageTitle && message === 'Cargando movimiento...') {
+      pageTitle.textContent = 'Editar Movimiento';
+    }
+    
+    const form = document.getElementById('movForm');
+    if (form) {
+      form.style.display = 'none';
+    }
+    
+    const main = document.querySelector('main.card');
+    if (main) {
+      const div = document.createElement('div');
+      div.id = 'fullScreenLoading';
+      div.style.cssText = `
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 400px;
+        gap: 16px;
+      `;
+      div.innerHTML = `
+        <div class="spinner" style="width: 40px; height: 40px; border-width: 4px;"></div>
+        <p style="color: #6b7280; font-size: 16px;">${message}</p>
+      `;
+      main.appendChild(div);
+    }
   }
 }
 
@@ -1226,7 +1259,7 @@ function showFullScreenLoading(message = 'Cargando movimiento...') {
 function hideFullScreenLoading() {
   const loadingDiv = document.getElementById('fullScreenLoading');
   if (loadingDiv) {
-    loadingDiv.remove();
+    loadingDiv.style.display = 'none';
   }
   
   const form = document.getElementById('movForm');
