@@ -553,6 +553,9 @@ function renderLoansCards() {
  * Render loan details (Level 2: breakdown by direction)
  */
 function renderLoanDetails(debtorId, creditorId) {
+  console.log('renderLoanDetails called with:', debtorId, creditorId);
+  console.log('loanMovements:', loanMovements);
+  
   if (!loanMovements || loanMovements.length === 0) {
     return '<p class="no-data">No hay movimientos disponibles</p>';
   }
@@ -562,13 +565,16 @@ function renderLoanDetails(debtorId, creditorId) {
   let creditorOwesDebtor = 0; // Creditor owes Debtor
 
   loanMovements.forEach(movement => {
+    console.log('Processing movement:', movement.type, movement.id);
     if (movement.type === 'SPLIT') {
       // For SPLIT: participants owe the payer
       const payerId = movement.payer_id;
+      console.log('SPLIT - Payer:', payerId, 'Looking for debtor:', debtorId, 'creditor:', creditorId);
       
       // Check if payer is creditor and debtor is a participant
       if (payerId === creditorId) {
         const participant = movement.participants.find(p => p.participant_user_id === debtorId);
+        console.log('Creditor is payer, found debtor participant?', participant);
         if (participant) {
           debtorOwesCreditor += movement.amount * participant.percentage;
         }
@@ -577,6 +583,7 @@ function renderLoanDetails(debtorId, creditorId) {
       // Check if payer is debtor and creditor is a participant
       if (payerId === debtorId) {
         const participant = movement.participants.find(p => p.participant_user_id === creditorId);
+        console.log('Debtor is payer, found creditor participant?', participant);
         if (participant) {
           creditorOwesDebtor += movement.amount * participant.percentage;
         }
@@ -585,6 +592,7 @@ function renderLoanDetails(debtorId, creditorId) {
       // For DEBT_PAYMENT: payer pays receiver, reducing debt
       const payerId = movement.payer_id;
       const receiverId = movement.receiver_id;
+      console.log('DEBT_PAYMENT - Payer:', payerId, 'Receiver:', receiverId);
       
       // Payment from debtor to creditor reduces debtorOwesCreditor
       if (payerId === debtorId && receiverId === creditorId) {
@@ -597,6 +605,8 @@ function renderLoanDetails(debtorId, creditorId) {
       }
     }
   });
+
+  console.log('Calculated debts:', { debtorOwesCreditor, creditorOwesDebtor });
 
   // Get names from loansData
   const balance = loansData.balances.find(b => b.debtor_id === debtorId && b.creditor_id === creditorId);
