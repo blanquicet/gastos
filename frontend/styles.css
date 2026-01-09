@@ -1876,6 +1876,8 @@ button.loading::after {
   min-height: 100vh;
   color: #111827;
   padding: 0;
+  max-width: 680px;
+  margin: 0 auto;
 }
 
 .dashboard-header {
