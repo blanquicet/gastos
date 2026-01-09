@@ -647,9 +647,11 @@ export async function setup() {
     });
   }
 
-  // Initial UI
+  // Initial UI - skip onPagadorChange in edit mode as it resets participants
   onTipoChange();
-  onPagadorChange();
+  if (!isEditMode) {
+    onPagadorChange();
+  }
 }
 
 /**
@@ -838,7 +840,9 @@ function onTipoChange() {
   if (isFamiliar) {
     // For HOUSEHOLD type, show payment methods for current user
     showPaymentMethods(currentUser ? currentUser.name : '', true);
-  } else if (!isIngreso) {
+  } else if (!isIngreso && !isCompartido) {
+    // For DEBT_PAYMENT, update payment methods
+    // Skip for SPLIT - payment methods will be handled separately to avoid resetting participants
     onPagadorChange();
   }
 
@@ -852,7 +856,9 @@ function onTipoChange() {
 
   if (isCompartido) {
     participants = dedupeParticipants(participants);
-    computeEquitablePcts();
+    if (document.getElementById('equitable').checked) {
+      computeEquitablePcts();
+    }
     renderParticipants();
   }
 }
@@ -1295,7 +1301,7 @@ function readForm() {
     if (tomador === pagador) throw new Error('Pagador y Tomador no pueden ser la misma persona.');
   }
 
-  if (!isEditMode && tipo === 'SPLIT') {
+  if (tipo === 'SPLIT') {
     if (!participants.length) throw new Error('Debes tener al menos 1 participante.');
     if (!validatePctSum()) throw new Error('Los porcentajes de participantes deben sumar 100%.');
 
@@ -1488,12 +1494,56 @@ async function loadMovementForEdit(movementId) {
       cancelBtn.classList.remove('hidden');
     }
     
+    // For SPLIT movements: set payer and participants BEFORE calling onTipoChange()
+    if (movement.type === 'SPLIT') {
+      // Set pagador (payer) for SPLIT movement
+      const pagadorCompartidoEl = document.getElementById('pagadorCompartido');
+      if (pagadorCompartidoEl && movement.payer_name) {
+        pagadorCompartidoEl.value = movement.payer_name;
+      }
+      
+      // Load participants into array BEFORE onTipoChange()
+      if (movement.participants && movement.participants.length > 0) {
+        // Clear current participants
+        participants = [];
+        
+        // Load participants from movement
+        movement.participants.forEach(p => {
+          const userName = p.participant_name;
+          const percentage = (p.percentage * 100).toFixed(2); // Convert 0.0-1.0 to 0-100 with 2 decimals
+          
+          participants.push({
+            name: userName,
+            pct: percentage
+          });
+        });
+        
+        // Heuristically determine if split was equitable
+        // An equitable split means: all percentages are approximately equal (1/n each)
+        // We need to account for rounding errors (e.g., 33.33, 33.33, 33.34 is equitable)
+        const n = participants.length;
+        const expectedPct = 100 / n;
+        const tolerance = 0.02; // Allow 0.02% difference for rounding
+        
+        const isEquitable = participants.every(p => {
+          const diff = Math.abs(Number(p.pct) - expectedPct);
+          return diff < tolerance;
+        });
+        
+        // Set equitable checkbox based on detection
+        const equitableEl = document.getElementById('equitable');
+        if (equitableEl) {
+          equitableEl.checked = isEquitable;
+        }
+      }
+    }
+    
     // Select the current tipo and set it in the form (no mapping needed, types match)
     const currentTipoBtn = document.querySelector(`.tipo-btn[data-tipo="${movement.type}"]`);
     if (currentTipoBtn) {
       currentTipoBtn.classList.add('active');
       document.getElementById('tipo').value = movement.type;
-      onTipoChange();
+      onTipoChange(); // This will render participants if type is SPLIT
     }
     
     // Disable tipo selector buttons after selection
@@ -1510,35 +1560,12 @@ async function loadMovementForEdit(movementId) {
       currentTipoBtn.style.opacity = '1';
     }
     
-    // For SPLIT movements: set payer FIRST, then load participants
+    // For SPLIT movements: update payment methods after tipo is set
     if (movement.type === 'SPLIT') {
-      // Set pagador (payer) for SPLIT movement BEFORE loading participants
-      const pagadorCompartidoEl = document.getElementById('pagadorCompartido');
-      if (pagadorCompartidoEl && movement.payer_name) {
-        pagadorCompartidoEl.value = movement.payer_name;
-        onPagadorCompartidoChange(); // Update payment methods if needed
-      }
-      
-      // Now load participants
-      if (movement.participants && movement.participants.length > 0) {
-        // Clear current participants
-        participants = [];
-        
-        // Load participants from movement
-        movement.participants.forEach(p => {
-          const userName = p.participant_name;
-          const percentage = (p.percentage * 100).toFixed(0); // Convert 0.0-1.0 to 0-100
-          
-          participants.push({
-            name: userName,
-            pct: percentage
-          });
-        });
-        
-        console.log('Loaded participants:', participants); // DEBUG
-        
-        // Render participants list
-        renderParticipants();
+      // Show payment methods for the payer without resetting participants
+      const payer = movement.payer_name;
+      if (payer && primaryUsers.includes(payer)) {
+        showPaymentMethods(payer, true);
       }
     }
     
@@ -1686,7 +1713,12 @@ async function onSubmit(e) {
         if (payload.payment_method_id) {
           updatePayload.payment_method_id = payload.payment_method_id;
         }
-
+        
+        // Add participants for SPLIT movements
+        if (payload.type === 'SPLIT' && payload.participants) {
+          updatePayload.participants = payload.participants;
+        }
+        
         res = await fetch(`${API_URL}/movements/${currentEditMovement.id}`, {
           method: 'PATCH',
           headers: {

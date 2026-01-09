@@ -439,7 +439,14 @@ func (r *repository) GetTotals(ctx context.Context, householdID string, filters 
 
 // Update updates a movement
 func (r *repository) Update(ctx context.Context, id string, input *UpdateMovementInput) (*Movement, error) {
-	// Build SET clause dynamically
+	// Start a transaction for updating movement and participants
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	// Build SET clause dynamically for movement table
 	var setClauses []string
 	var args []interface{}
 	argNum := 1
@@ -470,36 +477,60 @@ func (r *repository) Update(ctx context.Context, id string, input *UpdateMovemen
 		argNum++
 	}
 
-	if len(setClauses) == 0 {
-		// No updates, just return current
-		return r.GetByID(ctx, id)
+	if len(setClauses) > 0 {
+		// Always update updated_at
+		setClauses = append(setClauses, fmt.Sprintf("updated_at = $%d", argNum))
+		args = append(args, "NOW()")
+		argNum++
+
+		// Add ID for WHERE clause
+		args = append(args, id)
+
+		query := fmt.Sprintf(`
+			UPDATE movements 
+			SET %s 
+			WHERE id = $%d
+			RETURNING id
+		`, strings.Join(setClauses, ", "), argNum)
+
+		var updatedID string
+		err := tx.QueryRow(ctx, query, args...).Scan(&updatedID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil, ErrMovementNotFound
+			}
+			return nil, err
+		}
 	}
 
-	// Always update updated_at
-	setClauses = append(setClauses, fmt.Sprintf("updated_at = $%d", argNum))
-	args = append(args, "NOW()")
-	argNum++
-
-	// Add ID for WHERE clause
-	args = append(args, id)
-
-	query := fmt.Sprintf(`
-		UPDATE movements 
-		SET %s 
-		WHERE id = $%d
-		RETURNING id
-	`, strings.Join(setClauses, ", "), argNum)
-
-	var updatedID string
-	err := r.pool.QueryRow(ctx, query, args...).Scan(&updatedID)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrMovementNotFound
+	// Update participants if provided
+	if input.Participants != nil {
+		// Delete existing participants
+		_, err = tx.Exec(ctx, "DELETE FROM movement_participants WHERE movement_id = $1", id)
+		if err != nil {
+			return nil, err
 		}
+
+		// Insert new participants
+		for _, p := range *input.Participants {
+			query := `
+				INSERT INTO movement_participants (
+					movement_id, participant_user_id, participant_contact_id, percentage
+				) VALUES ($1, $2, $3, $4)
+			`
+			_, err = tx.Exec(ctx, query, id, p.ParticipantUserID, p.ParticipantContactID, p.Percentage)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	// Commit transaction
+	if err = tx.Commit(ctx); err != nil {
 		return nil, err
 	}
 
-	return r.GetByID(ctx, updatedID)
+	return r.GetByID(ctx, id)
 }
 
 // Delete deletes a movement

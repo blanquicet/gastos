@@ -1980,7 +1980,7 @@ button.loading::after {
 
 .tab-btn {
   flex: 1;
-  max-width: 140px;
+  max-width: 150px;
   min-height: 72px;
   padding: 12px 12px;
   background: none;
