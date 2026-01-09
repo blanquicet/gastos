@@ -2019,11 +2019,22 @@ export async function setup() {
     if (!tabsWrapper || !scrollLeftBtn || !scrollRightBtn) return;
     
     const { scrollLeft, scrollWidth, clientWidth } = tabsWrapper;
-    const isAtStart = scrollLeft <= 0;
-    const isAtEnd = scrollLeft + clientWidth >= scrollWidth - 1;
     
-    scrollLeftBtn.style.display = isAtStart ? 'none' : 'flex';
-    scrollRightBtn.style.display = isAtEnd ? 'none' : 'flex';
+    // Check if scrolling is needed at all
+    const hasOverflow = scrollWidth > clientWidth;
+    
+    if (!hasOverflow) {
+      // No overflow - hide both buttons
+      scrollLeftBtn.style.display = 'none';
+      scrollRightBtn.style.display = 'none';
+    } else {
+      // Has overflow - show/hide based on scroll position
+      const isAtStart = scrollLeft <= 0;
+      const isAtEnd = scrollLeft + clientWidth >= scrollWidth - 1;
+      
+      scrollLeftBtn.style.display = isAtStart ? 'none' : 'flex';
+      scrollRightBtn.style.display = isAtEnd ? 'none' : 'flex';
+    }
   }
 
   if (tabsWrapper && scrollLeftBtn && scrollRightBtn) {

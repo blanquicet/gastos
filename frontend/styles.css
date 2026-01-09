@@ -1915,6 +1915,8 @@ button.loading::after {
   overflow-x: auto;
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE/Edge */
+  display: flex;
+  justify-content: center;
 }
 
 .tabs-wrapper::-webkit-scrollbar {
@@ -1926,6 +1928,7 @@ button.loading::after {
   gap: 0;
   padding: 0 24px;
   min-width: min-content;
+  flex: 0 1 auto;
 }
 
 @media (max-width: 600px) {
@@ -1947,6 +1950,8 @@ button.loading::after {
   transition: background-color 0.2s, color 0.2s;
   flex-shrink: 0;
   z-index: 1;
+  box-shadow: none;
+  outline: none;
 }
 
 .tab-scroll-btn:hover {
@@ -1967,7 +1972,8 @@ button.loading::after {
 }
 
 .tab-btn {
-  flex-shrink: 0;
+  flex: 1;
+  min-width: 160px;
   padding: 16px 20px;
   background: none;
   border: none;
@@ -1978,6 +1984,14 @@ button.loading::after {
   position: relative;
   transition: color 0.2s;
   white-space: nowrap;
+  text-align: center;
+}
+
+@media (max-width: 600px) {
+  .tab-btn {
+    min-width: 120px;
+    flex: 0 0 auto;
+  }
 }
 
 .tab-btn:hover {
