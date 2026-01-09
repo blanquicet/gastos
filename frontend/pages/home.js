@@ -711,12 +711,11 @@ function renderLoanMovements(debtorId, creditorId, direction) {
 
   const movementsHtml = relevantMovements.map(movement => {
     const typeLabel = movement.type === 'SPLIT' ? 'Gasto compartido' : 'Pago de deuda';
-    const percentageInfo = movement.percentage ? ` (${(movement.percentage * 100).toFixed(2)}%)` : '';
     
     return `
       <div class="movement-detail-entry">
         <div class="entry-info">
-          <span class="entry-description">${movement.description || typeLabel}${percentageInfo}</span>
+          <span class="entry-description">${movement.description || typeLabel}</span>
           <span class="entry-amount">${formatCurrency(movement.displayAmount)}</span>
           <div class="entry-date">${formatDate(movement.movement_date)}</div>
         </div>
