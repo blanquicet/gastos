@@ -1247,27 +1247,37 @@ button.loading::after {
   font-weight: 500;
   color: #111827;
   margin-bottom: 2px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
 
 .linked-badge {
-  font-size: 12px;
-  padding: 3px 8px;
-  border-radius: 4px;
+  font-size: 13px;
+  padding: 4px 12px;
+  border-radius: 6px;
   background: #d1fae5;
   color: #059669;
   font-weight: 500;
+  flex-shrink: 0;
+  min-width: 90px;
+  text-align: center;
 }
 
 .inactive-badge {
-  font-size: 12px;
-  padding: 3px 8px;
-  border-radius: 4px;
+  font-size: 13px;
+  padding: 4px 12px;
+  border-radius: 6px;
   background: #fee2e2;
   color: #dc2626;
   font-weight: 500;
+  flex-shrink: 0;
+  min-width: 90px;
+  text-align: center;
+}
+
+.contact-badges {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 .contact-details {

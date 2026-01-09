@@ -284,15 +284,15 @@ function renderContactsList() {
         <div class="contact-item">
           <div class="contact-avatar">${contact.name.charAt(0).toUpperCase()}</div>
           <div class="contact-info">
-            <div class="contact-name">
-              ${contact.name}
-              ${contact.is_registered ? '<span class="linked-badge">🔗 Registrado</span>' : ''}
-              ${!contact.is_active ? '<span class="inactive-badge">❌ Inactivo</span>' : ''}
-            </div>
+            <div class="contact-name">${contact.name}</div>
             <div class="contact-details">
               ${contact.email ? contact.email : ''}
               ${contact.phone ? (contact.email ? ' · ' : '') + contact.phone : ''}
             </div>
+          </div>
+          <div class="contact-badges">
+            ${contact.is_registered ? '<span class="linked-badge">🔗 Registrado</span>' : ''}
+            ${!contact.is_active ? '<span class="inactive-badge">❌ Inactivo</span>' : ''}
           </div>
           <div class="contact-actions">
             <button class="three-dots-btn" data-contact-id="${contact.id}">⋮</button>
