@@ -193,10 +193,11 @@ async function testContactActivation() {
     await page.goto(`${appUrl}/hogar`);
     await page.waitForTimeout(1000);
     
-    // Find "To Deactivate" contact and click the "Desactivar" button
-    await page.locator('.contact-item', { hasText: 'To Deactivate' })
-      .locator('button[data-action="toggle-active"]')
-      .click();
+    // Find "To Deactivate" contact, click three-dots menu, then "Desactivar" button
+    const contactItem = page.locator('.contact-item', { hasText: 'To Deactivate' });
+    await contactItem.locator('.three-dots-btn').click();
+    await page.waitForTimeout(300);
+    await contactItem.locator('button[data-action="toggle-active"]').click();
     
     // Wait for confirmation modal and confirm
     await page.waitForTimeout(500);
@@ -277,10 +278,11 @@ async function testContactActivation() {
     await page.goto(`${appUrl}/hogar`);
     await page.waitForTimeout(1000);
     
-    // Find deactivated contact and click "Activar" button
-    await page.locator('.contact-item', { hasText: 'To Deactivate' })
-      .locator('button[data-action="toggle-active"]')
-      .click();
+    // Find deactivated contact, click three-dots menu, then "Activar" button
+    const deactivatedContact = page.locator('.contact-item', { hasText: 'To Deactivate' });
+    await deactivatedContact.locator('.three-dots-btn').click();
+    await page.waitForTimeout(300);
+    await deactivatedContact.locator('button[data-action="toggle-active"]').click();
     
     // Wait for confirmation modal and confirm
     await page.waitForTimeout(500);

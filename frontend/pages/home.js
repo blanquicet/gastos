@@ -159,19 +159,19 @@ function getCategoryIcon(category) {
     'Regalos': '🎁',
     
     // Jose
-    'Jose - Vida cotidiana': '👨',
+    'Jose - Vida cotidiana': '🤴🏾',
     'Jose - Gastos fijos': '👨‍💼',
     'Jose - Imprevistos': '⚡',
     
     // Caro
-    'Caro - Vida cotidiana': '👩',
+    'Caro - Vida cotidiana': '👸',
     'Caro - Gastos fijos': '👩‍💼',
     'Caro - Imprevistos': '⚡',
     
     // Carro
-    'Uber/Gasolina/Peajes/Parqueaderos': '🚗',
+    'Uber/Gasolina/Peajes/Parqueaderos': '🏎️',
     'Pago de SOAT/impuestos/mantenimiento': '📋',
-    'Carro - Seguro': '🛡️',
+    'Carro - Seguro': '🏎️',
     'Carro - Imprevistos': '⚡',
     
     // Ahorros
@@ -185,7 +185,7 @@ function getCategoryIcon(category) {
     'Inversiones Jose': '📈',
     'Inversiones Juntos': '📈',
     
-    // Ocio
+    // Diversión
     'Vacaciones': '✈️',
     'Salidas juntos': '🍽️',
     
@@ -862,14 +862,14 @@ function renderMovementsFilterDropdown() {
 function getCategoryGroupIcon(groupName) {
   const icons = {
     'Casa': '🏠',
-    'Jose': '👨',
-    'Caro': '👩',
-    'Carro': '🚗',
+    'Jose': '🤴🏾',
+    'Caro': '👸',
+    'Carro': '🏎️',
     'Ahorros': '🏦',
     'Inversiones': '📈',
-    'Ocio': '🎉'
+    'Diversión': '🎉'
   };
-  return icons[groupName] || '📁';
+  return icons[groupName] || '📦';
 }
 
 /**
@@ -1007,7 +1007,6 @@ function renderMovementCategories() {
                     <span class="expense-category-name">${simplifiedName}</span>
                     <span class="expense-category-amount">${formatCurrency(categoryData.total)}</span>
                   </div>
-                  <span class="expense-category-percentage">${categoryPercentage}%</span>
                 </div>
                 <div class="expense-category-details hidden" id="category-details-${safeCategoryId}">
                   ${sortedMovements.map(movement => `

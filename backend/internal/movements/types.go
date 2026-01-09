@@ -326,7 +326,7 @@ func GetDefaultCategoryGroups() []CategoryGroup {
 			},
 		},
 		{
-			Name: "Ocio",
+			Name: "Diversión",
 			Categories: []string{
 				"Vacaciones",
 				"Salidas juntos",

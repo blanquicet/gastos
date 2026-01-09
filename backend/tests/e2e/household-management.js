@@ -359,7 +359,12 @@ async function testHouseholdManagement() {
     // ==================================================================
     console.log('🗑️ Step 11: User 1 deleting household...');
     
-    await page1.getByRole('button', { name: 'Eliminar hogar', exact: true }).click();
+    // Click household three-dots menu
+    await page1.locator('#household-menu-btn').click();
+    await page1.waitForTimeout(300);
+    
+    // Click "Eliminar hogar" in the menu
+    await page1.locator('button[data-action="delete-household"]').click();
     await page1.waitForTimeout(500);
     
     // Type "eliminar" in confirmation

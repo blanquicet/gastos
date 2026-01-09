@@ -144,8 +144,11 @@ function renderHouseholdContent() {
           <p class="household-meta">Creado el ${formatDate(household.created_at)}</p>
         </div>
         <div class="household-header-actions">
-          ${canLeave ? '<button id="leave-household-btn" class="btn-secondary btn-small">Salir del hogar</button>' : ''}
-          ${isOwner ? '<button id="delete-household-btn" class="btn-danger btn-small">Eliminar hogar</button>' : ''}
+          <button class="three-dots-btn" id="household-menu-btn">⋮</button>
+          <div class="three-dots-menu" id="household-menu">
+            ${canLeave ? '<button class="menu-item" data-action="leave-household">Salir del hogar</button>' : ''}
+            ${isOwner ? '<button class="menu-item menu-item-danger" data-action="delete-household">Eliminar hogar</button>' : ''}
+          </div>
         </div>
       </div>
     </div>
@@ -282,12 +285,15 @@ function renderContactsList() {
             </div>
           </div>
           <div class="contact-actions">
-            <button class="btn-link text-sm" data-action="toggle-active" data-contact-id="${contact.id}" data-is-active="${contact.is_active}">
-              ${contact.is_active ? 'Desactivar' : 'Activar'}
-            </button>
-            ${isOwner && contact.is_registered ? `<button class="btn-link text-sm" data-action="promote-contact" data-contact-id="${contact.id}">Promover a miembro</button>` : ''}
-            <button class="btn-link text-sm" data-action="edit-contact" data-contact-id="${contact.id}">Editar</button>
-            <button class="btn-link text-sm text-danger" data-action="delete-contact" data-contact-id="${contact.id}">Eliminar</button>
+            <button class="three-dots-btn" data-contact-id="${contact.id}">⋮</button>
+            <div class="three-dots-menu" id="contact-menu-${contact.id}">
+              <button class="menu-item" data-action="toggle-active" data-contact-id="${contact.id}" data-is-active="${contact.is_active}">
+                ${contact.is_active ? 'Desactivar' : 'Activar'}
+              </button>
+              ${isOwner && contact.is_registered ? `<button class="menu-item" data-action="promote-contact" data-contact-id="${contact.id}">Promover a miembro</button>` : ''}
+              <button class="menu-item" data-action="edit-contact" data-contact-id="${contact.id}">Editar</button>
+              <button class="menu-item menu-item-danger" data-action="delete-contact" data-contact-id="${contact.id}">Eliminar</button>
+            </div>
           </div>
         </div>
       `).join('')}
@@ -437,13 +443,48 @@ function renderContactForm(contact = null) {
  * Setup event handlers
  */
 function setupEventHandlers() {
-  // Leave household button
-  const leaveBtn = document.getElementById('leave-household-btn');
-  leaveBtn?.addEventListener('click', handleLeaveHousehold);
+  // Household three-dots menu toggle
+  const householdMenuBtn = document.getElementById('household-menu-btn');
+  householdMenuBtn?.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const menu = document.getElementById('household-menu');
+    const isOpen = menu.style.display === 'block';
+    
+    // Close all menus
+    document.querySelectorAll('.three-dots-menu').forEach(m => m.style.display = 'none');
+    
+    // Toggle this menu
+    if (!isOpen) {
+      menu.style.display = 'block';
+    }
+  });
 
-  // Delete household button
-  const deleteBtn = document.getElementById('delete-household-btn');
-  deleteBtn?.addEventListener('click', handleDeleteHousehold);
+  // Contact three-dots menu toggle
+  document.querySelectorAll('.three-dots-btn[data-contact-id]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const contactId = e.currentTarget.dataset.contactId;
+      const menu = document.getElementById(`contact-menu-${contactId}`);
+      const isOpen = menu.style.display === 'block';
+      
+      // Close all menus
+      document.querySelectorAll('.three-dots-menu').forEach(m => m.style.display = 'none');
+      
+      // Toggle this menu
+      if (!isOpen) {
+        menu.style.display = 'block';
+      }
+    });
+  });
+
+  // Close menus when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.contact-actions') && !e.target.closest('.household-header-actions')) {
+      document.querySelectorAll('.three-dots-menu').forEach(m => m.style.display = 'none');
+    }
+  });
 
   // Invite member button
   const inviteBtn = document.getElementById('invite-member-btn');
@@ -466,14 +507,22 @@ function setupEventHandlers() {
     }
   });
 
-  // Member actions
+  // All action buttons (including those in three-dots menus)
   document.querySelectorAll('[data-action]').forEach(btn => {
     btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       const action = e.target.dataset.action;
       const userId = e.target.dataset.userId;
       const contactId = e.target.dataset.contactId;
 
-      if (action === 'remove') await handleRemoveMember(userId);
+      // Close all menus
+      document.querySelectorAll('.three-dots-menu').forEach(m => m.style.display = 'none');
+
+      // Handle actions
+      if (action === 'leave-household') await handleLeaveHousehold();
+      else if (action === 'delete-household') await handleDeleteHousehold();
+      else if (action === 'remove') await handleRemoveMember(userId);
       else if (action === 'leave') await handleLeaveMember();
       else if (action === 'promote') await handlePromoteMember(userId);
       else if (action === 'demote') await handleDemoteMember(userId);
