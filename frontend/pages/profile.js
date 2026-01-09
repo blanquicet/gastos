@@ -312,7 +312,7 @@ function renderPaymentMethodsList() {
             <div class="contact-details">${PAYMENT_METHOD_TYPES[pm.type] || pm.type}</div>
             ${pm.institution ? `<div class="contact-details">${pm.institution}</div>` : ''}
           </div>
-          ${pm.is_shared_with_household ? '<div class="member-role role-owner" title="Compartido">C</div>' : ''}
+          ${pm.is_shared_with_household ? '<div class="member-role role-owner" title="Compartido con el hogar">Compartido</div>' : ''}
           <div class="contact-actions-menu">
             <button class="btn-menu" data-menu-id="${pm.id}">⋮</button>
             <div class="actions-dropdown" id="menu-${pm.id}" style="display: none;">
