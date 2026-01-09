@@ -1771,6 +1771,10 @@ button.loading::after {
   position: relative;
 }
 
+.member-actions {
+  position: relative;
+}
+
 .three-dots-menu {
   display: none;
   position: absolute;
