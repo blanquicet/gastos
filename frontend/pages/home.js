@@ -553,6 +553,10 @@ function renderLoansCards() {
  * Render loan details (Level 2: breakdown by direction)
  */
 function renderLoanDetails(debtorId, creditorId) {
+  console.log('=== renderLoanDetails ===');
+  console.log('Debtor ID:', debtorId);
+  console.log('Creditor ID:', creditorId);
+  
   if (!loanMovements || loanMovements.length === 0) {
     return '<p class="no-data">No hay movimientos disponibles</p>';
   }
@@ -570,6 +574,7 @@ function renderLoanDetails(debtorId, creditorId) {
       if (payerId === creditorId) {
         const participant = movement.participants.find(p => p.participant_user_id === debtorId);
         if (participant) {
+          console.log('Found SPLIT: creditor is payer, debtor is participant', movement.description, movement.amount * participant.percentage);
           debtorOwesCreditor += movement.amount * participant.percentage;
         }
       }
@@ -578,6 +583,7 @@ function renderLoanDetails(debtorId, creditorId) {
       if (payerId === debtorId) {
         const participant = movement.participants.find(p => p.participant_user_id === creditorId);
         if (participant) {
+          console.log('Found SPLIT: debtor is payer, creditor is participant', movement.description, movement.amount * participant.percentage);
           creditorOwesDebtor += movement.amount * participant.percentage;
         }
       }
@@ -588,15 +594,19 @@ function renderLoanDetails(debtorId, creditorId) {
       
       // Payment from debtor to creditor reduces debtorOwesCreditor
       if (payerId === debtorId && receiverId === creditorId) {
+        console.log('Found DEBT_PAYMENT: debtor pays creditor', movement.description, movement.amount);
         creditorOwesDebtor += movement.amount; // Shown as reverse debt
       }
       
       // Payment from creditor to debtor
       if (payerId === creditorId && receiverId === debtorId) {
+        console.log('Found DEBT_PAYMENT: creditor pays debtor', movement.description, movement.amount);
         debtorOwesCreditor += movement.amount; // Shown as reverse debt
       }
     }
   });
+
+  console.log('Calculated:', { debtorOwesCreditor, creditorOwesDebtor });
 
   // Get names from loansData
   const balance = loansData.balances.find(b => b.debtor_id === debtorId && b.creditor_id === creditorId);
@@ -637,6 +647,11 @@ function renderLoanDetails(debtorId, creditorId) {
         </div>
       </div>
     `;
+  }
+
+  // If no debts found, show a message
+  if (html === '') {
+    html = '<p class="no-data">No se encontraron movimientos de préstamo entre estas personas en este mes.</p>';
   }
 
   return html;
