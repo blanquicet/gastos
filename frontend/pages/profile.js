@@ -304,15 +304,15 @@ function renderPaymentMethodsList() {
         <div class="contact-item">
           <div class="contact-avatar">${getPaymentMethodIcon(pm.type)}</div>
           <div class="contact-info">
-            <div class="contact-name">
-              ${pm.name}
-              ${!pm.is_active ? '<span class="inactive-badge">Inactivo</span>' : ''}
-            </div>
+            <div class="contact-name">${pm.name}</div>
             ${pm.last4 ? `<div class="contact-details">••• ${pm.last4}</div>` : ''}
             <div class="contact-details">${PAYMENT_METHOD_TYPES[pm.type] || pm.type}</div>
             ${pm.institution ? `<div class="contact-details">${pm.institution}</div>` : ''}
           </div>
-          ${pm.is_shared_with_household ? '<div class="member-role role-owner" title="Compartido con el hogar">Compartido</div>' : ''}
+          <div class="contact-badges">
+            ${pm.is_shared_with_household ? '<span class="member-role role-owner" title="Compartido con el hogar">Compartido</span>' : ''}
+            ${!pm.is_active ? '<span class="inactive-badge">Inactivo</span>' : ''}
+          </div>
           <div class="contact-actions-menu">
             <button class="btn-menu" data-menu-id="${pm.id}">⋮</button>
             <div class="actions-dropdown" id="menu-${pm.id}" style="display: none;">
