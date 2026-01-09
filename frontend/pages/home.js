@@ -507,10 +507,12 @@ export function render(user) {
     : (incomeData?.totals?.total_amount || 0);
 
   return `
-    <main class="dashboard">
-      <header class="dashboard-header">
-        <h1 class="dashboard-title">Hogar</h1>
-        ${Navbar.render(user, '/')}
+    <main class="card">
+      <header class="header">
+        <div class="header-row">
+          <h1>Hogar</h1>
+          ${Navbar.render(user, '/')}
+        </div>
       </header>
 
       ${renderTabs()}
