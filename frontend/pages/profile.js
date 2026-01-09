@@ -306,7 +306,7 @@ function renderPaymentMethodsList() {
           <div class="contact-info">
             <div class="contact-name">
               ${pm.name}
-              ${!pm.is_active ? '<span class="inactive-badge">❌ Inactivo</span>' : ''}
+              ${!pm.is_active ? '<span class="inactive-badge">Inactivo</span>' : ''}
             </div>
             ${pm.last4 ? `<div class="contact-details">••• ${pm.last4}</div>` : ''}
             <div class="contact-details">${PAYMENT_METHOD_TYPES[pm.type] || pm.type}</div>
