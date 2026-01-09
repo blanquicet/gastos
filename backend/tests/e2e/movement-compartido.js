@@ -402,6 +402,218 @@ async function testMovementCompartido() {
     console.log('✅ Percentage validation working correctly');
 
     // ==================================================================
+    // STEP 8: Verify SPLIT Movement Appears in Gastos View
+    // ==================================================================
+    console.log('📝 Step 8: Verifying SPLIT movement appears in Gastos view...');
+    
+    // Navigate to home page
+    await page.goto(`${appUrl}/`);
+    await page.waitForTimeout(2000);
+    
+    // Make sure we're on the Gastos tab
+    const gastosTab = page.locator('button[data-tab="gastos"]');
+    if (!await gastosTab.locator('.active').count()) {
+      await gastosTab.click();
+      await page.waitForTimeout(1000);
+    }
+    
+    // Navigate to the correct month (January 2025)
+    // Keep clicking previous month until we reach January 2025
+    let attempts = 0;
+    while (attempts < 12) {
+      const monthDisplay = await page.locator('.current-month').textContent();
+      console.log('   Current month display:', monthDisplay);
+      
+      if (monthDisplay.includes('Enero') && monthDisplay.includes('2025')) {
+        break;
+      }
+      
+      await page.locator('.month-nav-btn:has-text("‹")').click();
+      await page.waitForTimeout(500);
+      attempts++;
+    }
+    
+    // Wait for movements to load
+    await page.waitForTimeout(1000);
+    
+    // Check if the SPLIT movement appears in the view
+    const movementDescription = 'Cena en restaurante';
+    
+    // Log all movements for debugging
+    const allMovements = await page.locator('.movement-item .movement-description').allTextContents();
+    console.log('   All movements found:', allMovements);
+    
+    const movementVisible = await page.locator('.movement-item', { hasText: movementDescription }).count();
+    
+    if (movementVisible === 0) {
+      throw new Error('SPLIT movement not visible in Gastos view (user is participant, should be visible)');
+    }
+    
+    // Verify the amount shown is correct (should be user's portion: 50% of 100,000 = 50,000)
+    const movementItem = page.locator('.movement-item', { hasText: movementDescription });
+    const amountText = await movementItem.locator('.movement-amount').textContent();
+    
+    // The amount should show 50,000 (user's 50% share)
+    if (!amountText.includes('50.000') && !amountText.includes('50,000')) {
+      console.error('❌ Expected amount to show user portion (50,000), got:', amountText);
+      throw new Error('SPLIT movement amount not correctly displayed');
+    }
+    
+    console.log('✅ SPLIT movement correctly appears in Gastos view');
+    console.log('   Movement found:', movementDescription);
+    console.log('   Amount shown:', amountText, '(user\'s 50% portion)');
+
+    // ==================================================================
+    // STEP 9: Create SPLIT Movement Where User is NOT a Participant
+    // ==================================================================
+    console.log('📝 Step 9: Creating SPLIT movement where user is NOT a participant...');
+    
+    // Go back to register movement page
+    await page.goto(`${appUrl}/registrar-movimiento`);
+    await page.waitForTimeout(1000);
+    
+    // Select SPLIT type
+    await page.locator('#type').selectOption('SPLIT');
+    await page.waitForTimeout(500);
+    
+    // Fill form (movement only between contact and another future contact)
+    await page.locator('#description').fill('Gasto entre contactos');
+    await page.locator('#amount').fill('80000');
+    await page.locator('#date').fill('2025-01-09');
+    await page.locator('#category').selectOption('Alimentación');
+    
+    // Add only the contact as participant (not the user)
+    // Uncheck equitable first
+    await page.locator('#equitable').uncheck();
+    await page.waitForTimeout(300);
+    
+    // Set contact to 100%
+    const contactCheckbox = page.locator(`input[type="checkbox"][data-participant-id="${contactId}"]`);
+    await contactCheckbox.check();
+    await page.waitForTimeout(300);
+    
+    const contactPercentageInput = page.locator(`input[type="number"][data-participant-id="${contactId}"]`);
+    await contactPercentageInput.fill('100');
+    
+    // Submit
+    await page.locator('#submitBtn').click();
+    await page.waitForTimeout(3000);
+    
+    // Verify success
+    const successStatusNonParticipant = await page.locator('#status').textContent();
+    if (!successStatusNonParticipant.includes('correctamente')) {
+      console.error('❌ Expected success message, got:', successStatusNonParticipant);
+      throw new Error('Second SPLIT movement creation failed');
+    }
+    
+    console.log('✅ SPLIT movement created (user not participant)');
+
+    // ==================================================================
+    // STEP 10: Verify Movement Does NOT Appear in Gastos View
+    // ==================================================================
+    console.log('📝 Step 10: Verifying non-participant SPLIT movement does NOT appear...');
+    
+    // Navigate to home page
+    await page.goto(`${appUrl}/`);
+    await page.waitForTimeout(1000);
+    
+    // Check Gastos view
+    const gastosTab2 = page.locator('button[data-tab="gastos"]');
+    await gastosTab2.click();
+    await page.waitForTimeout(1000);
+    
+    // This movement should NOT be visible
+    const nonParticipantMovement = 'Gasto entre contactos';
+    const nonParticipantVisible = await page.locator('.movement-item', { hasText: nonParticipantMovement }).count();
+    
+    if (nonParticipantVisible > 0) {
+      throw new Error('Non-participant SPLIT movement should NOT be visible in Gastos view');
+    }
+    
+    console.log('✅ Non-participant SPLIT movement correctly hidden from Gastos view');
+
+    // ==================================================================
+    // STEP 11: Edit SPLIT Movement and Verify Gastos View Updates
+    // ==================================================================
+    console.log('📝 Step 11: Editing SPLIT movement and verifying Gastos view updates...');
+    
+    // Click on the first SPLIT movement to edit it
+    const editMovement = page.locator('.movement-item', { hasText: movementDescription });
+    
+    // Click three-dots menu
+    await editMovement.locator('.three-dots-btn').click();
+    await page.waitForTimeout(300);
+    
+    // Click edit button
+    await editMovement.locator('button[data-action="edit"]').click();
+    await page.waitForTimeout(1000);
+    
+    // Should be on edit page
+    await page.waitForURL('**/editar-movimiento/**');
+    
+    // Change the amount
+    await page.locator('#amount').fill('120000');
+    
+    // Change the split - give user 60%, contact 40%
+    await page.locator('#equitable').uncheck();
+    await page.waitForTimeout(300);
+    
+    // Find user's percentage input
+    const userCheckbox = page.locator(`input[type="checkbox"][data-participant-user-id="${userId}"]`);
+    await userCheckbox.check();
+    await page.waitForTimeout(300);
+    
+    const userPercentageInput = page.locator(`input[type="number"][data-participant-user-id="${userId}"]`);
+    await userPercentageInput.fill('60');
+    
+    // Set contact to 40%
+    const contactCheckbox2 = page.locator(`input[type="checkbox"][data-participant-id="${contactId}"]`);
+    await contactCheckbox2.check();
+    await page.waitForTimeout(300);
+    
+    const contactPercentageInput2 = page.locator(`input[type="number"][data-participant-id="${contactId}"]`);
+    await contactPercentageInput2.fill('40');
+    
+    // Submit
+    await page.locator('#submitBtn').click();
+    await page.waitForTimeout(3000);
+    
+    // Verify success
+    const editSuccess = await page.locator('#status').textContent();
+    if (!editSuccess.includes('correctamente')) {
+      console.error('❌ Expected success message after edit, got:', editSuccess);
+      throw new Error('SPLIT movement edit failed');
+    }
+    
+    console.log('✅ SPLIT movement edited successfully');
+    
+    // ==================================================================
+    // STEP 12: Verify Updated Amount in Gastos View
+    // ==================================================================
+    console.log('📝 Step 12: Verifying updated amount appears in Gastos view...');
+    
+    // Navigate to home page
+    await page.goto(`${appUrl}/`);
+    await page.waitForTimeout(1000);
+    
+    // Check Gastos view
+    await gastosTab.click();
+    await page.waitForTimeout(1000);
+    
+    // Find the edited movement
+    const editedMovement = page.locator('.movement-item', { hasText: movementDescription });
+    const editedAmountText = await editedMovement.locator('.movement-amount').textContent();
+    
+    // The amount should now show 72,000 (user's 60% of 120,000)
+    if (!editedAmountText.includes('72.000') && !editedAmountText.includes('72,000')) {
+      console.error('❌ Expected updated amount to show 72,000 (60% of 120,000), got:', editedAmountText);
+      throw new Error('SPLIT movement amount not correctly updated in Gastos view');
+    }
+    
+    console.log('✅ Updated SPLIT movement amount correctly shown in Gastos view');
+    console.log('   New amount shown:', editedAmountText, '(user\'s 60% of 120,000)');
+
+    // ==================================================================
     // Cleanup
     // ==================================================================
     console.log('🧹 Cleaning up test data...');
