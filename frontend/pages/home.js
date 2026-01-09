@@ -526,6 +526,7 @@ function renderLoansCards() {
   const balances = loansData.balances;
 
   const cardsHtml = balances.map(balance => {
+    console.log('Rendering balance:', balance);
     return `
       <div class="expense-group-card" data-debtor-id="${balance.debtor_id}" data-creditor-id="${balance.creditor_id}">
         <div class="expense-group-header">
@@ -1739,7 +1740,8 @@ function setupLoansListeners() {
   // Debt pair card click to expand/collapse (Level 1 → Level 2)
   const loanCards = document.querySelectorAll('.expense-group-card[data-debtor-id]');
   console.log('Found loan cards:', loanCards.length);
-  loanCards.forEach(card => {
+  loanCards.forEach((card, index) => {
+    console.log(`Card ${index}:`, card.outerHTML.substring(0, 200));
     const header = card.querySelector('.expense-group-header');
     if (header) {
       header.addEventListener('click', () => {
@@ -1747,7 +1749,9 @@ function setupLoansListeners() {
         const debtorId = parseInt(card.dataset.debtorId);
         const creditorId = parseInt(card.dataset.creditorId);
         console.log('Debtor ID:', debtorId, 'Creditor ID:', creditorId);
-        const detailsContainer = document.getElementById(`loan-details-${debtorId}-${creditorId}`);
+        const expectedId = `loan-details-${debtorId}-${creditorId}`;
+        console.log('Looking for element with ID:', expectedId);
+        const detailsContainer = document.getElementById(expectedId);
         console.log('Details container:', detailsContainer);
         
         if (detailsContainer) {
