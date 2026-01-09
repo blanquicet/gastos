@@ -674,77 +674,115 @@ async function loadIncomeData() {
 }
 
 /**
- * Load movements data for the current month (HOUSEHOLD type only)
+ * Load movements data for the current month (HOUSEHOLD + SPLIT with household participation)
  */
 async function loadMovementsData() {
   try {
-    let url = `${API_URL}/movements?type=HOUSEHOLD&month=${currentMonth}`;
-    
-    const response = await fetch(url, {
-      credentials: 'include'
-    });
+    // Load both HOUSEHOLD and SPLIT movements
+    const [householdResponse, splitResponse] = await Promise.all([
+      fetch(`${API_URL}/movements?type=HOUSEHOLD&month=${currentMonth}`, {
+        credentials: 'include'
+      }),
+      fetch(`${API_URL}/movements?type=SPLIT&month=${currentMonth}`, {
+        credentials: 'include'
+      })
+    ]);
 
-    if (!response.ok) {
-      console.error('Error loading movements data:', response.status);
-      const errorText = await response.text();
-      console.error('Error details:', errorText);
+    if (!householdResponse.ok || !splitResponse.ok) {
+      console.error('Error loading movements data');
       movementsData = null;
       return;
     }
 
-    const data = await response.json();
+    const householdData = await householdResponse.json();
+    const splitData = await splitResponse.json();
     
-    // Save original unfiltered data for use in filter dropdown
-    originalMovementsData = data;
-    
-    // Client-side filtering
-    if (data && data.movements) {
-      let filteredMovements = data.movements;
-      
-      
-      // Filter by categories if specific categories selected
-      if (selectedCategories === null) {
-        // null means show nothing
-        filteredMovements = [];
-      } else if (selectedCategories.length > 0) {
-        filteredMovements = filteredMovements.filter(movement => {
-          const isIncluded = selectedCategories.includes(movement.category);
-          return isIncluded;
-        });
-      }
-      
-      // Filter by payment methods if specific payment methods selected
-      if (selectedPaymentMethods === null) {
-        // null means show nothing
-        filteredMovements = [];
-      } else if (selectedPaymentMethods.length > 0) {
-        filteredMovements = filteredMovements.filter(movement => 
-          selectedPaymentMethods.includes(movement.payment_method_id)
+    // Process SPLIT movements: filter and adjust amounts
+    const processedSplitMovements = [];
+    if (splitData.movements && splitData.movements.length > 0) {
+      splitData.movements.forEach(movement => {
+        // Find household member IDs from participants
+        const householdMemberIds = householdMembers.map(m => m.id);
+        const householdParticipants = movement.participants.filter(p => 
+          p.participant_user_id && householdMemberIds.includes(p.participant_user_id)
         );
-      }
-      
-      // Recalculate totals
-      const totalAmount = filteredMovements.reduce((sum, movement) => sum + movement.amount, 0);
-      
-      // Recalculate by_category totals
-      const byCategory = {};
-      filteredMovements.forEach(movement => {
-        if (movement.category) {
-          byCategory[movement.category] = (byCategory[movement.category] || 0) + movement.amount;
+        
+        // Only include if at least one household member is a participant
+        if (householdParticipants.length > 0) {
+          // Sum percentages for all household members
+          const totalHouseholdPercentage = householdParticipants.reduce(
+            (sum, p) => sum + p.percentage, 
+            0
+          );
+          
+          // Adjust amount based on household participation
+          const adjustedAmount = movement.amount * totalHouseholdPercentage;
+          
+          // Create adjusted movement
+          processedSplitMovements.push({
+            ...movement,
+            amount: adjustedAmount,
+            original_amount: movement.amount, // Keep original for reference
+            household_percentage: totalHouseholdPercentage,
+            is_split: true // Mark as SPLIT for visual distinction
+          });
         }
       });
-      
-      movementsData = {
-        movements: filteredMovements,
-        totals: {
-          total_amount: totalAmount,
-          by_category: byCategory
-        },
-        category_groups: data.category_groups // Preserve category groups from API
-      };
-    } else {
-      movementsData = data;
     }
+    
+    // Combine HOUSEHOLD and processed SPLIT movements
+    const allMovements = [
+      ...(householdData.movements || []),
+      ...processedSplitMovements
+    ];
+    
+    // Save original unfiltered data
+    originalMovementsData = {
+      movements: allMovements,
+      category_groups: householdData.category_groups
+    };
+    
+    // Client-side filtering
+    let filteredMovements = allMovements;
+    
+    // Filter by categories if specific categories selected
+    if (selectedCategories === null) {
+      filteredMovements = [];
+    } else if (selectedCategories.length > 0) {
+      filteredMovements = filteredMovements.filter(movement => {
+        const isIncluded = selectedCategories.includes(movement.category);
+        return isIncluded;
+      });
+    }
+    
+    // Filter by payment methods if specific payment methods selected
+    if (selectedPaymentMethods === null) {
+      filteredMovements = [];
+    } else if (selectedPaymentMethods.length > 0) {
+      filteredMovements = filteredMovements.filter(movement => 
+        selectedPaymentMethods.includes(movement.payment_method_id)
+      );
+    }
+    
+    // Recalculate totals
+    const totalAmount = filteredMovements.reduce((sum, movement) => sum + movement.amount, 0);
+    
+    // Recalculate by_category totals
+    const byCategory = {};
+    filteredMovements.forEach(movement => {
+      if (movement.category) {
+        byCategory[movement.category] = (byCategory[movement.category] || 0) + movement.amount;
+      }
+    });
+    
+    movementsData = {
+      movements: filteredMovements,
+      totals: {
+        total_amount: totalAmount,
+        by_category: byCategory
+      },
+      category_groups: householdData.category_groups
+    };
     
   } catch (error) {
     console.error('Error loading movements data:', error);
@@ -1033,7 +1071,12 @@ function renderMovementCategories() {
                         <div class="entry-date">${formatDate(movement.movement_date)}</div>
                       </div>
                       <div class="entry-actions">
-                        ${movement.payment_method_name ? `<span class="entry-payment-badge">${movement.payment_method_name}</span>` : ''}
+                        ${movement.is_split 
+                          ? `<span class="entry-split-badge">🤝 Compartido</span>` 
+                          : movement.payment_method_name 
+                            ? `<span class="entry-payment-badge">${movement.payment_method_name}</span>` 
+                            : ''
+                        }
                         <button class="three-dots-btn" data-movement-id="${movement.id}">⋮</button>
                         <div class="three-dots-menu" id="movement-menu-${movement.id}">
                           <button class="menu-item" data-action="edit" data-id="${movement.id}">Editar</button>
