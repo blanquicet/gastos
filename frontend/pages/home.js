@@ -560,6 +560,12 @@ function renderLoanDetails(debtorId, creditorId) {
     return '<p class="no-data">No hay movimientos disponibles</p>';
   }
 
+  // Log first movement structure to see available fields
+  if (loanMovements.length > 0) {
+    console.log('First movement structure:', Object.keys(loanMovements[0]));
+    console.log('First movement full:', loanMovements[0]);
+  }
+
   // Calculate amounts for each direction
   let debtorOwesCreditor = 0; // Debtor owes Creditor
   let creditorOwesDebtor = 0; // Creditor owes Debtor
