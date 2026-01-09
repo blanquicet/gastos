@@ -1216,11 +1216,11 @@ button.loading::after {
 }
 
 .contact-item:has(.three-dots-menu[style*="display: block"]) {
-  z-index: 10;
+  z-index: 100;
 }
 
 .member-item:has(.three-dots-menu[style*="display: block"]) {
-  z-index: 10;
+  z-index: 100;
 }
 
 .contact-avatar {
