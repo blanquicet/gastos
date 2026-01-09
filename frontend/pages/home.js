@@ -2012,16 +2012,23 @@ export async function setup() {
 
   // Setup tab scroll buttons
   const tabsWrapper = document.querySelector('.tabs-wrapper');
+  const tabsContainer = document.querySelector('.tabs-container');
   const scrollLeftBtn = document.querySelector('.tab-scroll-left');
   const scrollRightBtn = document.querySelector('.tab-scroll-right');
 
   function updateScrollButtons() {
-    if (!tabsWrapper || !scrollLeftBtn || !scrollRightBtn) return;
+    if (!tabsWrapper || !scrollLeftBtn || !scrollRightBtn || !tabsContainer) return;
     
     const { scrollLeft, scrollWidth, clientWidth } = tabsWrapper;
     
-    // Check if scrolling is needed at all
-    const hasOverflow = scrollWidth > clientWidth;
+    // Calculate if content would overflow WITHOUT the buttons taking space
+    // Get the full container width to see if content fits when buttons are hidden
+    const containerWidth = tabsContainer.clientWidth;
+    const dashboardTabs = tabsWrapper.querySelector('.dashboard-tabs');
+    const tabsContentWidth = dashboardTabs ? dashboardTabs.scrollWidth : scrollWidth;
+    
+    // Check if scrolling is needed (would content overflow the full container?)
+    const hasOverflow = tabsContentWidth > containerWidth;
     
     if (!hasOverflow) {
       // No overflow - hide both buttons
