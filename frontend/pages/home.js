@@ -579,6 +579,7 @@ function renderLoanDetails(debtorId, creditorId) {
       
       // Check if payer is creditor and debtor is a participant
       if (payerId === creditorId) {
+        console.log('Creditor is payer! Movement participants:', movement.participants);
         const participant = movement.participants.find(p => p.participant_user_id === debtorId);
         console.log('Creditor is payer, found debtor participant?', participant);
         if (participant) {
@@ -588,6 +589,7 @@ function renderLoanDetails(debtorId, creditorId) {
       
       // Check if payer is debtor and creditor is a participant
       if (payerId === debtorId) {
+        console.log('Debtor is payer! Movement participants:', movement.participants);
         const participant = movement.participants.find(p => p.participant_user_id === creditorId);
         console.log('Debtor is payer, found creditor participant?', participant);
         if (participant) {
