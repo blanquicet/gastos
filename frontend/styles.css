@@ -1895,24 +1895,79 @@ button.loading::after {
 }
 
 /* Tabs */
+.tabs-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin: 0 -24px;
+  background: white;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+@media (max-width: 600px) {
+  .tabs-container {
+    margin: 0 -20px;
+  }
+}
+
+.tabs-wrapper {
+  flex: 1;
+  overflow-x: auto;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+.tabs-wrapper::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
 .dashboard-tabs {
   display: flex;
   gap: 0;
-  margin: 0 -24px;
   padding: 0 24px;
-  border-bottom: 1px solid #e5e7eb;
-  background: white;
+  min-width: min-content;
 }
 
 @media (max-width: 600px) {
   .dashboard-tabs {
-    margin: 0 -20px;
     padding: 0 20px;
   }
 }
 
+.tab-scroll-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 100%;
+  background: white;
+  border: none;
+  color: #6b7280;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+  flex-shrink: 0;
+  z-index: 1;
+}
+
+.tab-scroll-btn:hover {
+  background: #f9fafb;
+  color: #374151;
+}
+
+.tab-scroll-btn:active {
+  background: #f3f4f6;
+}
+
+.tab-scroll-left {
+  border-right: 1px solid #e5e7eb;
+}
+
+.tab-scroll-right {
+  border-left: 1px solid #e5e7eb;
+}
+
 .tab-btn {
-  flex: 1;
+  flex-shrink: 0;
   padding: 16px 20px;
   background: none;
   border: none;
@@ -1922,6 +1977,7 @@ button.loading::after {
   cursor: pointer;
   position: relative;
   transition: color 0.2s;
+  white-space: nowrap;
 }
 
 .tab-btn:hover {

@@ -201,10 +201,24 @@ function getCategoryIcon(category) {
  */
 function renderTabs() {
   return `
-    <div class="dashboard-tabs">
-      <button class="tab-btn ${activeTab === 'gastos' ? 'active' : ''}" data-tab="gastos">Gastos del hogar</button>
-      <button class="tab-btn ${activeTab === 'ingresos' ? 'active' : ''}" data-tab="ingresos">Ingresos</button>
-      <button class="tab-btn ${activeTab === 'tarjetas' ? 'active' : ''}" data-tab="tarjetas">Tarjetas de crédito</button>
+    <div class="tabs-container">
+      <button class="tab-scroll-btn tab-scroll-left" aria-label="Scroll left">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd"/>
+        </svg>
+      </button>
+      <div class="tabs-wrapper">
+        <div class="dashboard-tabs">
+          <button class="tab-btn ${activeTab === 'gastos' ? 'active' : ''}" data-tab="gastos">Gastos del hogar</button>
+          <button class="tab-btn ${activeTab === 'ingresos' ? 'active' : ''}" data-tab="ingresos">Ingresos</button>
+          <button class="tab-btn ${activeTab === 'tarjetas' ? 'active' : ''}" data-tab="tarjetas">Tarjetas de crédito</button>
+        </div>
+      </div>
+      <button class="tab-scroll-btn tab-scroll-right" aria-label="Scroll right">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
+        </svg>
+      </button>
     </div>
   `;
 }
@@ -1995,6 +2009,42 @@ export async function setup() {
       }
     });
   });
+
+  // Setup tab scroll buttons
+  const tabsWrapper = document.querySelector('.tabs-wrapper');
+  const scrollLeftBtn = document.querySelector('.tab-scroll-left');
+  const scrollRightBtn = document.querySelector('.tab-scroll-right');
+
+  function updateScrollButtons() {
+    if (!tabsWrapper || !scrollLeftBtn || !scrollRightBtn) return;
+    
+    const { scrollLeft, scrollWidth, clientWidth } = tabsWrapper;
+    const isAtStart = scrollLeft <= 0;
+    const isAtEnd = scrollLeft + clientWidth >= scrollWidth - 1;
+    
+    scrollLeftBtn.style.display = isAtStart ? 'none' : 'flex';
+    scrollRightBtn.style.display = isAtEnd ? 'none' : 'flex';
+  }
+
+  if (tabsWrapper && scrollLeftBtn && scrollRightBtn) {
+    scrollLeftBtn.addEventListener('click', () => {
+      tabsWrapper.scrollBy({ left: -200, behavior: 'smooth' });
+      setTimeout(updateScrollButtons, 300);
+    });
+
+    scrollRightBtn.addEventListener('click', () => {
+      tabsWrapper.scrollBy({ left: 200, behavior: 'smooth' });
+      setTimeout(updateScrollButtons, 300);
+    });
+
+    tabsWrapper.addEventListener('scroll', updateScrollButtons);
+    
+    // Initial check
+    updateScrollButtons();
+    
+    // Update on window resize
+    window.addEventListener('resize', updateScrollButtons);
+  }
 
   // Setup month navigation for initial load
   setupMonthNavigation();
