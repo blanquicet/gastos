@@ -1215,6 +1215,14 @@ button.loading::after {
   position: relative;
 }
 
+.contact-item:has(.three-dots-menu[style*="display: block"]) {
+  z-index: 10;
+}
+
+.member-item:has(.three-dots-menu[style*="display: block"]) {
+  z-index: 10;
+}
+
 .contact-avatar {
   width: 44px;
   height: 44px;
@@ -1246,12 +1254,18 @@ button.loading::after {
 
 .linked-badge {
   font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: #d1fae5;
   color: #059669;
   font-weight: 500;
 }
 
 .inactive-badge {
   font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: #fee2e2;
   color: #dc2626;
   font-weight: 500;
 }
