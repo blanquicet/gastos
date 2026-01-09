@@ -616,7 +616,7 @@ function renderLoanDetails(debtorId, creditorId) {
         </div>
         <div class="category-item-expand">›</div>
       </div>
-      <div class="category-movements hidden" id="loan-movements-debtor-${debtorId}-${creditorId}">
+      <div class="category-movements hidden" id="loan-movements-debtor-owes-${debtorId}-${creditorId}">
         <!-- Level 3 content will be rendered here -->
       </div>
     `;
@@ -633,7 +633,7 @@ function renderLoanDetails(debtorId, creditorId) {
         </div>
         <div class="category-item-expand">›</div>
       </div>
-      <div class="category-movements hidden" id="loan-movements-creditor-${debtorId}-${creditorId}">
+      <div class="category-movements hidden" id="loan-movements-creditor-owes-${debtorId}-${creditorId}">
         <!-- Level 3 content will be rendered here -->
       </div>
     `;
