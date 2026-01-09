@@ -543,7 +543,7 @@ function renderLoansCards() {
   }).join('');
 
   return `
-    <div class="expense-groups">
+    <div class="categories-grid">
       ${cardsHtml}
     </div>
   `;
@@ -1735,27 +1735,34 @@ function setupCategoryListeners() {
  * Setup loans view listeners (for prestamos tab)
  */
 function setupLoansListeners() {
+  console.log('Setting up loans listeners...');
   // Debt pair card click to expand/collapse (Level 1 → Level 2)
   const loanCards = document.querySelectorAll('.expense-group-card[data-debtor-id]');
+  console.log('Found loan cards:', loanCards.length);
   loanCards.forEach(card => {
     const header = card.querySelector('.expense-group-header');
     if (header) {
       header.addEventListener('click', () => {
+        console.log('Card clicked!');
         const debtorId = parseInt(card.dataset.debtorId);
         const creditorId = parseInt(card.dataset.creditorId);
+        console.log('Debtor ID:', debtorId, 'Creditor ID:', creditorId);
         const detailsContainer = document.getElementById(`loan-details-${debtorId}-${creditorId}`);
+        console.log('Details container:', detailsContainer);
         
         if (detailsContainer) {
           const isHidden = detailsContainer.classList.contains('hidden');
           
           if (isHidden) {
             // Render Level 2 content
+            console.log('Rendering loan details...');
             detailsContainer.innerHTML = renderLoanDetails(debtorId, creditorId);
             detailsContainer.classList.remove('hidden');
             
             // Setup listeners for newly rendered elements
             setupLoanDetailsListeners(debtorId, creditorId);
           } else {
+            console.log('Hiding details...');
             detailsContainer.classList.add('hidden');
           }
         }
