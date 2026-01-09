@@ -228,8 +228,6 @@ function renderMemberActions(member, isOwner, userMember) {
   const isLastOwner = member.role === 'owner' && members.filter(m => m.role === 'owner').length === 1;
   const isSelf = member.user_id === currentUser.id;
   
-  if (!isOwner && !isSelf) return '';
-  
   let menuItems = [];
   
   if (isSelf && !isLastOwner) {
@@ -245,7 +243,10 @@ function renderMemberActions(member, isOwner, userMember) {
     menuItems.push(`<button class="menu-item menu-item-danger" data-action="remove" data-user-id="${member.user_id}">Remover</button>`);
   }
   
-  if (menuItems.length === 0) return '';
+  // Always return a div for consistent spacing, even if empty
+  if (menuItems.length === 0) {
+    return '<div class="member-actions"></div>';
+  }
   
   return `
     <div class="member-actions">
