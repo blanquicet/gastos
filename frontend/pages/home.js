@@ -619,12 +619,12 @@ function renderBudgets() {
     : '';
 
   return `
-    <!-- Action buttons - 50/50 layout -->
-    <div class="budget-actions" style="margin-bottom: 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-      <button class="btn-primary" id="copy-prev-month-budget" style="width: 100%;">
+    <!-- Action buttons - same style as registrar-movimiento -->
+    <div class="footer-buttons" style="margin-bottom: 24px;">
+      <button type="button" id="copy-prev-month-budget">
         📋 Copiar del mes anterior
       </button>
-      <button class="btn-primary" id="manage-categories-btn" style="width: 100%;">
+      <button type="button" id="manage-categories-btn">
         ⚙️ Gestionar categorías
       </button>
     </div>
