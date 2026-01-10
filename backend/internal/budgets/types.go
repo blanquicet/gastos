@@ -31,18 +31,18 @@ type MonthlyBudget struct {
 
 // BudgetWithSpent represents a budget with calculated spent amount
 type BudgetWithSpent struct {
-	ID            string  `json:"id"`
-	CategoryID    string  `json:"category_id"`
-	CategoryName  string  `json:"category_name"`
-	CategoryGroup *string `json:"category_group,omitempty"`
-	Icon          *string `json:"icon,omitempty"`
-	Amount        float64 `json:"amount"`
-	Currency      string  `json:"currency"`
-	Spent         float64 `json:"spent"`
-	Percentage    float64 `json:"percentage"` // (spent / amount) * 100
-	Status        string  `json:"status"`     // "under_budget" | "on_track" | "exceeded"
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	ID            *string    `json:"id,omitempty"`
+	CategoryID    string     `json:"category_id"`
+	CategoryName  string     `json:"category_name"`
+	CategoryGroup *string    `json:"category_group,omitempty"`
+	Icon          *string    `json:"icon,omitempty"`
+	Amount        float64    `json:"amount"`
+	Currency      string     `json:"currency"`
+	Spent         float64    `json:"spent"`
+	Percentage    float64    `json:"percentage"` // (spent / amount) * 100
+	Status        string     `json:"status"`     // "under_budget" | "on_track" | "exceeded"
+	CreatedAt     *time.Time `json:"created_at,omitempty"`
+	UpdatedAt     *time.Time `json:"updated_at,omitempty"`
 }
 
 // BudgetTotals represents total budget and spent for a month
