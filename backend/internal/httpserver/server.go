@@ -14,6 +14,7 @@ import (
 	"github.com/blanquicet/gastos/backend/internal/auth"
 	"github.com/blanquicet/gastos/backend/internal/budgets"
 	"github.com/blanquicet/gastos/backend/internal/categories"
+	"github.com/blanquicet/gastos/backend/internal/categorygroups"
 	"github.com/blanquicet/gastos/backend/internal/config"
 	"github.com/blanquicet/gastos/backend/internal/email"
 	"github.com/blanquicet/gastos/backend/internal/households"
@@ -197,6 +198,11 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 		logger,
 	)
 
+	// Create category groups service and handler
+	categoryGroupsRepo := categorygroups.NewRepository(pool)
+	categoryGroupsService := categorygroups.NewService(categoryGroupsRepo, householdRepo)
+	categoryGroupsHandler := categorygroups.NewHandler(categoryGroupsService, logger)
+
 	// Create rate limiters for auth endpoints (if enabled)
 	// Login/Register: 5 requests per minute per IP (strict to prevent brute force)
 	// Password reset: 3 requests per minute per IP (even stricter)
@@ -304,6 +310,9 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 	mux.HandleFunc("PUT /budgets", budgetsHandler.SetBudget)
 	mux.HandleFunc("DELETE /budgets/{id}", budgetsHandler.DeleteBudget)
 	mux.HandleFunc("POST /budgets/copy", budgetsHandler.CopyBudgets)
+
+	// Category groups endpoints
+	categoryGroupsHandler.RegisterRoutes(mux)
 
 	// Serve static files in development mode with SPA fallback
 	if cfg.StaticDir != "" {

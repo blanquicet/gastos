@@ -30,6 +30,7 @@ let isFilterOpen = false; // Track if filter dropdown is open
 let isLoansFilterOpen = false; // Track if loans filter dropdown is open
 let tabsNeedingReload = new Set(); // Tabs that need to reload when activated ('gastos', 'ingresos', 'prestamos', 'presupuesto', 'tarjetas')
 let budgetsData = null; // Presupuesto data
+let categoryGroupsData = null; // Category groups with categories (from /api/category-groups)
 
 /**
  * Format number as COP currency
@@ -1426,6 +1427,28 @@ async function loadBudgetsData() {
 }
 
 /**
+ * Load category groups with categories from backend
+ */
+async function loadCategoryGroups() {
+  try {
+    const response = await fetch(`${API_URL}/category-groups`, {
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      console.error('Error loading category groups');
+      categoryGroupsData = null;
+      return;
+    }
+
+    categoryGroupsData = await response.json();
+  } catch (error) {
+    console.error('Error loading category groups:', error);
+    categoryGroupsData = null;
+  }
+}
+
+/**
  * Set/update budget for a category
  */
 async function setBudget(categoryId, month, amount) {
@@ -1494,29 +1517,13 @@ async function copyBudgetsFromPrevMonth() {
 }
 
 /**
- * Get category groups from API response or build from available categories
- */
-function getCategoryGroups() {
-  // If API provided category groups, use them directly
-  if (movementsData?.category_groups && movementsData.category_groups.length > 0) {
-    return movementsData.category_groups;
-  }
-  
-  // Fallback: return empty array if no backend data
-  return [];
-}
-
-/**
  * Render filter dropdown for movements (gastos)
  */
 function renderMovementsFilterDropdown() {
-  // Get unique categories and payment methods from current data
-  const allCategories = movementsData?.movements
-    ? [...new Set(movementsData.movements
-        .filter(m => m.category !== 'Préstamo') // Exclude Préstamo from filter
-        .map(m => m.category)
-        .filter(Boolean))]
-    : [];
+  // Ensure category groups are loaded
+  if (!categoryGroupsData) {
+    return '<div class="filter-dropdown" id="filter-dropdown" style="display: none">Cargando...</div>';
+  }
    
   // Use original unfiltered data for payment methods list
   const dataSource = originalMovementsData || movementsData;
@@ -1530,8 +1537,6 @@ function renderMovementsFilterDropdown() {
   const uniquePaymentMethods = Array.from(
     new Map(allPaymentMethods.map(pm => [pm.id, pm])).values()
   );
-  
-  const groupedCategories = getCategoryGroups();
   
   const showAllCategories = Array.isArray(selectedCategories) && selectedCategories.length === 0;
   const showAllPaymentMethods = Array.isArray(selectedPaymentMethods) && selectedPaymentMethods.length === 0;
@@ -1547,31 +1552,31 @@ function renderMovementsFilterDropdown() {
           </div>
         </div>
         
-        ${groupedCategories.map(group => {
-          const allGroupChecked = showAllCategories || group.categories.every(c => selectedCategories.includes(c));
+        ${categoryGroupsData.map(group => {
+          const allGroupChecked = showAllCategories || group.categories.every(c => selectedCategories.includes(c.id));
           
           return `
             <div class="filter-category">
               <label class="filter-checkbox-label filter-category-label" data-category-toggle="${group.name}">
                 <input type="checkbox" class="filter-checkbox filter-category-checkbox" 
-                       data-category-group="${group.name}"
+                       data-category-group="${group.id}"
                        ${allGroupChecked ? 'checked' : ''}>
-                <span>${group.name}</span>
+                <span>${group.icon || '📦'} ${group.name}</span>
                 <svg class="category-toggle-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                   <path d="M4.293 5.293a1 1 0 011.414 0L8 7.586l2.293-2.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"/>
                 </svg>
               </label>
               <div class="filter-options filter-sub-options collapsed" data-category-content="${group.name}">
                 ${group.categories.map(category => {
-                  const isChecked = showAllCategories || selectedCategories.includes(category);
+                  const isChecked = showAllCategories || selectedCategories.includes(category.id);
                   return `
                     <label class="filter-checkbox-label">
                       <input type="checkbox" class="filter-checkbox" 
                              data-filter-type="category" 
-                             data-category-group="${group.name}"
-                             data-value="${category}" 
+                             data-category-group="${group.id}"
+                             data-value="${category.id}" 
                              ${isChecked ? 'checked' : ''}>
-                      <span>${category}</span>
+                      <span>${category.name}</span>
                     </label>
                   `;
                 }).join('')}
@@ -1611,22 +1616,6 @@ function renderMovementsFilterDropdown() {
       </div>
     </div>
   `;
-}
-
-/**
- * Get icon for category group
- */
-function getCategoryGroupIcon(groupName) {
-  const icons = {
-    'Casa': '🏠',
-    'Jose': '🤴🏾',
-    'Caro': '👸',
-    'Carro': '🏎️',
-    'Ahorros': '🏦',
-    'Inversiones': '📈',
-    'Diversión': '🎉'
-  };
-  return icons[groupName] || '📦';
 }
 
 /**
@@ -3094,6 +3083,9 @@ function setupIncomeFilterListeners() {
  */
 export async function reloadActiveTab() {
   showLoadingState();
+  
+  // Load category groups (once, used for filters)
+  await loadCategoryGroups();
   
   if (activeTab === 'gastos') {
     await loadMovementsData();
