@@ -35,6 +35,7 @@ type BudgetWithSpent struct {
 	CategoryID    string  `json:"category_id"`
 	CategoryName  string  `json:"category_name"`
 	CategoryGroup *string `json:"category_group,omitempty"`
+	Icon          *string `json:"icon,omitempty"`
 	Amount        float64 `json:"amount"`
 	Currency      string  `json:"currency"`
 	Spent         float64 `json:"spent"`

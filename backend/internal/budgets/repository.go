@@ -28,22 +28,25 @@ func (r *PostgresRepository) GetByMonth(ctx context.Context, householdID, month 
 	query := `
 		SELECT 
 			mb.id,
-			mb.category_id,
+			c.id as category_id,
 			c.name as category_name,
 			c.category_group,
-			mb.amount,
-			mb.currency,
+			c.icon,
+			COALESCE(mb.amount, 0) as amount,
+			COALESCE(mb.currency, 'COP') as currency,
 			COALESCE(SUM(m.amount), 0) as spent,
 			mb.created_at,
 			mb.updated_at
-		FROM monthly_budgets mb
-		INNER JOIN categories c ON c.id = mb.category_id
-		LEFT JOIN movements m ON m.category_id = mb.category_id 
-			AND m.household_id = mb.household_id
-			AND DATE_TRUNC('month', m.movement_date) = $2
-		WHERE mb.household_id = $1
+		FROM categories c
+		LEFT JOIN monthly_budgets mb ON mb.category_id = c.id 
+			AND mb.household_id = $1
 			AND mb.month = $2
-		GROUP BY mb.id, mb.category_id, c.name, c.category_group, c.display_order, mb.amount, mb.currency, mb.created_at, mb.updated_at
+		LEFT JOIN movements m ON m.category_id = c.id 
+			AND m.household_id = $1
+			AND DATE_TRUNC('month', m.movement_date) = $2
+		WHERE c.household_id = $1
+			AND c.is_active = true
+		GROUP BY mb.id, c.id, c.name, c.category_group, c.icon, c.display_order, mb.amount, mb.currency, mb.created_at, mb.updated_at
 		ORDER BY c.category_group NULLS LAST, c.display_order ASC, c.name ASC
 	`
 
@@ -61,6 +64,7 @@ func (r *PostgresRepository) GetByMonth(ctx context.Context, householdID, month 
 			&budget.CategoryID,
 			&budget.CategoryName,
 			&budget.CategoryGroup,
+			&budget.Icon,
 			&budget.Amount,
 			&budget.Currency,
 			&budget.Spent,

@@ -3221,3 +3221,29 @@ button.loading::after {
   font-size: 14px;
   color: #9ca3af;
 }
+
+.btn-add-budget-inline,
+.btn-edit-budget-inline {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  margin-left: 8px;
+}
+
+.btn-add-budget-inline:hover {
+  background-color: #f3f4f6;
+}
+
+.btn-edit-budget-inline:hover {
+  background-color: #f3f4f6;
+}
+
+.no-budget-text {
+  color: #9ca3af;
+  font-style: italic;
+  font-size: 14px;
+}

@@ -522,8 +522,8 @@ function renderBudgets() {
     return `
       <div class="empty-state">
         <div class="empty-icon">💰</div>
-        <p>No hay presupuestos configurados para este mes</p>
-        <p class="empty-hint">Los presupuestos te ayudan a controlar tus gastos mensuales</p>
+        <p>No hay categorías disponibles</p>
+        <p class="empty-hint">Crea categorías desde "Gestionar categorías" para configurar presupuestos</p>
       </div>
     `;
   }
@@ -534,8 +534,8 @@ function renderBudgets() {
     return `
       <div class="empty-state">
         <div class="empty-icon">💰</div>
-        <p>No hay presupuestos configurados para este mes</p>
-        <p class="empty-hint">Configura presupuestos para cada categoría desde la gestión de categorías</p>
+        <p>No hay categorías disponibles</p>
+        <p class="empty-hint">Crea categorías desde "Gestionar categorías" para configurar presupuestos</p>
       </div>
     `;
   }
@@ -582,6 +582,7 @@ function renderBudgets() {
   const renderBudgetCard = (budget) => {
     const percentage = budget.amount > 0 ? ((budget.spent || 0) / budget.amount * 100).toFixed(1) : 0;
     const emoji = getStatusEmoji(budget.status);
+    const hasBudget = budget.amount > 0;
     
     return `
       <div class="category-card budget-card" data-category-id="${budget.category_id}">
@@ -590,14 +591,19 @@ function renderBudgets() {
           <div class="category-info">
             <div class="category-name">${budget.category_name || 'Sin nombre'}</div>
             <div class="category-amount budget-amount-display">
-              ${formatCurrency(budget.spent || 0)} / 
-              <span class="budget-amount-editable" data-category-id="${budget.category_id}" data-amount="${budget.amount || 0}">
-                ${formatCurrency(budget.amount || 0)}
-              </span>
-              <button class="btn-edit-budget-inline" data-category-id="${budget.category_id}" data-amount="${budget.amount || 0}">✏️</button>
+              ${hasBudget ? `
+                ${formatCurrency(budget.spent || 0)} / 
+                <span class="budget-amount-editable" data-category-id="${budget.category_id}" data-amount="${budget.amount || 0}">
+                  ${formatCurrency(budget.amount || 0)}
+                </span>
+                <button class="btn-edit-budget-inline" data-category-id="${budget.category_id}" data-amount="${budget.amount || 0}" title="Editar presupuesto">✏️</button>
+              ` : `
+                <span class="no-budget-text">Sin presupuesto</span>
+                <button class="btn-add-budget-inline" data-category-id="${budget.category_id}" title="Agregar presupuesto">➕</button>
+              `}
             </div>
           </div>
-          <div class="category-percentage">${percentage}% ${emoji}</div>
+          <div class="category-percentage">${hasBudget ? `${percentage}% ${emoji}` : ''}</div>
         </div>
       </div>
     `;
@@ -2210,6 +2216,33 @@ function setupCategoryListeners() {
  * Setup budget listeners (for presupuesto tab)
  */
 function setupBudgetListeners() {
+  // Add budget button (for categories without budgets)
+  document.querySelectorAll('.btn-add-budget-inline').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const categoryId = btn.dataset.categoryId;
+      
+      // Show prompt to add budget
+      const newAmount = prompt('Ingresa el presupuesto para esta categoría:');
+      if (newAmount === null || newAmount === '') return;
+      
+      const amount = parseFloat(newAmount);
+      if (isNaN(amount) || amount < 0) {
+        showError('Monto inválido', 'Por favor ingresa un número válido mayor o igual a 0');
+        return;
+      }
+      
+      // Save budget
+      const result = await setBudget(categoryId, currentMonth, amount);
+      if (result) {
+        showSuccess('Presupuesto creado', `El presupuesto ha sido creado con ${formatCurrency(amount)}`);
+        await loadBudgetsData();
+        refreshDisplay();
+      }
+    });
+  });
+  
   // Edit budget button
   document.querySelectorAll('.btn-edit-budget-inline').forEach(btn => {
     btn.addEventListener('click', async (e) => {
@@ -2224,7 +2257,7 @@ function setupBudgetListeners() {
       
       const amount = parseFloat(newAmount);
       if (isNaN(amount) || amount < 0) {
-        showError('Monto inválido');
+        showError('Monto inválido', 'Por favor ingresa un número válido mayor o igual a 0');
         return;
       }
       
