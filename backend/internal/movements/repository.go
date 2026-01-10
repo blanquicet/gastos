@@ -224,13 +224,20 @@ func (r *repository) ListByHousehold(ctx context.Context, householdID string, fi
 			m.created_at, m.updated_at,
 			COALESCE(payer_user.name, payer_contact.name) as payer_name,
 			COALESCE(counterparty_user.name, counterparty_contact.name) as counterparty_name,
-			pm.name as payment_method_name
+			pm.name as payment_method_name,
+			c.id as category_id,
+			c.name as category_name,
+			cg.id as category_group_id,
+			cg.name as category_group_name,
+			cg.icon as category_group_icon
 		FROM movements m
 		LEFT JOIN users payer_user ON m.payer_user_id = payer_user.id
 		LEFT JOIN contacts payer_contact ON m.payer_contact_id = payer_contact.id
 		LEFT JOIN users counterparty_user ON m.counterparty_user_id = counterparty_user.id
 		LEFT JOIN contacts counterparty_contact ON m.counterparty_contact_id = counterparty_contact.id
 		LEFT JOIN payment_methods pm ON m.payment_method_id = pm.id
+		LEFT JOIN categories c ON m.category_id = c.id
+		LEFT JOIN category_groups cg ON c.category_group_id = cg.id
 		WHERE m.household_id = $1
 	`
 
@@ -297,6 +304,11 @@ func (r *repository) ListByHousehold(ctx context.Context, householdID string, fi
 			&m.PayerName,
 			&m.CounterpartyName,
 			&m.PaymentMethodName,
+			&m.CategoryID,
+			&m.CategoryName,
+			&m.CategoryGroupID,
+			&m.CategoryGroupName,
+			&m.CategoryGroupIcon,
 		)
 		if err != nil {
 			return nil, err

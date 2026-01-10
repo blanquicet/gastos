@@ -1686,29 +1686,22 @@ function renderMovementCategories() {
 
   const movements = movementsData.movements;
   const total = movementsData.totals.total_amount;
-  const categoryGroups = getCategoryGroups();
 
   // Filter out "Préstamo" category from the view
   const filteredMovements = movements.filter(m => m.category !== 'Préstamo');
-
-  // Build a map of category -> group name for quick lookup
-  const categoryToGroup = {};
-  categoryGroups.forEach(group => {
-    group.categories.forEach(cat => {
-      categoryToGroup[cat] = group.name;
-    });
-  });
   
-  // Group movements by category group
+  // Group movements by category_group_name (from DB)
   const byGroup = {};
   filteredMovements.forEach(movement => {
-    const category = movement.category || 'Sin categoría';
-    const groupName = categoryToGroup[category] || 'Otros';
+    const groupName = movement.category_group_name || 'Otros';
+    const groupIcon = movement.category_group_icon || '📦';
+    const category = movement.category_name || movement.category || 'Sin categoría';
     
     if (!byGroup[groupName]) {
       byGroup[groupName] = { 
         total: 0, 
-        categories: {} 
+        categories: {},
+        icon: groupIcon // Store group icon
       };
     }
     
@@ -1732,7 +1725,7 @@ function renderMovementCategories() {
   const groupsHtml = sortedGroups.map(groupName => {
     const groupData = byGroup[groupName];
     const groupPercentage = ((groupData.total / total) * 100).toFixed(1);
-    const groupIcon = getCategoryGroupIcon(groupName);
+    const groupIcon = groupData.icon; // Use icon from DB
     const safeGroupId = groupName.replace(/[^a-zA-Z0-9]/g, '_');
 
     // Sort categories within group by total (descending)

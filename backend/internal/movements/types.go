@@ -49,9 +49,16 @@ type Movement struct {
 	Type          MovementType `json:"type"`
 	Description   string       `json:"description"`
 	Amount        float64      `json:"amount"`
-	Category      *string      `json:"category,omitempty"`
+	Category      *string      `json:"category,omitempty"` // Legacy field (deprecated, use CategoryName)
 	MovementDate  time.Time    `json:"movement_date"`
 	Currency      string       `json:"currency"`
+	
+	// Category info (from JOIN with categories and category_groups)
+	CategoryID        *string `json:"category_id,omitempty"`
+	CategoryName      *string `json:"category_name,omitempty"`
+	CategoryGroupID   *string `json:"category_group_id,omitempty"`
+	CategoryGroupName *string `json:"category_group_name,omitempty"`
+	CategoryGroupIcon *string `json:"category_group_icon,omitempty"`
 	
 	// Payer (exactly one)
 	PayerUserID    *string `json:"payer_user_id,omitempty"`
