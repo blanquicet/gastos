@@ -1005,22 +1005,8 @@ function onPagadorChange() {
       metodoEl.value = '';
     }
     
-    // For DEBT_PAYMENT: category required only when payer is household member
-    if (tipo === 'DEBT_PAYMENT') {
-      const categoriaWrap = document.getElementById('categoriaWrap');
-      const categoriaEl = document.getElementById('categoria');
-      
-      if (isMember) {
-        // Payer is member: category required
-        categoriaWrap.classList.remove('hidden');
-        categoriaEl.required = true;
-      } else {
-        // Payer is contact: category not required, hide field
-        categoriaWrap.classList.add('hidden');
-        categoriaEl.required = false;
-        categoriaEl.value = '';
-      }
-    }
+    // For LOAN type: category is never required or shown
+    // (This was causing confusion - loans don't need categories)
   }
 
   if (tipo === 'SPLIT') {

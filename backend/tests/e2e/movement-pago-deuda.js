@@ -283,22 +283,13 @@ async function testMovementPagoDeuda() {
     
     await page1.selectOption('#tomador', 'User Two Debt');
     
-    // Select category (required when payer is household member)
-    await page1.selectOption('#categoria', 'Préstamo');
-    
+    // Category is NOT required for LOAN type (neither LEND nor REPAY)
     // Submit form
     await page1.locator('#submitBtn').click();
-    await page1.waitForTimeout(5000); // Increased timeout
     
-    // Check success message
-    const successStatus = await page1.locator('#status').textContent();
-    if (!successStatus.includes('correctamente')) {
-      console.error('❌ Expected success message, got:', successStatus);
-      if (consoleErrors.length > 0) {
-        console.error('JavaScript errors:', consoleErrors);
-      }
-      throw new Error('DEBT_PAYMENT movement creation failed');
-    }
+    // LOAN movements now navigate back to home after success (1.5s delay)
+    await page1.waitForURL('**/');
+    await page1.waitForTimeout(1000);
     
     console.log('✅ DEBT_PAYMENT movement created (member to member)');
 
@@ -359,17 +350,13 @@ async function testMovementPagoDeuda() {
     await page1.selectOption('#metodo', 'Nequi Test');
     await page1.selectOption('#tomador', 'Pedro External');
     
-    // Select category (required when payer is household member)
-    await page1.selectOption('#categoria', 'Préstamo');
     
+    // Category is NOT required for LOAN type
     await page1.locator('#submitBtn').click();
-    await page1.waitForTimeout(3000);
     
-    const successStatus2 = await page1.locator('#status').textContent();
-    if (!successStatus2.includes('correctamente')) {
-      console.error('❌ Expected success message, got:', successStatus2);
-      throw new Error('DEBT_PAYMENT to contact creation failed');
-    }
+    // Wait for navigation
+    await page1.waitForURL('**/');
+    await page1.waitForTimeout(1000);
     
     console.log('✅ DEBT_PAYMENT movement created (member to contact)');
 
@@ -453,10 +440,9 @@ async function testMovementPagoDeuda() {
     await page1.locator('#submitBtn').click();
     await page1.waitForTimeout(3000);
     
-    const successStatus3 = await page1.locator('#status').textContent();
-    if (!successStatus3.includes('correctamente')) {
-      throw new Error('DEBT_PAYMENT from contact creation failed');
-    }
+    // Wait for navigation
+    await page1.waitForURL('**/');
+    await page1.waitForTimeout(1000);
     
     console.log('✅ DEBT_PAYMENT from contact created successfully');
 
