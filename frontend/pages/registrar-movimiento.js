@@ -779,7 +779,9 @@ function renderCategorySelect() {
       group.categories.forEach(category => {
         const opt = document.createElement('option');
         opt.value = category;
-        opt.textContent = category;
+        // Simplify display text by removing "GroupName - " prefix
+        const displayText = getSimplifiedCategoryName(category, group.name);
+        opt.textContent = displayText;
         optgroup.appendChild(opt);
         groupedCategories.add(category);
       });
@@ -811,6 +813,18 @@ function renderCategorySelect() {
       categoriaEl.appendChild(opt);
     }
   }
+}
+
+/**
+ * Helper: Simplify category name by removing group prefix
+ */
+function getSimplifiedCategoryName(category, groupName) {
+  // If category starts with "GroupName - ", remove it
+  const prefix = `${groupName} - `;
+  if (category.startsWith(prefix)) {
+    return category.substring(prefix.length);
+  }
+  return category;
 }
 
 /**
