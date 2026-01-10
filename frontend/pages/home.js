@@ -629,6 +629,12 @@ function renderBudgets() {
       </button>
     </div>
 
+    <!-- Total Presupuestado -->
+    <div class="total-display" style="margin-bottom: 24px;">
+      <div class="total-label">Total Presupuestado</div>
+      <div class="total-amount">${formatCurrency(totals.total_budget)}</div>
+    </div>
+
     ${groupsHtml}
     ${ungroupedHtml}
   `;
