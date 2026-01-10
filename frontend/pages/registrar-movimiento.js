@@ -12,6 +12,7 @@ import { logout, getMovementsApiUrl } from '../auth-utils.js';
 import { API_URL } from '../config.js';
 import router from '../router.js';
 import * as Navbar from '../components/navbar.js';
+import { showSuccess } from '../utils.js';
 
 // Configuration loaded from API
 let users = [];
@@ -1944,10 +1945,10 @@ async function onSubmit(e) {
 
       setStatus('Ingreso registrado correctamente.', 'ok');
       
-      // Navigate back to home and show income tab with reload
-      setTimeout(() => {
-        router.navigate('/?tab=ingresos&reload=true');
-      }, 1500);
+      // Show success modal and navigate (modal shows while data loads in background)
+      const navigationTarget = '/?tab=ingresos&reload=true';
+      router.navigate(navigationTarget);
+      await showSuccess('Ingreso registrado', 'El ingreso se registró correctamente.');
       
       return;
     } else {
@@ -2044,14 +2045,20 @@ async function onSubmit(e) {
       setStatus(isEditMode ? 'Movimiento actualizado correctamente.' : 'Movimiento registrado correctamente.', 'ok');
     }
 
-    // Navigate back to home after successful registration or edit
+    // Show success modal and navigate (modal shows while data loads in background)
+    // Capture isEditMode before clearing currentEditMovement
+    const wasEditMode = !!currentEditMovement;
     if (currentEditMovement) {
       currentEditMovement = null;
     }
     
-    setTimeout(() => {
-      router.navigate('/?reload=true');
-    }, 1500);
+    const title = wasEditMode ? 'Movimiento actualizado' : 'Movimiento registrado';
+    const message = wasEditMode 
+      ? 'El movimiento se actualizó correctamente.'
+      : 'El movimiento se registró correctamente.';
+    
+    router.navigate('/?reload=true');
+    await showSuccess(title, message);
   } catch (err) {
     // Handle network/connection errors
     if (err instanceof TypeError && err.message.includes('fetch')) {
