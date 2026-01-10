@@ -2712,6 +2712,16 @@ export async function reloadActiveTab() {
 }
 
 /**
+ * Clear tab data to force reload (prevents showing stale data)
+ */
+export function clearTabData() {
+  movementsData = null;
+  originalMovementsData = null;
+  incomeData = null;
+  loansData = null;
+}
+
+/**
  * Setup page
  */
 export async function setup() {

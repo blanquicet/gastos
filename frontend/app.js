@@ -58,23 +58,25 @@ function initRouter() {
     }
 
     currentUser = user;
-    const appEl = document.getElementById('app');
-    appEl.innerHTML = HomePage.render(user);
-    await HomePage.setup();
     
     // Check if we need to reload data (coming from registrar-movimiento)
     const urlParams = new URLSearchParams(window.location.search);
     const shouldReload = urlParams.get('reload') === 'true';
+    
     if (shouldReload) {
+      // Clear data to force reload and prevent showing stale data
+      HomePage.clearTabData();
+      
       // Remove reload param from URL
       urlParams.delete('reload');
       const newSearch = urlParams.toString();
       const newUrl = newSearch ? `/?${newSearch}` : '/';
       window.history.replaceState({ path: '/' }, '', newUrl);
-      
-      // Reload active tab
-      await HomePage.reloadActiveTab();
     }
+    
+    const appEl = document.getElementById('app');
+    appEl.innerHTML = HomePage.render(user);
+    await HomePage.setup();
     
     const loadingEl = document.getElementById('loading');
     if (loadingEl) loadingEl.style.display = 'none';
