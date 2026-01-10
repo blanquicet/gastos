@@ -2057,8 +2057,8 @@ async function onSubmit(e) {
       ? 'El movimiento se actualizó correctamente.'
       : 'El movimiento se registró correctamente.';
     
-    router.navigate('/?reload=true');
     await showSuccess(title, message);
+    router.navigate('/?reload=true');
   } catch (err) {
     // Handle network/connection errors
     if (err instanceof TypeError && err.message.includes('fetch')) {
