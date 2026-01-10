@@ -819,11 +819,18 @@ function renderCategorySelect() {
  * Helper: Simplify category name by removing group prefix
  */
 function getSimplifiedCategoryName(category, groupName) {
-  // If category starts with "GroupName - ", remove it
-  const prefix = `${groupName} - `;
-  if (category.startsWith(prefix)) {
-    return category.substring(prefix.length);
+  // Try removing "GroupName - " prefix first (e.g., "Casa - Gastos fijos" -> "Gastos fijos")
+  const prefixWithDash = `${groupName} - `;
+  if (category.startsWith(prefixWithDash)) {
+    return category.substring(prefixWithDash.length);
   }
+  
+  // Try removing "GroupName " prefix (e.g., "Inversiones Jose" -> "Jose")
+  const prefixWithSpace = `${groupName} `;
+  if (category.startsWith(prefixWithSpace)) {
+    return category.substring(prefixWithSpace.length);
+  }
+  
   return category;
 }
 
