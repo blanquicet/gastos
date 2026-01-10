@@ -2028,7 +2028,7 @@ button.loading::after {
     max-width: 110px;
     flex: 0 0 auto;
     padding: 12px 20px;
-    min-height: 68px;
+    min-height: 60px;
   }
 }
 
