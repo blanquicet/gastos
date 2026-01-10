@@ -20,7 +20,7 @@ npx playwright install
 
 ## Running Tests
 
-### Quick Start (Recommended)
+### Quick Start - All Tests (Recommended)
 
 Use the provided test runner script that handles all setup automatically:
 
@@ -39,6 +39,51 @@ This script will:
 6. ✅ Wait for both backend and frontend to be healthy
 7. ✅ Run all e2e tests
 8. ✅ Clean up the backend and frontend processes
+
+### Running a Single Test
+
+To run just one specific test file:
+
+```bash
+cd backend/tests/e2e
+./run-single-test.sh <test-file.js>
+```
+
+**Examples:**
+
+```bash
+# Test movement registration (HOUSEHOLD type)
+./run-single-test.sh movement-familiar.js
+
+# Test shared movements (SPLIT type)
+./run-single-test.sh movement-compartido.js
+
+# Test debt payments
+./run-single-test.sh movement-pago-deuda.js
+
+# Test password reset flow
+./run-single-test.sh password-reset.js
+
+# Test household management
+./run-single-test.sh household-management.js
+```
+
+The `run-single-test.sh` script will:
+
+1. ✅ Check if PostgreSQL is running
+2. ✅ Build the backend binary
+3. ✅ Start the backend server
+4. ✅ Wait for backend to be healthy
+5. ✅ Run the specified test
+6. ✅ Clean up the backend process
+7. ✅ Save screenshots on failure to `/tmp/<test-name>-failure.png`
+
+**Benefits of using single test runner:**
+
+- Faster feedback loop during development
+- Easier debugging of specific features
+- Cleaner output focused on one test
+- Automatic setup and teardown
 
 ### Manual Setup (Alternative)
 
