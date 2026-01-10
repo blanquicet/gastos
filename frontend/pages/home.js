@@ -1614,7 +1614,8 @@ async function handleDeleteIncome(incomeId) {
 
     showSuccess('Ingreso eliminado', 'El ingreso se eliminó correctamente');
     
-    // Reload income data and refresh display
+    // Show loading and reload income data
+    showLoadingState();
     await loadIncomeData();
     refreshDisplay();
   } catch (error) {
@@ -1655,7 +1656,8 @@ async function handleDeleteMovement(movementId) {
 
     showSuccess('Gasto eliminado', 'El gasto se eliminó correctamente');
     
-    // Reload movements data and refresh display
+    // Show loading and reload movements data
+    showLoadingState();
     await loadMovementsData();
     refreshDisplay();
   } catch (error) {
@@ -2174,7 +2176,8 @@ async function handleDeleteLoanMovement(movementId) {
 
     showSuccess('Movimiento eliminado', 'El movimiento se eliminó correctamente');
     
-    // Reload loans data and refresh display
+    // Show loading and reload loans data
+    showLoadingState();
     await loadLoansData();
     refreshDisplay();
   } catch (error) {
@@ -2680,6 +2683,23 @@ function setupIncomeFilterListeners() {
 }
 
 /**
+ * Reload active tab data (called after creating/editing movements)
+ */
+export async function reloadActiveTab() {
+  showLoadingState();
+  
+  if (activeTab === 'gastos') {
+    await loadMovementsData();
+  } else if (activeTab === 'ingresos') {
+    await loadIncomeData();
+  } else if (activeTab === 'prestamos') {
+    await loadLoansData();
+  }
+  
+  refreshDisplay();
+}
+
+/**
  * Setup page
  */
 export async function setup() {
@@ -2766,10 +2786,15 @@ export async function setup() {
       tabButtons.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       
-      // Show loading state immediately
-      const contentContainer = document.querySelector('.dashboard-content');
-      if (contentContainer) {
-        if (activeTab === 'prestamos') {
+      // Load data for the new tab only if not already loaded
+      const needsLoad = (activeTab === 'gastos' && !movementsData) ||
+                        (activeTab === 'ingresos' && !incomeData) ||
+                        (activeTab === 'prestamos' && !loansData);
+      
+      if (needsLoad) {
+        // Show loading state immediately
+        const contentContainer = document.querySelector('.dashboard-content');
+        if (contentContainer) {
           contentContainer.innerHTML = `
             <div class="loading-state">
               <div class="loading-spinner"></div>
@@ -2777,17 +2802,15 @@ export async function setup() {
             </div>
           `;
         }
-      }
-      
-      // Load data for the new tab
-      // For gastos/ingresos: only load if not already loaded
-      // For prestamos: always reload to get fresh data
-      if (activeTab === 'gastos' && !movementsData) {
-        await loadMovementsData();
-      } else if (activeTab === 'ingresos' && !incomeData) {
-        await loadIncomeData();
-      } else if (activeTab === 'prestamos') {
-        await loadLoansData(); // Always reload loans
+        
+        // Load data based on active tab
+        if (activeTab === 'gastos') {
+          await loadMovementsData();
+        } else if (activeTab === 'ingresos') {
+          await loadIncomeData();
+        } else if (activeTab === 'prestamos') {
+          await loadLoansData();
+        }
       }
       
       // Update content

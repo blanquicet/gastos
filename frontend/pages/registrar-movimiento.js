@@ -1876,9 +1876,9 @@ async function onSubmit(e) {
 
       setStatus('Ingreso registrado correctamente.', 'ok');
       
-      // Navigate back to home and show income tab
+      // Navigate back to home and show income tab with reload
       setTimeout(() => {
-        router.navigate('/?tab=ingresos');
+        router.navigate('/?tab=ingresos&reload=true');
       }, 1500);
       
       return;
@@ -1982,7 +1982,7 @@ async function onSubmit(e) {
     }
     
     setTimeout(() => {
-      router.navigate('/');
+      router.navigate('/?reload=true');
     }, 1500);
   } catch (err) {
     // Handle network/connection errors
