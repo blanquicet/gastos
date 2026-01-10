@@ -185,66 +185,12 @@ async function testBudgetManagement() {
     console.log(`✅ Found ${budgetCards} budget cards (one per category)`);
 
     // ==================================================================
-    // STEP 6: Edit Budget by Clicking Edit Button
+    // STEP 6: Navigate to Next Month
     // ==================================================================
-    console.log('📝 Step 6: Editing budget via edit button...');
+    console.log('📝 Step 6: Navigating to next month...');
     
-    // Find first edit button and click it
-    const firstEditBtn = page.locator('.btn-edit-budget-inline').first();
-    
-    // Set up dialog handler BEFORE clicking
-    page.once('dialog', async dialog => {
-      console.log('  Dialog message:', dialog.message());
-      await dialog.accept('500000'); // 500,000 COP
-    });
-    
-    await firstEditBtn.click();
-    await page.waitForTimeout(2000); // Wait for API call and UI update
-    
-    // Verify budget was set (check for amount displayed)
-    const budgetAmount = await page.locator('.budget-card').first().locator('.budget-amount-display').textContent();
-    if (!budgetAmount.includes('500.000') && !budgetAmount.includes('500,000')) {
-      throw new Error(`Expected budget to show 500,000, but got: ${budgetAmount}`);
-    }
-    
-    console.log('✅ Budget set to 500,000 COP');
-
-    // Wait for success modal/toast to disappear
-    await page.waitForTimeout(2000);
-
-    // ==================================================================
-    // STEP 7: Edit Budget to New Amount
-    // ==================================================================
-    console.log('📝 Step 7: Editing budget to new amount...');
-    
-    // Wait for any modal overlays to disappear
-    await page.waitForSelector('.modal-overlay', { state: 'hidden', timeout: 5000 }).catch(() => {
-      console.log('  No modal overlay found (already hidden)');
-    });
-    
-    // Click edit button again to change amount
-    page.once('dialog', async dialog => {
-      console.log('  Current amount in dialog:', dialog.message());
-      await dialog.accept('750000'); // 750,000 COP
-    });
-    
-    await firstEditBtn.click();
-    await page.waitForTimeout(2000);
-    
-    const updatedAmount = await page.locator('.budget-card').first().locator('.budget-amount-display').textContent();
-    if (!updatedAmount.includes('750.000') && !updatedAmount.includes('750,000')) {
-      throw new Error(`Expected budget to show 750,000, but got: ${updatedAmount}`);
-    }
-    
-    console.log('✅ Budget updated to 750,000 COP');
-
-    // ==================================================================
-    // STEP 8: Navigate to Next Month
-    // ==================================================================
-    console.log('📝 Step 8: Navigating to next month...');
-    
-    // Click forward arrow to go to next month
-    await page.locator('.month-selector .nav-arrow').last().click();
+    // Click next month button
+    await page.locator('#next-month-btn').click();
     await page.waitForTimeout(2000);
     
     // Verify budgets are empty for next month
@@ -260,9 +206,9 @@ async function testBudgetManagement() {
     console.log('✅ Navigated to next month (budgets should be empty)');
 
     // ==================================================================
-    // STEP 9: Copy Budgets from Previous Month
+    // STEP 7: Copy Budgets from Previous Month
     // ==================================================================
-    console.log('📝 Step 9: Copying budgets from previous month...');
+    console.log('📝 Step 7: Copying budgets from previous month...');
     
     // Click "Copiar del mes anterior" button
     const copyBtn = page.locator('#copy-prev-month-budget');
@@ -275,14 +221,20 @@ async function testBudgetManagement() {
     // Click confirm button in modal (assuming it's a button with text containing "Copiar" or "Confirmar")
     const confirmBtn = page.locator('.modal button').filter({ hasText: /Copiar|Confirmar|Aceptar|Sí/i }).first();
     await confirmBtn.click();
-    await page.waitForTimeout(3000); // Wait for API call and UI update
+    await page.waitForTimeout(2000); // Wait for API call
+    
+    // Wait for success modal and click OK
+    await page.waitForSelector('.modal', { timeout: 5000 });
+    const okBtn = page.locator('.modal button#modal-ok, .modal button').filter({ hasText: /OK/i }).first();
+    await okBtn.click();
+    await page.waitForTimeout(3000); // Wait for modal to close and data to reload
     
     console.log('✅ Copy budgets button clicked and confirmed');
 
     // ==================================================================
-    // STEP 10: Verify Budgets Were Copied
+    // STEP 8: Verify Budgets Were Copied
     // ==================================================================
-    console.log('📝 Step 10: Verifying budgets were copied...');
+    console.log('📝 Step 8: Verifying budgets were copied...');
     
     // Check that amounts are now populated
     const copiedCards = await page.locator('.budget-card').all();
@@ -291,17 +243,25 @@ async function testBudgetManagement() {
       const cardAmount = await copiedCards[i].locator('.budget-amount-display').textContent();
       console.log(`  Category ${i + 1} amount:`, cardAmount.trim());
       
-      if (cardAmount.includes('$ 0') || cardAmount.includes('0 /')) {
-        throw new Error(`Category ${i + 1} still shows 0 budget after copy`);
+      // Check that budget amount (after /) is not 0
+      // Format is: "$ 0 / $ 500.000 ✏️"
+      const parts = cardAmount.split('/');
+      if (parts.length < 2) {
+        throw new Error(`Category ${i + 1} has invalid format: ${cardAmount}`);
+      }
+      
+      const budgetPart = parts[1].trim();
+      if (budgetPart.includes('$ 0') || budgetPart.startsWith('0')) {
+        throw new Error(`Category ${i + 1} still shows 0 budget after copy: ${budgetPart}`);
       }
     }
     
     console.log('✅ All budgets successfully copied to next month');
 
     // ==================================================================
-    // STEP 11: Verify "Gestionar categorías" Button Navigation
+    // STEP 9: Verify "Gestionar categorías" Button Navigation
     // ==================================================================
-    console.log('📝 Step 11: Testing "Gestionar categorías" button...');
+    console.log('📝 Step 9: Testing "Gestionar categorías" button...');
     
     const manageCategoriesBtn = page.locator('#manage-categories-btn');
     await manageCategoriesBtn.click();

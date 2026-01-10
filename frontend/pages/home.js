@@ -1503,7 +1503,7 @@ async function copyBudgetsFromPrevMonth() {
     }
 
     const result = await response.json();
-    showSuccess(`✅ ${result.count} presupuestos copiados exitosamente`);
+    showSuccess('Presupuestos copiados', `Se copiaron ${result.count} presupuestos del mes anterior exitosamente`);
     
     // Reload budgets data
     await loadBudgetsData();
@@ -2231,7 +2231,7 @@ function setupBudgetListeners() {
       // Save budget
       const result = await setBudget(categoryId, currentMonth, amount);
       if (result) {
-        showSuccess('✅ Presupuesto actualizado');
+        showSuccess('Presupuesto actualizado', `El presupuesto ha sido actualizado a ${formatCurrency(amount)}`);
         await loadBudgetsData();
         refreshDisplay();
       }
