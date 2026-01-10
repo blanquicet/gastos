@@ -2847,6 +2847,9 @@ export async function setup() {
     await loadLoansData();
   }
   
+  // Remove active tab from reload set since we just loaded it
+  tabsNeedingReload.delete(activeTab);
+  
   // Initial render of content - UPDATE THE DOM after loading data
   const contentContainer = document.querySelector('.dashboard-content');
   if (contentContainer) {
