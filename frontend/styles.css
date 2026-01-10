@@ -1950,33 +1950,55 @@ button.loading::after {
   justify-content: center;
   width: 40px;
   height: 100%;
-  background: white;
+  background: linear-gradient(to right, rgba(255, 255, 255, 0.95), white);
   border: none;
   padding: 10px;
   color: #6b7280;
   cursor: pointer;
-  transition: background-color 0.2s, color 0.2s;
+  transition: all 0.3s ease;
   flex-shrink: 0;
   z-index: 1;
-  box-shadow: none;
+  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
   outline: none;
+  font-size: 20px;
+  font-weight: bold;
 }
 
 .tab-scroll-btn:hover {
-  background: #f9fafb;
+  background: linear-gradient(to right, rgba(249, 250, 251, 0.95), #f9fafb);
   color: #374151;
+  box-shadow: -3px 0 12px rgba(0, 0, 0, 0.15);
+  transform: scale(1.1);
 }
 
 .tab-scroll-btn:active {
-  background: #f3f4f6;
+  background: linear-gradient(to right, rgba(243, 244, 246, 0.95), #f3f4f6);
+  transform: scale(1.05);
 }
 
 .tab-scroll-left {
   border-right: 1px solid transparent;
+  background: linear-gradient(to left, rgba(255, 255, 255, 0.95), white);
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+}
+
+.tab-scroll-left:hover {
+  background: linear-gradient(to left, rgba(249, 250, 251, 0.95), #f9fafb);
+  box-shadow: 3px 0 12px rgba(0, 0, 0, 0.15);
 }
 
 .tab-scroll-right {
   border-left: 1px solid transparent;
+  animation: pulse-hint 2s ease-in-out infinite;
+}
+
+@keyframes pulse-hint {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
 }
 
 .tab-btn {
