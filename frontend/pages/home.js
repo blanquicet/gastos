@@ -555,33 +555,14 @@ function renderBudgets() {
     }
   });
 
-  // Helper to get status emoji
-  const getStatusEmoji = (status) => {
-    switch (status) {
-      case 'under_budget': return '🟢';
-      case 'on_track': return '🟡';
-      case 'exceeded': return '🔴';
-      default: return '⚪';
-    }
-  };
-
   // Helper to calculate group totals
   const calculateGroupTotals = (groupBudgets) => {
     const total_budget = groupBudgets.reduce((sum, b) => sum + (b.amount || 0), 0);
-    const total_spent = groupBudgets.reduce((sum, b) => sum + (b.spent || 0), 0);
-    const percentage = total_budget > 0 ? (total_spent / total_budget) * 100 : 0;
-    
-    let status = 'under_budget';
-    if (percentage >= 100) status = 'exceeded';
-    else if (percentage >= 80) status = 'on_track';
-    
-    return { total_budget, total_spent, percentage, status };
+    return { total_budget };
   };
 
   // Render a budget card (similar to category card)
   const renderBudgetCard = (budget) => {
-    const percentage = budget.amount > 0 ? ((budget.spent || 0) / budget.amount * 100).toFixed(1) : 0;
-    const emoji = getStatusEmoji(budget.status);
     const hasBudget = budget.amount > 0;
     
     return `
@@ -592,7 +573,6 @@ function renderBudgets() {
             <div class="category-name">${budget.category_name || 'Sin nombre'}</div>
             <div class="category-amount budget-amount-display">
               ${hasBudget ? `
-                ${formatCurrency(budget.spent || 0)} / 
                 <span class="budget-amount-editable" data-category-id="${budget.category_id}" data-amount="${budget.amount || 0}">
                   ${formatCurrency(budget.amount || 0)}
                 </span>
@@ -603,7 +583,6 @@ function renderBudgets() {
               `}
             </div>
           </div>
-          <div class="category-percentage">${hasBudget ? `${percentage}% ${emoji}` : ''}</div>
         </div>
       </div>
     `;
@@ -612,15 +591,13 @@ function renderBudgets() {
   // Render group section
   const renderGroupSection = (groupName, groupBudgets) => {
     const groupTotals = calculateGroupTotals(groupBudgets);
-    const groupEmoji = getStatusEmoji(groupTotals.status);
     
     return `
       <div class="budget-group-section">
         <div class="group-header-budget">
           <span class="group-name">${groupName}</span>
           <span class="group-summary">
-            ${formatCurrency(groupTotals.total_spent)} / ${formatCurrency(groupTotals.total_budget)}
-            <span class="group-percentage">${groupTotals.percentage.toFixed(0)}% ${groupEmoji}</span>
+            ${formatCurrency(groupTotals.total_budget)}
           </span>
         </div>
         <div class="group-budgets">
@@ -641,34 +618,15 @@ function renderBudgets() {
     ? renderGroupSection('Otros', ungrouped)
     : '';
 
-  // Calculate overall percentage
-  const overallPercentage = totals.total_budget > 0 
-    ? ((totals.total_spent / totals.total_budget) * 100).toFixed(1)
-    : 0;
-  const overallEmoji = getStatusEmoji(
-    totals.percentage >= 100 ? 'exceeded' : 
-    totals.percentage >= 80 ? 'on_track' : 
-    'under_budget'
-  );
-
   return `
-    <!-- Action buttons -->
-    <div class="budget-actions" style="margin-bottom: 16px; display: flex; gap: 8px; justify-content: flex-end;">
-      <button class="btn-secondary btn-small" id="copy-prev-month-budget">
+    <!-- Action buttons - 50/50 layout -->
+    <div class="budget-actions" style="margin-bottom: 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+      <button class="btn-primary" id="copy-prev-month-budget" style="width: 100%;">
         📋 Copiar del mes anterior
       </button>
-      <button class="btn-primary btn-small" id="manage-categories-btn">
+      <button class="btn-primary" id="manage-categories-btn" style="width: 100%;">
         ⚙️ Gestionar categorías
       </button>
-    </div>
-
-    <!-- Total summary -->
-    <div class="total-display" style="margin-bottom: 24px;">
-      <div class="total-label">Total Presupuestado</div>
-      <div class="total-amount">${formatCurrency(totals.total_budget)}</div>
-      <div class="total-sublabel" style="margin-top: 8px; font-size: 14px; color: #6b7280;">
-        Gastado: ${formatCurrency(totals.total_spent)} (${overallPercentage}% ${overallEmoji})
-      </div>
     </div>
 
     ${groupsHtml}
