@@ -942,7 +942,7 @@ export function render(user) {
     <main class="card">
       <header class="header">
         <div class="header-row">
-          <h1>Hogar</h1>
+          <h1>Mes a Mes</h1>
           ${Navbar.render(user, '/')}
         </div>
       </header>
