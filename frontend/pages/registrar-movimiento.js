@@ -1816,12 +1816,18 @@ async function onSubmit(e) {
   try {
     const payload = readForm();
     
-    // Show loading state - disable both buttons
+    // Show loading state - disable both buttons and form fields
+    const isEditMode = !!currentEditMovement;
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Guardando...';
+    submitBtn.textContent = isEditMode ? 'Actualizando...' : 'Guardando...';
     if (cancelBtn) {
       cancelBtn.disabled = true;
     }
+    
+    // Disable all form fields
+    const form = document.getElementById('movForm');
+    const formElements = form.querySelectorAll('input, select, textarea, button');
+    formElements.forEach(el => el.disabled = true);
     
     // Handle INGRESO separately - submit to income API
     if (payload.tipo === 'INGRESO') {
@@ -1843,6 +1849,17 @@ async function onSubmit(e) {
           // For income, data is saved to DB but not synced to Sheets
           setStatus('⚠️ Ingreso guardado en base de datos pero no sincronizado con Google Sheets. Por favor contacta al administrador.', 'warning');
           
+          // Re-enable form fields and buttons
+          const form = document.getElementById('movForm');
+          const formElements = form.querySelectorAll('input, select, textarea, button');
+          formElements.forEach(el => el.disabled = false);
+          
+          submitBtn.disabled = false;
+          submitBtn.textContent = originalText;
+          if (cancelBtn) {
+            cancelBtn.disabled = false;
+          }
+          
           // Reset form after 3 seconds
           setTimeout(() => {
             document.getElementById('movForm').reset();
@@ -1852,11 +1869,6 @@ async function onSubmit(e) {
             setStatus('', '');
           }, 3000);
           
-          submitBtn.disabled = false;
-          submitBtn.textContent = originalText;
-          if (cancelBtn) {
-            cancelBtn.disabled = false;
-          }
           return;
         }
         throw new Error(`HTTP ${res.status} - ${text}`);
@@ -1869,11 +1881,6 @@ async function onSubmit(e) {
         router.navigate('/?tab=ingresos');
       }, 1500);
       
-      submitBtn.disabled = false;
-      submitBtn.textContent = originalText;
-      if (cancelBtn) {
-        cancelBtn.disabled = false;
-      }
       return;
     } else {
       // Handle regular movements (gastos) - now using new backend API
@@ -1938,6 +1945,17 @@ async function onSubmit(e) {
           // For movements with new backend, data IS saved to PostgreSQL even if n8n fails
           setStatus('⚠️ Movimiento guardado en PostgreSQL pero no sincronizado con Google Sheets. La sincronización se realizará más tarde.', 'warning');
           
+          // Re-enable form fields and buttons
+          const form = document.getElementById('movForm');
+          const formElements = form.querySelectorAll('input, select, textarea, button');
+          formElements.forEach(el => el.disabled = false);
+          
+          submitBtn.disabled = false;
+          submitBtn.textContent = originalText;
+          if (cancelBtn) {
+            cancelBtn.disabled = false;
+          }
+          
           // Reset form after 3 seconds
           setTimeout(() => {
             document.getElementById('movForm').reset();
@@ -1947,11 +1965,6 @@ async function onSubmit(e) {
             setStatus('', '');
           }, 3000);
           
-          submitBtn.disabled = false;
-          submitBtn.textContent = originalText;
-          if (cancelBtn) {
-            cancelBtn.disabled = false;
-          }
           return;
         }
         
@@ -1963,43 +1976,14 @@ async function onSubmit(e) {
       setStatus(isEditMode ? 'Movimiento actualizado correctamente.' : 'Movimiento registrado correctamente.', 'ok');
     }
 
-    // If in edit mode, navigate back to home instead of resetting form
+    // Navigate back to home after successful registration or edit
     if (currentEditMovement) {
       currentEditMovement = null;
-      setTimeout(() => {
-        router.navigate('/');
-      }, 1500);
-      return;
     }
-
-    // If creating a LOAN (SPLIT or DEBT_PAYMENT), navigate back to home
-    const isLoan = payload.type === 'SPLIT' || payload.type === 'DEBT_PAYMENT';
-    const wasLoanType = document.getElementById('tipo')?.value === 'LOAN';
     
-    if (isLoan || wasLoanType) {
-      setTimeout(() => {
-        router.navigate('/');
-      }, 1500);
-      return;
-    }
-
-    document.getElementById('movForm').reset();
-
-    // Restore defaults
-    document.getElementById('fecha').value = getTodayLocal();
-    document.getElementById('pagador').value = '';
-    document.getElementById('pagadorCompartido').value = '';
-    document.getElementById('tipo').value = '';
-    document.getElementById('tomador').value = '';
-    document.getElementById('metodo').value = '';
-    document.getElementById('categoria').value = '';
-    document.getElementById('ingresoMiembro').value = '';
-    document.getElementById('ingresoTipo').value = '';
-    document.getElementById('ingresoCuenta').value = '';
-    document.getElementById('equitable').checked = true;
-    resetParticipants();
-
-    onTipoChange();
+    setTimeout(() => {
+      router.navigate('/');
+    }, 1500);
   } catch (err) {
     // Handle network/connection errors
     if (err instanceof TypeError && err.message.includes('fetch')) {
@@ -2007,7 +1991,12 @@ async function onSubmit(e) {
     } else {
       setStatus(`Error: ${err.message}`, 'err');
     }
-  } finally {
+    
+    // Re-enable form fields and buttons only on error
+    const form = document.getElementById('movForm');
+    const formElements = form.querySelectorAll('input, select, textarea, button');
+    formElements.forEach(el => el.disabled = false);
+    
     submitBtn.disabled = false;
     submitBtn.textContent = originalText;
     if (cancelBtn) {
