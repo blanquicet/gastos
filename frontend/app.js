@@ -61,11 +61,14 @@ function initRouter() {
     
     // Check if we need to reload data (coming from registrar-movimiento)
     const urlParams = new URLSearchParams(window.location.search);
-    const shouldReload = urlParams.get('reload') === 'true';
+    const reloadParam = urlParams.get('reload');
     
-    if (shouldReload) {
-      // Clear data to force reload and prevent showing stale data
-      HomePage.clearTabData();
+    if (reloadParam) {
+      // Parse tabs that need reload
+      const tabsToReload = reloadParam.split(',').filter(Boolean);
+      
+      // Mark tabs for lazy reload
+      HomePage.markTabsForReload(tabsToReload);
       
       // Remove reload param from URL
       urlParams.delete('reload');

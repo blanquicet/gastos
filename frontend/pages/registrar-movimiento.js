@@ -1945,10 +1945,12 @@ async function onSubmit(e) {
 
       setStatus('Ingreso registrado correctamente.', 'ok');
       
-      // Show success modal and navigate (modal shows while data loads in background)
-      const navigationTarget = '/?tab=ingresos&reload=true';
-      router.navigate(navigationTarget);
+      // Show success modal first, then navigate
       await showSuccess('Ingreso registrado', 'El ingreso se registró correctamente.');
+      
+      // Ingreso only affects ingresos tab
+      const navigationTarget = '/?tab=ingresos&reload=ingresos';
+      router.navigate(navigationTarget);
       
       return;
     } else {
@@ -2057,8 +2059,22 @@ async function onSubmit(e) {
       ? 'El movimiento se actualizó correctamente.'
       : 'El movimiento se registró correctamente.';
     
+    // Determine which tabs need to be reloaded based on movement type
+    const affectedTabs = [];
+    if (payload.type === 'HOUSEHOLD') {
+      affectedTabs.push('gastos', 'tarjetas');
+    } else if (payload.type === 'SPLIT') {
+      affectedTabs.push('gastos', 'prestamos', 'tarjetas');
+    } else if (payload.type === 'DEBT_PAYMENT') {
+      affectedTabs.push('prestamos', 'tarjetas');
+    }
+    
+    // Show success modal first, then navigate
     await showSuccess(title, message);
-    router.navigate('/?reload=true');
+    
+    // Navigate with tabs to reload
+    const reloadParam = affectedTabs.join(',');
+    router.navigate(`/?reload=${reloadParam}`);
   } catch (err) {
     // Handle network/connection errors
     if (err instanceof TypeError && err.message.includes('fetch')) {

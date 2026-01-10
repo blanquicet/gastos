@@ -28,6 +28,7 @@ let selectedPaymentMethods = []; // Array of selected payment method IDs for gas
 let selectedLoanPeople = []; // Array of selected person IDs for loans filter (empty = all)
 let isFilterOpen = false; // Track if filter dropdown is open
 let isLoansFilterOpen = false; // Track if loans filter dropdown is open
+let tabsNeedingReload = new Set(); // Tabs that need to reload when activated ('gastos', 'ingresos', 'prestamos', 'tarjetas')
 
 /**
  * Format number as COP currency
@@ -2712,13 +2713,42 @@ export async function reloadActiveTab() {
 }
 
 /**
+ * Mark tabs for reload (lazy reload - only reload when user navigates to them)
+ */
+export function markTabsForReload(tabs) {
+  tabs.forEach(tab => tabsNeedingReload.add(tab));
+  
+  // If the active tab is in the list, clear its data immediately
+  if (tabs.includes(activeTab)) {
+    clearTabData([activeTab]);
+  }
+}
+
+/**
  * Clear tab data to force reload (prevents showing stale data)
  */
-export function clearTabData() {
-  movementsData = null;
-  originalMovementsData = null;
-  incomeData = null;
-  loansData = null;
+export function clearTabData(tabsToReload = []) {
+  // If no specific tabs provided, clear all (backward compatibility)
+  if (tabsToReload.length === 0) {
+    movementsData = null;
+    originalMovementsData = null;
+    incomeData = null;
+    loansData = null;
+    return;
+  }
+  
+  // Clear only specified tabs
+  if (tabsToReload.includes('gastos')) {
+    movementsData = null;
+    originalMovementsData = null;
+  }
+  if (tabsToReload.includes('ingresos')) {
+    incomeData = null;
+  }
+  if (tabsToReload.includes('prestamos')) {
+    loansData = null;
+  }
+  // tarjetas will be added when implemented
 }
 
 /**
@@ -2807,6 +2837,12 @@ export async function setup() {
       // Update tab buttons
       tabButtons.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
+      
+      // Check if this tab needs reload (was invalidated)
+      if (tabsNeedingReload.has(activeTab)) {
+        clearTabData([activeTab]);
+        tabsNeedingReload.delete(activeTab);
+      }
       
       // Load data for the new tab only if not already loaded
       const needsLoad = (activeTab === 'gastos' && !movementsData) ||
