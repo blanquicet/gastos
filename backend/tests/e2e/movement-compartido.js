@@ -205,14 +205,11 @@ async function testMovementCompartido() {
     
     // Submit form
     await page.locator('#submitBtn').click();
-    await page.waitForTimeout(3000);
     
-    // Check success message
-    const successStatus = await page.locator('#status').textContent();
-    if (!successStatus.includes('correctamente')) {
-      console.error('❌ Expected success message, got:', successStatus);
-      throw new Error('SPLIT movement creation failed');
-    }
+    // SPLIT movements now navigate back to home after success (1.5s delay)
+    // Wait for navigation instead of checking status
+    await page.waitForURL('**/');
+    await page.waitForTimeout(1000);
     
     console.log('✅ SPLIT movement created successfully');
 
@@ -320,12 +317,10 @@ async function testMovementCompartido() {
     
     // Submit form
     await page.locator('#submitBtn').click();
-    await page.waitForTimeout(3000);
     
-    const successStatus2 = await page.locator('#status').textContent();
-    if (!successStatus2.includes('correctamente')) {
-      throw new Error('Custom percentage movement creation failed');
-    }
+    // Wait for navigation back to home
+    await page.waitForURL('**/');
+    await page.waitForTimeout(1000);
     
     console.log('✅ Custom percentage movement created');
 

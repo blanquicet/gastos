@@ -388,7 +388,10 @@ async function testPaymentMethods() {
     
     await page2.waitForTimeout(500);
     
-    await page2.click('button.tipo-btn[data-tipo="DEBT_PAYMENT"]');
+    await page2.click('button.tipo-btn[data-tipo="LOAN"]');
+    await page2.waitForTimeout(500);
+    
+    await page2.click('button.loan-direction-btn[data-direction="REPAY"]');
     await page2.waitForTimeout(500);
     
     // Fill form

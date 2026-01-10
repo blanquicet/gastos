@@ -260,8 +260,11 @@ async function testMovementPagoDeuda() {
       throw new Error('JavaScript errors in movement form');
     }
     
-    // Select DEBT_PAYMENT type
-    await page1.locator('button[data-tipo="DEBT_PAYMENT"]').click();
+    // Select LOAN type and REPAY direction (equivalent to old DEBT_PAYMENT)
+    await page1.locator('button[data-tipo="LOAN"]').click();
+    await page1.waitForTimeout(500);
+    
+    await page1.locator('button.loan-direction-btn[data-direction="REPAY"]').click();
     await page1.waitForTimeout(500);
     
     // Fill form
@@ -343,7 +346,10 @@ async function testMovementPagoDeuda() {
     await page1.goto(`${appUrl}/registrar-movimiento`, { waitUntil: 'networkidle' });
     await page1.waitForTimeout(2000);
     
-    await page1.locator('button[data-tipo="DEBT_PAYMENT"]').click();
+    await page1.locator('button[data-tipo="LOAN"]').click();
+    await page1.waitForTimeout(500);
+    
+    await page1.locator('button.loan-direction-btn[data-direction="REPAY"]').click();
     await page1.waitForTimeout(500);
     
     await page1.locator('#descripcion').fill('Pago deuda taxi');
@@ -392,7 +398,10 @@ async function testMovementPagoDeuda() {
     await page1.goto(`${appUrl}/registrar-movimiento`, { waitUntil: 'networkidle' });
     await page1.waitForTimeout(2000);
     
-    await page1.locator('button[data-tipo="DEBT_PAYMENT"]').click();
+    await page1.locator('button[data-tipo="LOAN"]').click();
+    await page1.waitForTimeout(500);
+    
+    await page1.locator('button.loan-direction-btn[data-direction="REPAY"]').click();
     await page1.waitForTimeout(500);
     
     await page1.locator('#descripcion').fill('Test validation');
@@ -422,7 +431,10 @@ async function testMovementPagoDeuda() {
     await page1.goto(`${appUrl}/registrar-movimiento`, { waitUntil: 'networkidle' });
     await page1.waitForTimeout(2000);
     
-    await page1.locator('button[data-tipo="DEBT_PAYMENT"]').click();
+    await page1.locator('button[data-tipo="LOAN"]').click();
+    await page1.waitForTimeout(500);
+    
+    await page1.locator('button.loan-direction-btn[data-direction="REPAY"]').click();
     await page1.waitForTimeout(500);
     
     await page1.locator('#descripcion').fill('Pago de Pedro');
