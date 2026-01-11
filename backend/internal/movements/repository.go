@@ -240,7 +240,7 @@ func (r *repository) GetCategoryIDByName(ctx context.Context, householdID string
 func (r *repository) ListByHousehold(ctx context.Context, householdID string, filters *ListMovementsFilters) ([]*Movement, error) {
 	query := `
 		SELECT 
-			m.id, m.household_id, m.type, m.description, m.amount, m.category,
+			m.id, m.household_id, m.type, m.description, m.amount,
 			m.movement_date, m.currency,
 			m.payer_user_id, m.payer_contact_id,
 			m.counterparty_user_id, m.counterparty_contact_id,
@@ -315,7 +315,6 @@ func (r *repository) ListByHousehold(ctx context.Context, householdID string, fi
 			&m.Type,
 			&m.Description,
 			&m.Amount,
-			&m.Category,
 			&m.MovementDate,
 			&m.Currency,
 			&m.PayerUserID,
@@ -336,6 +335,11 @@ func (r *repository) ListByHousehold(ctx context.Context, householdID string, fi
 		)
 		if err != nil {
 			return nil, err
+		}
+
+		// For backwards compatibility: populate Category field from CategoryName
+		if m.CategoryName != nil {
+			m.Category = m.CategoryName
 		}
 
 		// Load participants if SPLIT
