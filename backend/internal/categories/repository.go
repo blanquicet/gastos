@@ -75,15 +75,13 @@ func (r *PostgresRepository) Create(ctx context.Context, householdID string, inp
 func (r *PostgresRepository) GetByID(ctx context.Context, id string) (*Category, error) {
 	var category Category
 	err := r.pool.QueryRow(ctx, `
-		SELECT id, household_id, name, category_group, icon, color, display_order, is_active, created_at, updated_at
+		SELECT id, household_id, name, color, display_order, is_active, created_at, updated_at
 		FROM categories
 		WHERE id = $1
 	`, id).Scan(
 		&category.ID,
 		&category.HouseholdID,
 		&category.Name,
-		&category.CategoryGroup,
-		&category.Icon,
 		&category.Color,
 		&category.DisplayOrder,
 		&category.IsActive,
