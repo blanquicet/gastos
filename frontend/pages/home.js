@@ -2119,56 +2119,126 @@ function setupCategoryListeners() {
 function setupBudgetListeners() {
   // Add budget button (for categories without budgets)
   document.querySelectorAll('.btn-add-budget-inline').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
+    btn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
       const categoryId = btn.dataset.categoryId;
       
-      // Show prompt to add budget
-      const newAmount = prompt('Ingresa el presupuesto para esta categoría:');
-      if (newAmount === null || newAmount === '') return;
+      // Replace button with inline input field
+      const parent = btn.parentElement;
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.min = '0';
+      input.step = '0.01';
+      input.className = 'budget-inline-input';
+      input.placeholder = '0';
+      input.style.cssText = 'width: 120px; padding: 4px 8px; border: 2px solid var(--primary-color); border-radius: 4px; font-size: 14px;';
       
-      const amount = parseFloat(newAmount);
-      if (isNaN(amount) || amount < 0) {
-        showError('Monto inválido', 'Por favor ingresa un número válido mayor o igual a 0');
-        return;
-      }
+      // Replace content
+      parent.innerHTML = '';
+      parent.appendChild(input);
+      input.focus();
       
-      // Save budget
-      const result = await setBudget(categoryId, currentMonth, amount);
-      if (result) {
-        showSuccess('Presupuesto creado', `El presupuesto ha sido creado con ${formatCurrency(amount)}`);
-        await loadBudgetsData();
-        refreshDisplay();
-      }
+      // Save on Enter or blur
+      const saveBudget = async () => {
+        const value = input.value.trim();
+        if (value === '') {
+          // Cancel - reload display
+          await loadBudgetsData();
+          refreshDisplay();
+          return;
+        }
+        
+        const amount = parseFloat(value);
+        if (isNaN(amount) || amount < 0) {
+          showError('Monto inválido', 'Por favor ingresa un número válido mayor o igual a 0');
+          input.focus();
+          return;
+        }
+        
+        const result = await setBudget(categoryId, currentMonth, amount);
+        if (result) {
+          showSuccess('Presupuesto creado', `El presupuesto ha sido creado con ${formatCurrency(amount)}`);
+          await loadBudgetsData();
+          refreshDisplay();
+        }
+      };
+      
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          saveBudget();
+        } else if (e.key === 'Escape') {
+          loadBudgetsData().then(() => refreshDisplay());
+        }
+      });
+      
+      input.addEventListener('blur', saveBudget);
     });
   });
   
-  // Edit budget button
+  // Edit budget button - make the amount itself editable
   document.querySelectorAll('.btn-edit-budget-inline').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
+    btn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
       const categoryId = btn.dataset.categoryId;
       const currentAmount = btn.dataset.amount;
       
-      // Show prompt to edit
-      const newAmount = prompt('Ingresa el nuevo presupuesto:', currentAmount);
-      if (newAmount === null || newAmount === '') return;
+      // Find the amount span
+      const amountSpan = btn.previousElementSibling;
+      if (!amountSpan) return;
       
-      const amount = parseFloat(newAmount);
-      if (isNaN(amount) || amount < 0) {
-        showError('Monto inválido', 'Por favor ingresa un número válido mayor o igual a 0');
-        return;
-      }
+      // Replace with input field
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.min = '0';
+      input.step = '0.01';
+      input.className = 'budget-inline-input';
+      input.value = currentAmount;
+      input.style.cssText = 'width: 120px; padding: 4px 8px; border: 2px solid var(--primary-color); border-radius: 4px; font-size: 14px;';
       
-      // Save budget
-      const result = await setBudget(categoryId, currentMonth, amount);
-      if (result) {
-        showSuccess('Presupuesto actualizado', `El presupuesto ha sido actualizado a ${formatCurrency(amount)}`);
-        await loadBudgetsData();
-        refreshDisplay();
-      }
+      // Replace the span
+      amountSpan.replaceWith(input);
+      btn.style.display = 'none';
+      input.focus();
+      input.select();
+      
+      // Save on Enter or blur
+      const saveBudget = async () => {
+        const value = input.value.trim();
+        if (value === '' || value === currentAmount) {
+          // Cancel - reload display
+          await loadBudgetsData();
+          refreshDisplay();
+          return;
+        }
+        
+        const amount = parseFloat(value);
+        if (isNaN(amount) || amount < 0) {
+          showError('Monto inválido', 'Por favor ingresa un número válido mayor o igual a 0');
+          input.focus();
+          return;
+        }
+        
+        const result = await setBudget(categoryId, currentMonth, amount);
+        if (result) {
+          showSuccess('Presupuesto actualizado', `El presupuesto ha sido actualizado a ${formatCurrency(amount)}`);
+          await loadBudgetsData();
+          refreshDisplay();
+        }
+      };
+      
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          saveBudget();
+        } else if (e.key === 'Escape') {
+          loadBudgetsData().then(() => refreshDisplay());
+        }
+      });
+      
+      input.addEventListener('blur', saveBudget);
     });
   });
   
