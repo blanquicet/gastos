@@ -505,14 +505,15 @@ function renderBudgets() {
   });
 
   // Render budget item (reusing expense-category-item structure)
-  const renderBudgetItem = (budget) => {
+  const renderBudgetItem = (budget, groupName) => {
     const hasBudget = budget.amount > 0;
+    const simplifiedName = getSimplifiedCategoryName(budget.category_name || 'Sin nombre', groupName);
     
     return `
       <div class="expense-category-item">
         <div class="expense-category-icon">${budget.category_group_icon || '💰'}</div>
         <div class="expense-category-info">
-          <div class="expense-category-name">${budget.category_name || 'Sin nombre'}</div>
+          <div class="expense-category-name">${simplifiedName}</div>
           <div class="expense-category-amount">
             ${hasBudget ? `
               <span class="budget-amount-editable" data-category-id="${budget.category_id}" data-amount="${budget.amount}">
@@ -554,7 +555,7 @@ function renderBudgets() {
           </div>
         </div>
         <div class="expense-group-details hidden" id="budget-group-details-${safeGroupId}">
-          ${groupBudgets.map(budget => renderBudgetItem(budget)).join('')}
+          ${groupBudgets.map(budget => renderBudgetItem(budget, groupName)).join('')}
         </div>
       </div>
     `;
