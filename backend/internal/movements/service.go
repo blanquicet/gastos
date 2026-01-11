@@ -571,6 +571,21 @@ func (s *service) Update(ctx context.Context, userID, id string, input *UpdateMo
 		}
 	}
 
+	// Resolve category ID from category name if needed (for backwards compatibility)
+	if input.Category != nil && *input.Category != "" {
+		// Look up category by name in household
+		categoryID, err := s.repo.GetCategoryIDByName(ctx, householdID, *input.Category)
+		if err != nil {
+			// If category not found, log warning but continue
+			s.logger.Warn("category not found during update", "category", *input.Category, "household_id", householdID)
+			// Set to nil so it doesn't try to update with invalid value
+			input.Category = nil
+		} else {
+			// Replace the category name with the category ID
+			input.Category = &categoryID
+		}
+	}
+
 	// Update movement
 	updated, err := s.repo.Update(ctx, id, input)
 	if err != nil {

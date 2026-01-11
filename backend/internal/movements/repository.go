@@ -490,7 +490,7 @@ func (r *repository) Update(ctx context.Context, id string, input *UpdateMovemen
 		argNum++
 	}
 	if input.Category != nil {
-		setClauses = append(setClauses, fmt.Sprintf("category = $%d", argNum))
+		setClauses = append(setClauses, fmt.Sprintf("category_id = $%d", argNum))
 		args = append(args, *input.Category)
 		argNum++
 	}
