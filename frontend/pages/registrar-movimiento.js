@@ -1642,7 +1642,7 @@ async function loadMovementForEdit(movementId) {
     
     if (descripcionEl) descripcionEl.value = movement.description || '';
     if (valorEl) valorEl.value = formatNumber(movement.amount);
-    if (categoriaEl) categoriaEl.value = movement.category || '';
+    if (categoriaEl) categoriaEl.value = movement.category_name || '';
     
     if (fechaEl && movement.movement_date) {
       // Extract date in YYYY-MM-DD format without timezone conversion
