@@ -98,6 +98,18 @@ func (s *service) Create(ctx context.Context, userID string, input *CreateMoveme
 		}
 	}
 
+	// Resolve category ID from category name if needed
+	if input.Category != nil && *input.Category != "" && input.CategoryID == nil {
+		// Look up category by name in household
+		categoryID, err := s.repo.GetCategoryIDByName(ctx, householdID, *input.Category)
+		if err != nil {
+			// If category not found, log warning but continue (for backwards compatibility)
+			s.logger.Warn("category not found", "category", *input.Category, "household_id", householdID)
+		} else {
+			input.CategoryID = &categoryID
+		}
+	}
+
 	// Create movement
 	movement, err := s.repo.Create(ctx, input, householdID)
 	if err != nil {

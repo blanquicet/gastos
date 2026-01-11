@@ -33,18 +33,18 @@ func (r *repository) Create(ctx context.Context, input *CreateMovementInput, hou
 	var movement Movement
 	err = tx.QueryRow(ctx, `
 		INSERT INTO movements (
-			household_id, type, description, amount, category, movement_date, currency,
+			household_id, type, description, amount, category_id, movement_date, currency,
 			payer_user_id, payer_contact_id,
 			counterparty_user_id, counterparty_contact_id,
 			payment_method_id
 		)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-		RETURNING id, household_id, type, description, amount, category, movement_date,
+		RETURNING id, household_id, type, description, amount, category_id, movement_date,
 		          currency, payer_user_id, payer_contact_id,
 		          counterparty_user_id, counterparty_contact_id,
 		          payment_method_id, created_at, updated_at
 	`,
-		householdID, input.Type, input.Description, input.Amount, input.Category,
+		householdID, input.Type, input.Description, input.Amount, input.CategoryID,
 		input.MovementDate, "COP", // Currency defaults to COP
 		input.PayerUserID, input.PayerContactID,
 		input.CounterpartyUserID, input.CounterpartyContactID,
@@ -55,7 +55,7 @@ func (r *repository) Create(ctx context.Context, input *CreateMovementInput, hou
 		&movement.Type,
 		&movement.Description,
 		&movement.Amount,
-		&movement.Category,
+		&movement.CategoryID,
 		&movement.MovementDate,
 		&movement.Currency,
 		&movement.PayerUserID,
@@ -210,6 +210,22 @@ func (r *repository) getParticipants(ctx context.Context, movementID string) ([]
 	}
 
 	return participants, nil
+}
+
+// GetCategoryIDByName looks up a category ID by name within a household
+func (r *repository) GetCategoryIDByName(ctx context.Context, householdID string, categoryName string) (string, error) {
+	var categoryID string
+	err := r.pool.QueryRow(ctx, `
+		SELECT id FROM categories
+		WHERE household_id = $1 AND name = $2 AND is_active = true
+		LIMIT 1
+	`, householdID, categoryName).Scan(&categoryID)
+	
+	if err != nil {
+		return "", err
+	}
+	
+	return categoryID, nil
 }
 
 // ListByHousehold retrieves all movements for a household with optional filters

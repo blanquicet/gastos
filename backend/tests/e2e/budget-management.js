@@ -92,22 +92,38 @@ async function testBudgetManagement() {
     );
     const householdId = householdQuery.rows[0].id;
     
-    // Create categories via API (simpler than UI)
+    // Create category groups and categories via database
+    const categoryGroups = [
+      { name: 'Casa', icon: '🏠', display_order: 1 },
+      { name: 'Diversión', icon: '🎉', display_order: 2 }
+    ];
+    
+    const categoryGroupIds = {};
+    for (const group of categoryGroups) {
+      const result = await pool.query(
+        `INSERT INTO category_groups (household_id, name, icon, display_order, is_active)
+         VALUES ($1, $2, $3, $4, true)
+         RETURNING id`,
+        [householdId, group.name, group.icon, group.display_order]
+      );
+      categoryGroupIds[group.name] = result.rows[0].id;
+    }
+    
     const categories = [
-      { name: 'Mercado', category_group: 'Casa', icon: '🛒', color: '#FF6B6B' },
-      { name: 'Transporte', category_group: 'Casa', icon: '🚗', color: '#4ECDC4' },
-      { name: 'Restaurantes', category_group: 'Diversión', icon: '🍽️', color: '#FFE66D' }
+      { name: 'Mercado', category_group: 'Casa' },
+      { name: 'Transporte', category_group: 'Casa' },
+      { name: 'Restaurantes', category_group: 'Diversión' }
     ];
     
     for (const cat of categories) {
       await pool.query(
-        `INSERT INTO categories (household_id, name, category_group, icon, color, display_order, is_active)
-         VALUES ($1, $2, $3, $4, $5, 1, true)`,
-        [householdId, cat.name, cat.category_group, cat.icon, cat.color]
+        `INSERT INTO categories (household_id, name, category_group_id, display_order, is_active)
+         VALUES ($1, $2, $3, 1, true)`,
+        [householdId, cat.name, categoryGroupIds[cat.category_group]]
       );
     }
     
-    console.log(`✅ Created ${categories.length} test categories`);
+    console.log(`✅ Created ${categoryGroups.length} category groups and ${categories.length} test categories`);
 
     // ==================================================================
     // STEP 3: Navigate to Home Page and Presupuesto Tab
@@ -176,8 +192,8 @@ async function testBudgetManagement() {
     // ==================================================================
     console.log('📝 Step 5: Verifying budget cards are displayed...');
     
-    // Check for budget cards
-    const budgetCards = await page.locator('.budget-card').count();
+    // Check for budget cards (using expense-category-item structure)
+    const budgetCards = await page.locator('.expense-category-item').count();
     if (budgetCards !== 3) {
       throw new Error(`Expected 3 budget cards, found ${budgetCards}`);
     }
@@ -194,13 +210,13 @@ async function testBudgetManagement() {
     await page.waitForTimeout(2000);
     
     // Verify budgets are empty for next month
-    const nextMonthCards = await page.locator('.budget-card').count();
+    const nextMonthCards = await page.locator('.expense-category-item').count();
     if (nextMonthCards !== 3) {
       throw new Error(`Expected 3 budget cards in next month, found ${nextMonthCards}`);
     }
     
     // Check that amounts are 0 or empty (no budgets set yet)
-    const firstCardAmount = await page.locator('.budget-card').first().locator('.budget-amount-display').textContent();
+    const firstCardAmount = await page.locator('.expense-category-item').first().locator('.budget-amount-editable').textContent();
     console.log('  First card amount in next month:', firstCardAmount.trim());
     
     console.log('✅ Navigated to next month (budgets should be empty)');
@@ -237,22 +253,16 @@ async function testBudgetManagement() {
     console.log('📝 Step 8: Verifying budgets were copied...');
     
     // Check that amounts are now populated
-    const copiedCards = await page.locator('.budget-card').all();
+    const copiedCards = await page.locator('.expense-category-item').all();
     
     for (let i = 0; i < copiedCards.length; i++) {
-      const cardAmount = await copiedCards[i].locator('.budget-amount-display').textContent();
+      const cardAmount = await copiedCards[i].locator('.budget-amount-editable').textContent();
       console.log(`  Category ${i + 1} amount:`, cardAmount.trim());
       
-      // Check that budget amount (after /) is not 0
-      // Format is: "$ 0 / $ 500.000 ✏️"
-      const parts = cardAmount.split('/');
-      if (parts.length < 2) {
-        throw new Error(`Category ${i + 1} has invalid format: ${cardAmount}`);
-      }
-      
-      const budgetPart = parts[1].trim();
-      if (budgetPart.includes('$ 0') || budgetPart.startsWith('0')) {
-        throw new Error(`Category ${i + 1} still shows 0 budget after copy: ${budgetPart}`);
+      // Check that budget amount is not empty and not 0
+      // Format is now: "$ 500.000"
+      if (!cardAmount || cardAmount.trim() === '' || cardAmount.includes('$ 0') && !cardAmount.includes('$ 0,')) {
+        throw new Error(`Category ${i + 1} shows invalid budget after copy: ${cardAmount}`);
       }
     }
     

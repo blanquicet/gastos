@@ -172,6 +172,27 @@ async function testMovementCompartido() {
     console.log('✅ Payment method added');
 
     // ==================================================================
+    // STEP 3.5: Create Category Groups and Categories
+    // ==================================================================
+    console.log('📝 Step 3.5: Creating category groups and categories...');
+    
+    // Create category group "Casa"
+    const categoryGroupResult = await pool.query(`
+      INSERT INTO category_groups (household_id, name, icon, display_order)
+      VALUES ($1, 'Casa', '🏠', 1)
+      RETURNING id
+    `, [householdId]);
+    const categoryGroupId = categoryGroupResult.rows[0].id;
+    
+    // Create "Mercado" category
+    await pool.query(`
+      INSERT INTO categories (household_id, name, category_group_id, display_order)
+      VALUES ($1, 'Mercado', $2, 1)
+    `, [householdId, categoryGroupId]);
+    
+    console.log('✅ Category groups and categories created');
+
+    // ==================================================================
     // STEP 4: Create SPLIT Movement (Equitable Split)
     // ==================================================================
     console.log('📝 Step 4: Creating SPLIT movement with equitable split...');

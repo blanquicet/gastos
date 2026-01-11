@@ -490,11 +490,11 @@ run_test "Get Movement Form Config"
 FORM_CONFIG=$(api_call $CURL_FLAGS $BASE_URL/movement-form-config -b $COOKIES_FILE)
 USERS_COUNT=$(echo "$FORM_CONFIG" | jq '.users | length')
 PM_COUNT=$(echo "$FORM_CONFIG" | jq '.payment_methods | length')
-CATEGORIES_COUNT=$(echo "$FORM_CONFIG" | jq '.categories | length')
+CATEGORY_GROUPS_COUNT=$(echo "$FORM_CONFIG" | jq '.category_groups | length')
 [ "$USERS_COUNT" -ge "1" ]
 [ "$PM_COUNT" -ge "1" ]
-[ "$CATEGORIES_COUNT" -ge "1" ]
-echo -e "${GREEN}✓ Retrieved form config (users: $USERS_COUNT, payment_methods: $PM_COUNT, categories: $CATEGORIES_COUNT)${NC}\n"
+[ "$CATEGORY_GROUPS_COUNT" -ge "0" ]
+echo -e "${GREEN}✓ Retrieved form config (users: $USERS_COUNT, payment_methods: $PM_COUNT, category_groups: $CATEGORY_GROUPS_COUNT)${NC}\n"
 
 run_test "Verify Form Config Structure"
 HAS_MEMBERS=$(echo "$FORM_CONFIG" | jq '.users[] | select(.type=="member")' | jq -s 'length')

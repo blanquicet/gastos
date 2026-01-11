@@ -97,7 +97,8 @@ type CreateMovementInput struct {
 	Type         MovementType `json:"type"`
 	Description  string       `json:"description"`
 	Amount       float64      `json:"amount"`
-	Category     *string      `json:"category,omitempty"`
+	Category     *string      `json:"category,omitempty"`     // Legacy: category name as string
+	CategoryID   *string      `json:"category_id,omitempty"`  // New: category ID (FK to categories table)
 	MovementDate time.Time    `json:"movement_date"`
 	
 	// Payer (exactly one required)
@@ -319,6 +320,7 @@ type ListMovementsResponse struct {
 type Repository interface {
 	Create(ctx context.Context, input *CreateMovementInput, householdID string) (*Movement, error)
 	GetByID(ctx context.Context, id string) (*Movement, error)
+	GetCategoryIDByName(ctx context.Context, householdID string, categoryName string) (string, error)
 	ListByHousehold(ctx context.Context, householdID string, filters *ListMovementsFilters) ([]*Movement, error)
 	GetTotals(ctx context.Context, householdID string, filters *ListMovementsFilters) (*MovementTotals, error)
 	Update(ctx context.Context, id string, input *UpdateMovementInput) (*Movement, error)
