@@ -779,12 +779,12 @@ function renderCategorySelect() {
       
       group.categories.forEach(category => {
         const opt = document.createElement('option');
-        opt.value = category;
+        opt.value = category.name;
         // Simplify display text by removing "GroupName - " prefix
-        const displayText = getSimplifiedCategoryName(category, group.name);
+        const displayText = getSimplifiedCategoryName(category.name, group.name);
         opt.textContent = displayText;
         optgroup.appendChild(opt);
-        groupedCategories.add(category);
+        groupedCategories.add(category.name);
       });
       
       categoriaEl.appendChild(optgroup);
