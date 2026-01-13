@@ -3126,13 +3126,6 @@ button.loading::after {
   min-width: 0;
 }
 
-.movement-category-name {
-  font-size: 14px;
-  font-weight: 500;
-  color: #6b7280;
-  margin-bottom: 4px;
-}
-
 .movement-description {
   font-size: 16px;
   font-weight: 600;
@@ -3143,39 +3136,29 @@ button.loading::after {
   text-overflow: ellipsis;
 }
 
-.movement-date {
-  font-size: 13px;
-  color: #9ca3af;
-}
-
-.movement-right-container {
-  text-align: right;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 8px;
-}
-
-.movement-right-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.movement-category-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #6b7280;
+  margin-bottom: 4px;
 }
 
 .movement-amount {
   font-size: 18px;
   font-weight: 700;
   color: #111827;
+  margin-bottom: 4px;
 }
 
-.movement-badges {
+.movement-date {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.movement-right-actions {
   display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.chronological-movement-card .movement-actions {
+  align-items: center;
+  gap: 8px;
   position: relative;
 }
 
@@ -3236,26 +3219,12 @@ button.loading::after {
     border-radius: 12px;
   }
   
-  .movement-main-info {
-    align-items: flex-start;
-    gap: 12px;
+  .movement-description {
+    font-size: 15px;
   }
   
-  .movement-right-container {
-    align-items: flex-end;
-  }
-  
-  .movement-right-actions {
-    align-items: center;
-    gap: 8px;
-  }
-  
-  .movement-badges {
-    flex-shrink: 0;
-  }
-  
-  .chronological-movement-card .movement-actions {
-    flex-shrink: 0;
+  .movement-category-name {
+    font-size: 13px;
   }
   
   .movement-amount {

@@ -1827,26 +1827,20 @@ function renderChronologicalMovements() {
         <div class="movement-left">
           <div class="movement-description">${movement.description || 'Sin descripción'}</div>
           <div class="movement-category-name">${movement.category_name || movement.category || 'Sin categoría'}</div>
+          <div class="movement-amount">${formatCurrency(movement.amount)}</div>
           <div class="movement-date">${formatDate(movement.movement_date)}</div>
         </div>
-        <div class="movement-right-container">
-          <div class="movement-amount">${formatCurrency(movement.amount)}</div>
-          <div class="movement-right-actions">
-            <div class="movement-badges">
-              ${movement.is_split 
-                ? `<span class="entry-split-badge">🤝 Compartido</span>` 
-                : movement.payment_method_name 
-                  ? `<span class="entry-payment-badge">${movement.payment_method_name}</span>` 
-                  : ''
-              }
-            </div>
-            <div class="movement-actions">
-              <button class="three-dots-btn" data-movement-id="${movement.id}">⋮</button>
-              <div class="three-dots-menu" id="movement-menu-${movement.id}">
-                <button class="menu-item" data-action="edit" data-id="${movement.id}">Editar</button>
-                <button class="menu-item" data-action="delete" data-id="${movement.id}">Eliminar</button>
-              </div>
-            </div>
+        <div class="movement-right-actions">
+          ${movement.is_split 
+            ? `<span class="entry-split-badge">🤝 Compartido</span>` 
+            : movement.payment_method_name 
+              ? `<span class="entry-payment-badge">${movement.payment_method_name}</span>` 
+              : ''
+          }
+          <button class="three-dots-btn" data-movement-id="${movement.id}">⋮</button>
+          <div class="three-dots-menu" id="movement-menu-${movement.id}">
+            <button class="menu-item" data-action="edit" data-id="${movement.id}">Editar</button>
+            <button class="menu-item" data-action="delete" data-id="${movement.id}">Eliminar</button>
           </div>
         </div>
       </div>
