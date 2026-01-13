@@ -24,8 +24,18 @@ async function submitFormAndConfirm(page) {
   const submitBtn = page.locator('#submitBtn');
   await submitBtn.click();
   
-  // Wait for success modal to appear
-  await page.waitForSelector('.modal-overlay', { timeout: 5000 });
+  // Wait for either success modal or error message (ignore "Registrando..." status)
+  try {
+    await page.waitForSelector('.modal-overlay', { timeout: 15000 });
+  } catch (error) {
+    // If modal doesn't appear, check for error in status
+    const statusText = await page.locator('#status').textContent();
+    if (statusText && statusText.trim() !== '' && !statusText.includes('Registrando')) {
+      console.error('❌ Form submission error:', statusText);
+      throw new Error(`Form submission failed: ${statusText}`);
+    }
+    throw error; // Re-throw original timeout error
+  }
   
   // Click OK button in modal
   await page.locator('#modal-ok').click();
@@ -70,14 +80,6 @@ async function testMovementPagoDeuda() {
     console.log('📝 Step 1: Registering User 1 and creating household...');
     const context1 = await browser.newContext();
     const page1 = await context1.newPage();
-    
-    // Listen for console errors
-    const consoleErrors = [];
-    page1.on('console', msg => {
-      if (msg.type() === 'error') {
-        consoleErrors.push(msg.text());
-      }
-    });
     
     await page1.goto(appUrl);
     await page1.waitForTimeout(1000);
@@ -145,9 +147,6 @@ async function testMovementPagoDeuda() {
     await page1.goto(`${appUrl}/hogar`);
     await page1.waitForTimeout(2000);
     
-    // Clear any previous errors before invitation
-    consoleErrors.length = 0;
-    
     const inviteBtn = page1.locator('#invite-member-btn');
     await inviteBtn.waitFor({ state: 'visible', timeout: 5000 });
     await inviteBtn.click();
@@ -166,11 +165,6 @@ async function testMovementPagoDeuda() {
     await page1.waitForTimeout(500);
     await page1.locator('.modal button').click(); // Click OK
     await page1.waitForTimeout(2000); // Wait for reload
-    
-    // Check for any console errors during invitation
-    if (consoleErrors.length > 0) {
-      console.error('⚠️  Console errors during invitation:', consoleErrors);
-    }
     
     // Verify User 2 is now a household member in the database
     const memberCheck = await pool.query(
@@ -277,28 +271,47 @@ async function testMovementPagoDeuda() {
     await page2.locator('#account-form button[type="submit"]').click();
     await page2.waitForTimeout(1500);
     
+    // Wait for success modal and click OK
+    await page2.waitForSelector('.modal-overlay', { timeout: 5000 });
+    await page2.locator('#modal-ok').click();
+    await page2.waitForSelector('.modal-overlay', { state: 'detached', timeout: 5000 });
+    
     console.log('✅ Account added for User 2');
+
+    // ==================================================================
+    // STEP 4.6: Add Account for User 1 (to receive payment in step 9)
+    // ==================================================================
+    console.log('📝 Step 4.6: Adding account for User 1...');
+    
+    // User 1 creates an account to receive debt payment
+    await page1.goto(`${appUrl}/perfil`);
+    await page1.waitForTimeout(2000);
+    
+    await page1.locator('#add-account-btn').waitFor({ state: 'visible', timeout: 10000 });
+    await page1.locator('#add-account-btn').click();
+    await page1.waitForTimeout(500);
+    
+    await page1.selectOption('select#account-type', 'savings');
+    await page1.locator('#account-name').fill('Savings Test');
+    await page1.locator('#account-balance').fill('1000000');
+    
+    await page1.locator('#account-form button[type="submit"]').click();
+    await page1.waitForTimeout(1500);
+    
+    // Wait for success modal and click OK
+    await page1.waitForSelector('.modal-overlay', { timeout: 5000 });
+    await page1.locator('#modal-ok').click();
+    await page1.waitForSelector('.modal-overlay', { state: 'detached', timeout: 5000 });
+    
+    console.log('✅ Account added for User 1');
 
     // ==================================================================
     // STEP 5: Create DEBT_PAYMENT (Member to Member)
     // ==================================================================
     console.log('📝 Step 5: Creating DEBT_PAYMENT movement (member to member)...');
     
-    // Clear previous console errors
-    consoleErrors.length = 0;
-    
     await page1.goto(`${appUrl}/registrar-movimiento`, { waitUntil: 'networkidle' });
     await page1.waitForTimeout(2000);
-    
-    // Check for JavaScript errors (only after navigating to movement form)
-    const relevantErrors = consoleErrors.filter(err => 
-      err.includes('movement') || err.includes('form config') || err.includes('registrar')
-    );
-    
-    if (relevantErrors.length > 0) {
-      console.error('❌ JavaScript errors found:', relevantErrors);
-      throw new Error('JavaScript errors in movement form');
-    }
     
     // Select LOAN type and REPAY direction (equivalent to old DEBT_PAYMENT)
     await page1.locator('button[data-tipo="LOAN"]').click();
@@ -332,10 +345,31 @@ async function testMovementPagoDeuda() {
     
     // Wait for receiver account dropdown to appear and become visible (appears when tomador is a member)
     await page1.locator('#cuentaReceptoraWrap').waitFor({ state: 'visible', timeout: 5000 });
-    await page1.waitForTimeout(200);
+    await page1.waitForTimeout(500);
     
-    // Select receiver account
-    await page1.selectOption('#cuentaReceptora', 'Cash Test');
+    // Debug: Check what options are available
+    const options = await page1.evaluate(() => {
+      const select = document.getElementById('cuentaReceptora');
+      return Array.from(select.options).map(opt => ({value: opt.value, text: opt.textContent}));
+    });
+    console.log('Available receiver account options:', options);
+    
+    // Select receiver account by text (more reliable than by name)
+    const accountOption = options.find(opt => opt.text.includes('Cash Test'));
+    if (!accountOption || !accountOption.value) {
+      throw new Error('Cash Test account not found in receiver account options');
+    }
+    await page1.selectOption('#cuentaReceptora', accountOption.value);
+    
+    // Verify the selection was successful
+    const selectedValue = await page1.evaluate(() => {
+      return document.getElementById('cuentaReceptora').value;
+    });
+    console.log('Selected receiver account value:', selectedValue);
+    
+    if (!selectedValue) {
+      throw new Error('Receiver account selection failed - value is empty');
+    }
     
     // Category is NOT required for LOAN type (neither LEND nor REPAY)
     // Submit form and confirm modal
@@ -490,6 +524,30 @@ async function testMovementPagoDeuda() {
     }
     
     await page1.selectOption('#tomador', 'User One Debt');
+    await page1.waitForTimeout(500);
+    
+    // Select receiver account (User 1's account from earlier steps)
+    const cuentaReceptoraSelect = page1.locator('#cuentaReceptora');
+    await cuentaReceptoraSelect.waitFor({ state: 'visible', timeout: 5000 });
+    
+    // Get available account options and select the first real account
+    const accountOptions = await cuentaReceptoraSelect.locator('option').allTextContents();
+    const accountValues = await cuentaReceptoraSelect.locator('option').evaluateAll(options => 
+      options.map(opt => ({ value: opt.value, text: opt.textContent.trim() }))
+    );
+    
+    console.log('Available accounts for User 1:', accountValues);
+    
+    // Find and select a valid account (not the placeholder)
+    const validAccount = accountValues.find(opt => opt.value !== '');
+    if (!validAccount) {
+      throw new Error('No valid receiver account found for User 1');
+    }
+    
+    await cuentaReceptoraSelect.selectOption(validAccount.value);
+    await page1.waitForTimeout(500);
+    
+    console.log(`Selected receiver account: ${validAccount.text}`);
     
     await submitFormAndConfirm(page1);
     

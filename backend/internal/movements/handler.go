@@ -391,8 +391,9 @@ type CreateMovementRequest struct {
 	CounterpartyUserID    *string `json:"counterparty_user_id,omitempty"`
 	CounterpartyContactID *string `json:"counterparty_contact_id,omitempty"`
 	
-	PaymentMethodID *string                     `json:"payment_method_id,omitempty"`
-	Participants    []ParticipantRequestItem    `json:"participants,omitempty"`
+	PaymentMethodID   *string                  `json:"payment_method_id,omitempty"`
+	ReceiverAccountID *string                  `json:"receiver_account_id,omitempty"`
+	Participants      []ParticipantRequestItem `json:"participants,omitempty"`
 }
 
 // ParticipantRequestItem represents a participant in the HTTP request
@@ -421,6 +422,7 @@ func (r *CreateMovementRequest) ToInput() (*CreateMovementInput, error) {
 		CounterpartyUserID:    r.CounterpartyUserID,
 		CounterpartyContactID: r.CounterpartyContactID,
 		PaymentMethodID:       r.PaymentMethodID,
+		ReceiverAccountID:     r.ReceiverAccountID,
 	}
 
 	// Convert participants

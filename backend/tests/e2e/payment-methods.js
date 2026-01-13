@@ -236,6 +236,11 @@ async function testPaymentMethods() {
     await page2.locator('#account-form button[type="submit"]').click();
     await page2.waitForTimeout(1500);
     
+    // Wait for success modal and click OK
+    await page2.waitForSelector('.modal-overlay', { timeout: 5000 });
+    await page2.locator('#modal-ok').click();
+    await page2.waitForSelector('.modal-overlay', { state: 'detached', timeout: 5000 });
+    
     console.log('✅ User 2 account added');
 
     // ==================================================================
@@ -433,8 +438,20 @@ async function testPaymentMethods() {
     await page2.locator('#cuentaReceptoraWrap').waitFor({ state: 'visible', timeout: 5000 });
     await page2.waitForTimeout(200);
     
+    // Get the account UUID (options use UUID as value, not name)
+    const accountOption = await page2.evaluate(() => {
+      const select = document.getElementById('cuentaReceptora');
+      const options = Array.from(select.options);
+      const cashOption = options.find(opt => opt.textContent.includes('User2 Cash'));
+      return cashOption ? cashOption.value : null;
+    });
+    
+    if (!accountOption) {
+      throw new Error('User2 Cash account not found in receiver account options');
+    }
+    
     // Select receiver account (required for member-to-member DEBT_PAYMENT)
-    await page2.selectOption('select#cuentaReceptora', 'User2 Cash');
+    await page2.selectOption('select#cuentaReceptora', accountOption);
     await page2.waitForTimeout(500);
     
     // Manually inject User2's payment method into the select (simulating form manipulation)

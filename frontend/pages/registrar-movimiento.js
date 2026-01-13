@@ -1163,6 +1163,7 @@ function onPagadorChange() {
  */
 function onTomadorChange() {
   const tipo = document.getElementById('tipo').value;
+  const loanDirection = document.getElementById('loanDirection')?.value;
   const tomadorEl = document.getElementById('tomador');
   const cuentaReceptoraWrap = document.getElementById('cuentaReceptoraWrap');
   const cuentaReceptoraEl = document.getElementById('cuentaReceptora');
@@ -1173,7 +1174,10 @@ function onTomadorChange() {
   const tomadorUser = usersMap[tomadorName];
   
   // Show receiver account selector only for DEBT_PAYMENT when receiver is a member
-  if (tipo === 'DEBT_PAYMENT' && tomadorUser && tomadorUser.type === 'member') {
+  // DEBT_PAYMENT can be either tipo='DEBT_PAYMENT' or tipo='LOAN' with direction='REPAY'
+  const isDebtPayment = tipo === 'DEBT_PAYMENT' || (tipo === 'LOAN' && loanDirection === 'REPAY');
+  
+  if (isDebtPayment && tomadorUser && tomadorUser.type === 'member') {
     // Render accounts for this member
     renderCuentaReceptoraSelect(tomadorUser.id);
     cuentaReceptoraWrap.classList.remove('hidden');
