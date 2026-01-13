@@ -2320,7 +2320,13 @@ button.loading::after {
 .entry-payment-badge {
   background-color: #e0f2fe;
   color: #0369a1;
-  text-transform: none; /* Don't uppercase payment method names */
+  text-transform: none;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  max-width: 100px;
+  line-height: 1.2;
+  text-align: center;
 }
 
 /* Badge for SPLIT movements */
@@ -2334,6 +2340,12 @@ button.loading::after {
   color: #15803d;
   text-transform: none;
   letter-spacing: 0.5px;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  max-width: 100px;
+  line-height: 1.2;
+  text-align: center;
 }
 
 .entry-amount {
@@ -3107,6 +3119,7 @@ button.loading::after {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  overflow: hidden;
 }
 
 .chronological-movement-card:hover {
@@ -3119,18 +3132,20 @@ button.loading::after {
   justify-content: space-between;
   flex: 1;
   gap: 16px;
+  min-width: 0;
 }
 
 .movement-left {
   flex: 1;
   min-width: 0;
+  max-width: calc(100% - 150px);
 }
 
 .movement-description {
   font-size: 16px;
   font-weight: 600;
   color: #111827;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -3139,24 +3154,26 @@ button.loading::after {
   word-break: break-word;
   position: relative;
   cursor: help;
+  max-width: 100%;
 }
 
 .movement-category-name {
   font-size: 14px;
   font-weight: 500;
   color: #6b7280;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   cursor: help;
+  max-width: 100%;
 }
 
 .movement-amount {
   font-size: 18px;
   font-weight: 700;
   color: #111827;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .movement-date {
@@ -3169,6 +3186,8 @@ button.loading::after {
   align-items: center;
   gap: 8px;
   position: relative;
+  flex-shrink: 0;
+  max-width: 150px;
 }
 
 /* Tooltips for truncated text */
@@ -3258,6 +3277,10 @@ button.loading::after {
     border-radius: 12px;
   }
   
+  .chronological-movement-card .movement-left {
+    max-width: calc(100% - 120px);
+  }
+  
   .movement-description {
     font-size: 15px;
   }
@@ -3268,6 +3291,15 @@ button.loading::after {
   
   .movement-amount {
     font-size: 16px;
+  }
+  
+  /* Allow badges to wrap on mobile */
+  .entry-payment-badge,
+  .entry-split-badge {
+    white-space: normal;
+    max-width: 90px;
+    line-height: 1.2;
+    text-align: center;
   }
   
   /* Disable hover tooltips on mobile (use native title tooltip instead) */

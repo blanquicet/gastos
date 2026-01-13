@@ -1730,7 +1730,7 @@ function renderMovementCategories() {
                       </div>
                       <div class="entry-actions">
                         ${movement.is_split 
-                          ? `<span class="entry-split-badge">🤝 Compartido</span>` 
+                          ? `<span class="entry-split-badge">Compartido</span>` 
                           : movement.payment_method_name 
                             ? `<span class="entry-payment-badge">${movement.payment_method_name}</span>` 
                             : ''
@@ -1836,7 +1836,7 @@ function renderChronologicalMovements() {
         </div>
         <div class="movement-right-actions">
           ${movement.is_split 
-            ? `<span class="entry-split-badge">🤝 Compartido</span>` 
+            ? `<span class="entry-split-badge">Compartido</span>` 
             : movement.payment_method_name 
               ? `<span class="entry-payment-badge">${movement.payment_method_name}</span>` 
               : ''
