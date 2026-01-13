@@ -126,6 +126,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 		movementsRepo,
 		householdRepo,
 		paymentMethodsRepo,
+		accountsRepo,
 		n8nClient, // Can be nil
 		logger,
 	)

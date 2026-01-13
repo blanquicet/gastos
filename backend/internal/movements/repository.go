@@ -36,19 +36,19 @@ func (r *repository) Create(ctx context.Context, input *CreateMovementInput, hou
 			household_id, type, description, amount, category_id, movement_date, currency,
 			payer_user_id, payer_contact_id,
 			counterparty_user_id, counterparty_contact_id,
-			payment_method_id
+			payment_method_id, receiver_account_id
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 		RETURNING id, household_id, type, description, amount, category_id, movement_date,
 		          currency, payer_user_id, payer_contact_id,
 		          counterparty_user_id, counterparty_contact_id,
-		          payment_method_id, created_at, updated_at
+		          payment_method_id, receiver_account_id, created_at, updated_at
 	`,
 		householdID, input.Type, input.Description, input.Amount, input.CategoryID,
 		input.MovementDate, "COP", // Currency defaults to COP
 		input.PayerUserID, input.PayerContactID,
 		input.CounterpartyUserID, input.CounterpartyContactID,
-		input.PaymentMethodID,
+		input.PaymentMethodID, input.ReceiverAccountID,
 	).Scan(
 		&movement.ID,
 		&movement.HouseholdID,
@@ -63,6 +63,7 @@ func (r *repository) Create(ctx context.Context, input *CreateMovementInput, hou
 		&movement.CounterpartyUserID,
 		&movement.CounterpartyContactID,
 		&movement.PaymentMethodID,
+		&movement.ReceiverAccountID,
 		&movement.CreatedAt,
 		&movement.UpdatedAt,
 	)
@@ -103,14 +104,14 @@ func (r *repository) Create(ctx context.Context, input *CreateMovementInput, hou
 func (r *repository) GetByID(ctx context.Context, id string) (*Movement, error) {
 	var movement Movement
 	
-	// Get movement with payer, counterparty, payment method, and category names
+	// Get movement with payer, counterparty, payment method, receiver account, and category names
 	query := `
 		SELECT 
 			m.id, m.household_id, m.type, m.description, m.amount,
 			m.movement_date, m.currency,
 			m.payer_user_id, m.payer_contact_id,
 			m.counterparty_user_id, m.counterparty_contact_id,
-			m.payment_method_id,
+			m.payment_method_id, m.receiver_account_id,
 			m.created_at, m.updated_at,
 			-- Payer name (user or contact)
 			COALESCE(payer_user.name, payer_contact.name) as payer_name,
@@ -118,6 +119,8 @@ func (r *repository) GetByID(ctx context.Context, id string) (*Movement, error) 
 			COALESCE(counterparty_user.name, counterparty_contact.name) as counterparty_name,
 			-- Payment method name (if exists)
 			pm.name as payment_method_name,
+			-- Receiver account name (if exists)
+			ra.name as receiver_account_name,
 			-- Category name via JOIN
 			c.name as category_name
 		FROM movements m
@@ -126,6 +129,7 @@ func (r *repository) GetByID(ctx context.Context, id string) (*Movement, error) 
 		LEFT JOIN users counterparty_user ON m.counterparty_user_id = counterparty_user.id
 		LEFT JOIN contacts counterparty_contact ON m.counterparty_contact_id = counterparty_contact.id
 		LEFT JOIN payment_methods pm ON m.payment_method_id = pm.id
+		LEFT JOIN accounts ra ON m.receiver_account_id = ra.id
 		LEFT JOIN categories c ON m.category_id = c.id
 		WHERE m.id = $1
 	`
@@ -143,11 +147,13 @@ func (r *repository) GetByID(ctx context.Context, id string) (*Movement, error) 
 		&movement.CounterpartyUserID,
 		&movement.CounterpartyContactID,
 		&movement.PaymentMethodID,
+		&movement.ReceiverAccountID,
 		&movement.CreatedAt,
 		&movement.UpdatedAt,
 		&movement.PayerName,
 		&movement.CounterpartyName,
 		&movement.PaymentMethodName,
+		&movement.ReceiverAccountName,
 		&movement.CategoryName,
 	)
 	if err != nil {
@@ -240,11 +246,12 @@ func (r *repository) ListByHousehold(ctx context.Context, householdID string, fi
 			m.movement_date, m.currency,
 			m.payer_user_id, m.payer_contact_id,
 			m.counterparty_user_id, m.counterparty_contact_id,
-			m.payment_method_id,
+			m.payment_method_id, m.receiver_account_id,
 			m.created_at, m.updated_at,
 			COALESCE(payer_user.name, payer_contact.name) as payer_name,
 			COALESCE(counterparty_user.name, counterparty_contact.name) as counterparty_name,
 			pm.name as payment_method_name,
+			ra.name as receiver_account_name,
 			c.id as category_id,
 			c.name as category_name,
 			cg.id as category_group_id,
@@ -256,6 +263,7 @@ func (r *repository) ListByHousehold(ctx context.Context, householdID string, fi
 		LEFT JOIN users counterparty_user ON m.counterparty_user_id = counterparty_user.id
 		LEFT JOIN contacts counterparty_contact ON m.counterparty_contact_id = counterparty_contact.id
 		LEFT JOIN payment_methods pm ON m.payment_method_id = pm.id
+		LEFT JOIN accounts ra ON m.receiver_account_id = ra.id
 		LEFT JOIN categories c ON m.category_id = c.id
 		LEFT JOIN category_groups cg ON c.category_group_id = cg.id
 		WHERE m.household_id = $1
@@ -318,11 +326,13 @@ func (r *repository) ListByHousehold(ctx context.Context, householdID string, fi
 			&m.CounterpartyUserID,
 			&m.CounterpartyContactID,
 			&m.PaymentMethodID,
+			&m.ReceiverAccountID,
 			&m.CreatedAt,
 			&m.UpdatedAt,
 			&m.PayerName,
 			&m.CounterpartyName,
 			&m.PaymentMethodName,
+			&m.ReceiverAccountName,
 			&m.CategoryID,
 			&m.CategoryName,
 			&m.CategoryGroupID,
@@ -507,6 +517,11 @@ func (r *repository) Update(ctx context.Context, id string, input *UpdateMovemen
 	if input.PaymentMethodID != nil {
 		setClauses = append(setClauses, fmt.Sprintf("payment_method_id = $%d", argNum))
 		args = append(args, *input.PaymentMethodID)
+		argNum++
+	}
+	if input.ReceiverAccountID != nil {
+		setClauses = append(setClauses, fmt.Sprintf("receiver_account_id = $%d", argNum))
+		args = append(args, *input.ReceiverAccountID)
 		argNum++
 	}
 	

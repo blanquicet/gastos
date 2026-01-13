@@ -217,6 +217,15 @@ export function render(user) {
             </label>
           </div>
 
+          <!-- Cuenta receptora (para DEBT_PAYMENT cuando el receptor es miembro) -->
+          <label class="field col-span-2 hidden" id="cuentaReceptoraWrap">
+            <span>Cuenta donde recibe</span>
+            <select name="cuentaReceptora" id="cuentaReceptora">
+              <option value="" selected>Seleccionar cuenta</option>
+            </select>
+            <small class="hint">Solo cuentas tipo savings o cash del receptor</small>
+          </label>
+
           <!-- Pagador solo (para SPLIT) -->
           <label class="field hidden" id="pagadorWrap">
             <span>¿Quién pagó?</span>
@@ -398,6 +407,15 @@ export function render(user) {
               <select name="tomador" id="tomador"></select>
             </label>
           </div>
+
+          <!-- Cuenta receptora (para DEBT_PAYMENT cuando el receptor es miembro) -->
+          <label class="field col-span-2 hidden" id="cuentaReceptoraWrap">
+            <span>Cuenta donde recibe</span>
+            <select name="cuentaReceptora" id="cuentaReceptora">
+              <option value="" selected>Seleccionar cuenta</option>
+            </select>
+            <small class="hint">Solo cuentas tipo savings o cash del receptor</small>
+          </label>
 
           <!-- Pagador solo (para SPLIT) -->
           <label class="field hidden" id="pagadorWrap">
@@ -687,6 +705,12 @@ export async function setup() {
     });
   }
   
+  // Event listener for tomador (receiver) in DEBT_PAYMENT to show receiver account selector
+  const tomadorEl = document.getElementById('tomador');
+  if (tomadorEl) {
+    tomadorEl.addEventListener('change', onTomadorChange);
+  }
+  
   addParticipantBtn.addEventListener('click', onAddParticipant);
   form.addEventListener('submit', onSubmit);
   
@@ -903,6 +927,46 @@ function renderIngresoCuentaSelect(ownerId = null) {
 }
 
 /**
+ * Render receiver account select (for DEBT_PAYMENT when receiver is a member)
+ * Only shows accounts owned by the receiver that can receive income (savings and cash)
+ */
+function renderCuentaReceptoraSelect(receiverId = null) {
+  const cuentaEl = document.getElementById('cuentaReceptora');
+  if (!cuentaEl) return;
+  
+  cuentaEl.innerHTML = '';
+  
+  const base = document.createElement('option');
+  base.value = '';
+  base.selected = true;
+  base.textContent = 'Seleccionar cuenta';
+  cuentaEl.appendChild(base);
+
+  // Only show accounts if a receiver is selected
+  if (!receiverId) {
+    return;
+  }
+
+  // Filter accounts by owner (receiver) - only savings and cash can receive income
+  const filteredAccounts = accounts.filter(account => 
+    account.owner_id === receiverId && 
+    (account.type === 'savings' || account.type === 'cash')
+  );
+
+  if (filteredAccounts.length === 0) {
+    base.textContent = 'El receptor no tiene cuentas que puedan recibir ingresos';
+    return;
+  }
+
+  for (const account of filteredAccounts) {
+    const opt = document.createElement('option');
+    opt.value = account.id;
+    opt.textContent = `${account.name} (${account.type === 'savings' ? 'Ahorros' : 'Efectivo'})`;
+    cuentaEl.appendChild(opt);
+  }
+}
+
+/**
  * Update submit button state
  */
 function updateSubmitButton(isCompartido) {
@@ -961,6 +1025,16 @@ function onTipoChange() {
   document.getElementById('ingresoMiembroWrap').classList.toggle('hidden', !isIngreso);
   document.getElementById('ingresoTipoWrap').classList.toggle('hidden', !isIngreso);
   document.getElementById('ingresoCuentaWrap').classList.toggle('hidden', !isIngreso);
+  
+  // Receiver account field - hide unless DEBT_PAYMENT
+  // Will be shown by onTomadorChange when receiver is selected and is a member
+  if (!isPagoDeuda || isLoan) {
+    const cuentaReceptoraWrap = document.getElementById('cuentaReceptoraWrap');
+    if (cuentaReceptoraWrap) {
+      cuentaReceptoraWrap.classList.add('hidden');
+      document.getElementById('cuentaReceptora').value = '';
+    }
+  }
 
   // Reset income fields when switching to/from INGRESO
   if (isIngreso) {
@@ -1080,6 +1154,34 @@ function onPagadorChange() {
 
   if (tipo === 'SPLIT') {
     resetParticipants();
+  }
+}
+
+/**
+ * Handle tomador (receiver) change for DEBT_PAYMENT
+ * Shows receiver account selector when receiver is a household member
+ */
+function onTomadorChange() {
+  const tipo = document.getElementById('tipo').value;
+  const tomadorEl = document.getElementById('tomador');
+  const cuentaReceptoraWrap = document.getElementById('cuentaReceptoraWrap');
+  const cuentaReceptoraEl = document.getElementById('cuentaReceptora');
+  
+  if (!tomadorEl || !cuentaReceptoraWrap) return;
+  
+  const tomadorName = tomadorEl.value;
+  const tomadorUser = usersMap[tomadorName];
+  
+  // Show receiver account selector only for DEBT_PAYMENT when receiver is a member
+  if (tipo === 'DEBT_PAYMENT' && tomadorUser && tomadorUser.type === 'member') {
+    // Render accounts for this member
+    renderCuentaReceptoraSelect(tomadorUser.id);
+    cuentaReceptoraWrap.classList.remove('hidden');
+    cuentaReceptoraEl.required = true;
+  } else {
+    cuentaReceptoraWrap.classList.add('hidden');
+    cuentaReceptoraEl.required = false;
+    cuentaReceptoraEl.value = '';
   }
 }
 
@@ -1502,6 +1604,12 @@ function readForm() {
     if (tomadorUser) {
       if (tomadorUser.type === 'member') {
         payload.counterparty_user_id = tomadorUser.id;
+        
+        // Add receiver account if counterparty is a member
+        const cuentaReceptoraEl = document.getElementById('cuentaReceptora');
+        if (cuentaReceptoraEl && cuentaReceptoraEl.value) {
+          payload.receiver_account_id = cuentaReceptoraEl.value;
+        }
       } else if (tomadorUser.type === 'contact') {
         payload.counterparty_contact_id = tomadorUser.id;
       }
@@ -1773,6 +1881,8 @@ async function loadMovementForEdit(movementId) {
       const tomadorEl = document.getElementById('tomador');
       if (tomadorEl && movement.counterparty_name) {
         tomadorEl.value = movement.counterparty_name;
+        // Trigger onTomadorChange to show/hide receiver account field if applicable
+        onTomadorChange();
       }
     }
     
@@ -1858,6 +1968,56 @@ async function loadMovementForEdit(movementId) {
           }, 100);
         }
       }
+    }
+    
+    // For DEBT_PAYMENT movements with household member receiver, handle receiver account selection
+    if (movement.type === 'DEBT_PAYMENT' && movement.receiver_account_id && movement.counterparty_user_id) {
+      setTimeout(() => {
+        // Render the account selector for the receiver
+        const receiverUser = Object.values(usersMap).find(u => u.id === movement.counterparty_user_id);
+        if (receiverUser) {
+          renderCuentaReceptoraSelect(receiverUser.name);
+          
+          // Now select the account after the dropdown is populated
+          setTimeout(() => {
+            const cuentaReceptoraEl = document.getElementById('cuentaReceptora');
+            if (cuentaReceptoraEl && movement.receiver_account_id) {
+              // Try to find account by ID
+              let selectedAccountName = null;
+              const account = accounts.find(acc => acc.id === movement.receiver_account_id);
+              
+              if (account) {
+                selectedAccountName = account.name;
+                console.log('Found receiver account by ID:', selectedAccountName);
+              } else if (movement.receiver_account_name) {
+                // Fallback: use the name from the movement
+                selectedAccountName = movement.receiver_account_name;
+                console.log('Using receiver account name from movement:', selectedAccountName);
+              } else {
+                console.warn('Receiver account not found:', movement.receiver_account_id);
+              }
+              
+              if (selectedAccountName) {
+                const optionIndex = Array.from(cuentaReceptoraEl.options).findIndex(opt => opt.value === selectedAccountName);
+                
+                if (optionIndex >= 0) {
+                  cuentaReceptoraEl.selectedIndex = optionIndex;
+                  console.log('Receiver account selected at index:', optionIndex);
+                } else {
+                  // Account not in dropdown - add it as unavailable option
+                  console.warn('Receiver account not found in dropdown, adding as unavailable:', selectedAccountName);
+                  const unavailableOption = document.createElement('option');
+                  unavailableOption.value = selectedAccountName;
+                  unavailableOption.textContent = `${selectedAccountName} (no disponible)`;
+                  unavailableOption.selected = true;
+                  cuentaReceptoraEl.appendChild(unavailableOption);
+                  console.log('Unavailable receiver account added and selected');
+                }
+              }
+            }
+          }, 50);
+        }
+      }, 100);
     }
     
   } catch (error) {

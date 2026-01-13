@@ -2,8 +2,10 @@ package movements
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 
+	"github.com/blanquicet/gastos/backend/internal/accounts"
 	"github.com/blanquicet/gastos/backend/internal/households"
 	"github.com/blanquicet/gastos/backend/internal/n8nclient"
 	"github.com/blanquicet/gastos/backend/internal/paymentmethods"
@@ -14,6 +16,7 @@ type service struct {
 	repo              Repository
 	householdsRepo    households.HouseholdRepository
 	paymentMethodRepo paymentmethods.Repository
+	accountsRepo      accounts.Repository
 	n8nClient         *n8nclient.Client
 	logger            *slog.Logger
 }
@@ -23,6 +26,7 @@ func NewService(
 	repo Repository,
 	householdsRepo households.HouseholdRepository,
 	paymentMethodRepo paymentmethods.Repository,
+	accountsRepo accounts.Repository,
 	n8nClient *n8nclient.Client,
 	logger *slog.Logger,
 ) Service {
@@ -30,6 +34,7 @@ func NewService(
 		repo:              repo,
 		householdsRepo:    householdsRepo,
 		paymentMethodRepo: paymentMethodRepo,
+		accountsRepo:      accountsRepo,
 		n8nClient:         n8nClient,
 		logger:            logger,
 	}
@@ -79,6 +84,31 @@ func (s *service) Create(ctx context.Context, userID string, input *CreateMoveme
 		}
 		if pm.HouseholdID != householdID {
 			return nil, ErrNotAuthorized
+		}
+	}
+
+	// Verify receiver account for DEBT_PAYMENT with household member receiver
+	if input.Type == TypeDebtPayment && input.CounterpartyUserID != nil {
+		// Receiver account is required when counterparty is a household member
+		if input.ReceiverAccountID == nil {
+			return nil, errors.New("receiver_account_id is required for debt payment to household member")
+		}
+
+		// Verify account exists and belongs to household
+		account, err := s.accountsRepo.GetByID(ctx, *input.ReceiverAccountID)
+		if err != nil {
+			if errors.Is(err, accounts.ErrAccountNotFound) {
+				return nil, errors.New("receiver account not found")
+			}
+			return nil, err
+		}
+		if account.HouseholdID != householdID {
+			return nil, ErrNotAuthorized
+		}
+
+		// Verify account type can receive income (only savings and cash)
+		if !account.Type.CanReceiveIncome() {
+			return nil, errors.New("receiver account must be of type savings or cash")
 		}
 	}
 
@@ -568,6 +598,43 @@ func (s *service) Update(ctx context.Context, userID, id string, input *UpdateMo
 		}
 		if pm.HouseholdID != householdID {
 			return nil, ErrNotAuthorized
+		}
+	}
+
+	// Validate receiver account if being updated (for DEBT_PAYMENT with household member receiver)
+	// Type cannot be changed during update, so use existing movement type
+	counterpartyUserID := existing.CounterpartyUserID
+	if input.CounterpartyUserID != nil {
+		counterpartyUserID = input.CounterpartyUserID
+	}
+
+	if existing.Type == TypeDebtPayment && counterpartyUserID != nil {
+		// Receiver account is required
+		receiverAccountID := input.ReceiverAccountID
+		if receiverAccountID == nil && existing.ReceiverAccountID != nil {
+			// Keep existing if not being updated
+			receiverAccountID = existing.ReceiverAccountID
+		}
+
+		if receiverAccountID == nil {
+			return nil, errors.New("receiver_account_id is required for debt payment to household member")
+		}
+
+		// Verify account exists and belongs to household
+		account, err := s.accountsRepo.GetByID(ctx, *receiverAccountID)
+		if err != nil {
+			if errors.Is(err, accounts.ErrAccountNotFound) {
+				return nil, errors.New("receiver account not found")
+			}
+			return nil, err
+		}
+		if account.HouseholdID != householdID {
+			return nil, ErrNotAuthorized
+		}
+
+		// Verify account type can receive income (only savings and cash)
+		if !account.Type.CanReceiveIncome() {
+			return nil, errors.New("receiver account must be of type savings or cash")
 		}
 	}
 

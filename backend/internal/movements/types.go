@@ -69,9 +69,14 @@ type Movement struct {
 	CounterpartyContactID *string `json:"counterparty_contact_id,omitempty"`
 	CounterpartyName      *string `json:"counterparty_name,omitempty"` // Populated from join
 	
-	// Payment method
+	// Payment method (for payer)
 	PaymentMethodID   *string `json:"payment_method_id,omitempty"`
 	PaymentMethodName *string `json:"payment_method_name,omitempty"` // Populated from join
+	
+	// Receiver account (only for DEBT_PAYMENT when counterparty is a household member)
+	// This represents where the income is received
+	ReceiverAccountID   *string `json:"receiver_account_id,omitempty"`
+	ReceiverAccountName *string `json:"receiver_account_name,omitempty"` // Populated from join
 	
 	// Participants (only for SPLIT)
 	Participants []Participant `json:"participants,omitempty"`
@@ -110,6 +115,10 @@ type CreateMovementInput struct {
 	
 	// Payment method (required for HOUSEHOLD, conditional for others)
 	PaymentMethodID *string `json:"payment_method_id,omitempty"`
+	
+	// Receiver account (optional for DEBT_PAYMENT when counterparty is a household member)
+	// Income is received in this account
+	ReceiverAccountID *string `json:"receiver_account_id,omitempty"`
 	
 	// Participants (required only for SPLIT)
 	Participants []ParticipantInput `json:"participants,omitempty"`
@@ -233,6 +242,7 @@ type UpdateMovementInput struct {
 	Category        *string             `json:"category,omitempty"`
 	MovementDate    *time.Time          `json:"movement_date,omitempty"`
 	PaymentMethodID *string             `json:"payment_method_id,omitempty"`
+	ReceiverAccountID *string           `json:"receiver_account_id,omitempty"`
 	Participants    *[]ParticipantInput `json:"participants,omitempty"`
 	
 	// Payer (can be updated)
