@@ -1821,12 +1821,16 @@ function renderChronologicalMovements() {
     new Date(b.movement_date) - new Date(a.movement_date)
   );
 
-  const movementsHtml = sortedMovements.map(movement => `
+  const movementsHtml = sortedMovements.map(movement => {
+    const description = movement.description || 'Sin descripción';
+    const categoryName = movement.category_name || movement.category || 'Sin categoría';
+    
+    return `
     <div class="chronological-movement-card">
       <div class="movement-main-info">
         <div class="movement-left">
-          <div class="movement-description">${movement.description || 'Sin descripción'}</div>
-          <div class="movement-category-name">${movement.category_name || movement.category || 'Sin categoría'}</div>
+          <div class="movement-description" title="${description}">${description}</div>
+          <div class="movement-category-name" title="${categoryName}">${categoryName}</div>
           <div class="movement-amount">${formatCurrency(movement.amount)}</div>
           <div class="movement-date">${formatDate(movement.movement_date)}</div>
         </div>
@@ -1845,7 +1849,8 @@ function renderChronologicalMovements() {
         </div>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 
   return `
     <!-- Filter loading overlay -->

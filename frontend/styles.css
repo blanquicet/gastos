@@ -3131,9 +3131,14 @@ button.loading::after {
   font-weight: 600;
   color: #111827;
   margin-bottom: 4px;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
+  word-break: break-word;
+  position: relative;
+  cursor: help;
 }
 
 .movement-category-name {
@@ -3141,6 +3146,10 @@ button.loading::after {
   font-weight: 500;
   color: #6b7280;
   margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: help;
 }
 
 .movement-amount {
@@ -3159,6 +3168,36 @@ button.loading::after {
   display: flex;
   align-items: center;
   gap: 8px;
+  position: relative;
+}
+
+/* Tooltips for truncated text */
+.movement-description[title]:hover::after,
+.movement-category-name[title]:hover::after {
+  content: attr(title);
+  position: absolute;
+  left: 0;
+  top: 100%;
+  margin-top: 4px;
+  background: rgba(17, 24, 39, 0.95);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: normal;
+  word-break: break-word;
+  max-width: 300px;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  pointer-events: none;
+}
+
+.movement-description[title] {
+  position: relative;
+}
+
+.movement-category-name[title] {
   position: relative;
 }
 
@@ -3231,12 +3270,10 @@ button.loading::after {
     font-size: 16px;
   }
   
-  .movement-category-name {
-    font-size: 13px;
-  }
-  
-  .movement-description {
-    font-size: 15px;
+  /* Disable hover tooltips on mobile (use native title tooltip instead) */
+  .movement-description[title]:hover::after,
+  .movement-category-name[title]:hover::after {
+    display: none;
   }
   
   /* Loans summary mobile */
