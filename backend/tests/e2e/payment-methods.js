@@ -429,6 +429,10 @@ async function testPaymentMethods() {
     await page2.selectOption('select#tomador', 'Test Member PM');
     await page2.waitForTimeout(500);
     
+    // Wait for receiver account field to become visible
+    await page2.locator('#cuentaReceptoraWrap').waitFor({ state: 'visible', timeout: 5000 });
+    await page2.waitForTimeout(200);
+    
     // Select receiver account (required for member-to-member DEBT_PAYMENT)
     await page2.selectOption('select#cuentaReceptora', 'User2 Cash');
     await page2.waitForTimeout(500);

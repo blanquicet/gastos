@@ -323,8 +323,16 @@ async function testMovementPagoDeuda() {
     
     await page1.selectOption('#tomador', 'User Two Debt');
     
-    // Wait for receiver account dropdown to appear (appears when tomador is a member)
-    await page1.waitForTimeout(500);
+    // Trigger change event manually to ensure receiver account field appears
+    await page1.evaluate(() => {
+      const tomadorEl = document.getElementById('tomador');
+      const event = new Event('change', { bubbles: true });
+      tomadorEl.dispatchEvent(event);
+    });
+    
+    // Wait for receiver account dropdown to appear and become visible (appears when tomador is a member)
+    await page1.locator('#cuentaReceptoraWrap').waitFor({ state: 'visible', timeout: 5000 });
+    await page1.waitForTimeout(200);
     
     // Select receiver account
     await page1.selectOption('#cuentaReceptora', 'Cash Test');
