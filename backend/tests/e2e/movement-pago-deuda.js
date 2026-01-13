@@ -258,6 +258,32 @@ async function testMovementPagoDeuda() {
     console.log('✅ Payment method added');
 
     // ==================================================================
+    // STEP 4.5: Add Account for User 2 (receiver)
+    // ==================================================================
+    console.log('📝 Step 4.5: Adding account for User 2 (receiver)...');
+    
+    // User 2 creates an account to receive the debt payment
+    await page2.goto(`${appUrl}/perfil`);
+    await page2.waitForTimeout(2000);
+    
+    await page2.locator('#add-account-btn').waitFor({ state: 'visible', timeout: 10000 });
+    await page2.locator('#add-account-btn').click();
+    await page2.waitForTimeout(500);
+    
+    await page2.locator('#account-name').fill('Cash Test');
+    await page2.selectOption('select#account-type', 'cash');
+    await page2.locator('#account-initial-balance').fill('0');
+    
+    await page2.getByRole('button', { name: 'Agregar', exact: true }).click();
+    await page2.waitForTimeout(1500);
+    
+    // Close modal
+    await page2.keyboard.press('Escape');
+    await page2.waitForTimeout(500);
+    
+    console.log('✅ Account added for User 2');
+
+    // ==================================================================
     // STEP 5: Create DEBT_PAYMENT (Member to Member)
     // ==================================================================
     console.log('📝 Step 5: Creating DEBT_PAYMENT movement (member to member)...');
@@ -300,6 +326,12 @@ async function testMovementPagoDeuda() {
     await page1.waitForTimeout(500);
     
     await page1.selectOption('#tomador', 'User Two Debt');
+    
+    // Wait for receiver account dropdown to appear (appears when tomador is a member)
+    await page1.waitForTimeout(500);
+    
+    // Select receiver account
+    await page1.selectOption('#cuentaReceptora', 'Cash Test');
     
     // Category is NOT required for LOAN type (neither LEND nor REPAY)
     // Submit form and confirm modal
