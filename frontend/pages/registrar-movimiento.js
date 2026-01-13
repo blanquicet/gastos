@@ -1302,6 +1302,11 @@ function renderParticipants() {
       pctInput.inputMode = 'decimal';
       const value = ((p.pct / 100) * totalValue);
       pctInput.value = formatNumber(value);
+      
+      // Initialize amount in participant if not already set
+      if (p.amount == null) {
+        participants[idx].amount = value;
+      }
 
       pctInput.addEventListener('input', (e) => {
         // Filtrar caracteres no numéricos (permitir solo dígitos, punto y comas)
@@ -1317,8 +1322,10 @@ function renderParticipants() {
         const v = parseNumber(e.target.value);
         if (Number.isFinite(v) && totalValue > 0) {
           participants[idx].pct = (v / totalValue) * 100;
+          participants[idx].amount = v; // Store exact amount entered
         } else {
           participants[idx].pct = 0;
+          participants[idx].amount = 0;
         }
         validatePctSum();
       });
@@ -1348,6 +1355,7 @@ function renderParticipants() {
       pctInput.addEventListener('input', () => {
         const v = Number(pctInput.value);
         participants[idx].pct = Number.isFinite(v) ? v : 0;
+        delete participants[idx].amount; // Clear amount when using percentages
         validatePctSum();
       });
     }
@@ -1641,11 +1649,18 @@ function readForm() {
     } 
     // For regular SPLIT: use participants array
     else if (participants.length > 0) {
+      const showAsValue = document.getElementById('showAsValue')?.checked || false;
+      
       payload.participants = participants.map(p => {
         const participantUser = usersMap[p.name];
         const participant = {
           percentage: Number(p.pct || 0) / 100
         };
+        
+        // If user entered exact amounts, use the stored amount for precision
+        if (showAsValue && p.amount != null && p.amount > 0) {
+          participant.amount = p.amount;
+        }
         
         if (participantUser) {
           if (participantUser.type === 'member') {
@@ -1786,14 +1801,30 @@ async function loadMovementForEdit(movementId) {
         // Clear current participants
         participants = [];
         
+        // Check if any participant has an amount field set (meaning values were entered, not percentages)
+        const hasAmounts = movement.participants.some(p => p.amount != null);
+        
         // Load participants from movement
         movement.participants.forEach(p => {
           const userName = p.participant_name;
-          const percentage = (p.percentage * 100).toFixed(2); // Convert 0.0-1.0 to 0-100 with 2 decimals
+          // If amount is set, use it to calculate percentage with full precision
+          // Otherwise use the stored percentage
+          let percentage;
+          let amount = null;
+          
+          if (p.amount != null && movement.amount > 0) {
+            // Calculate percentage from exact amount
+            percentage = ((p.amount / movement.amount) * 100).toFixed(6);
+            amount = p.amount; // Store the exact amount
+          } else {
+            // Use stored percentage
+            percentage = (p.percentage * 100).toFixed(6); // Convert 0.0-1.0 to 0-100 with 6 decimals for precision
+          }
           
           participants.push({
             name: userName,
-            pct: percentage
+            pct: percentage,
+            amount: amount // Include amount if it was stored
           });
         });
         
@@ -1813,6 +1844,12 @@ async function loadMovementForEdit(movementId) {
         const equitableEl = document.getElementById('equitable');
         if (equitableEl) {
           equitableEl.checked = isEquitable;
+        }
+        
+        // Set "Mostrar como valor" checkbox if amounts were stored
+        const showAsValueEl = document.getElementById('showAsValue');
+        if (showAsValueEl && hasAmounts) {
+          showAsValueEl.checked = true;
         }
       }
     }

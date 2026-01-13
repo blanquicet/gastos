@@ -76,10 +76,10 @@ func (r *repository) Create(ctx context.Context, input *CreateMovementInput, hou
 		for _, p := range input.Participants {
 			_, err := tx.Exec(ctx, `
 				INSERT INTO movement_participants (
-					movement_id, participant_user_id, participant_contact_id, percentage
+					movement_id, participant_user_id, participant_contact_id, percentage, amount
 				)
-				VALUES ($1, $2, $3, $4)
-			`, movement.ID, p.ParticipantUserID, p.ParticipantContactID, p.Percentage)
+				VALUES ($1, $2, $3, $4, $5)
+			`, movement.ID, p.ParticipantUserID, p.ParticipantContactID, p.Percentage, p.Amount)
 			if err != nil {
 				return nil, err
 			}
@@ -182,7 +182,7 @@ func (r *repository) getParticipants(ctx context.Context, movementID string) ([]
 		SELECT 
 			mp.id, mp.movement_id,
 			mp.participant_user_id, mp.participant_contact_id,
-			mp.percentage, mp.created_at,
+			mp.percentage, mp.amount, mp.created_at,
 			COALESCE(u.name, c.name) as participant_name
 		FROM movement_participants mp
 		LEFT JOIN users u ON mp.participant_user_id = u.id
@@ -206,6 +206,7 @@ func (r *repository) getParticipants(ctx context.Context, movementID string) ([]
 			&p.ParticipantUserID,
 			&p.ParticipantContactID,
 			&p.Percentage,
+			&p.Amount,
 			&p.CreatedAt,
 			&p.ParticipantName,
 		)
@@ -595,10 +596,10 @@ func (r *repository) Update(ctx context.Context, id string, input *UpdateMovemen
 		for _, p := range *input.Participants {
 			query := `
 				INSERT INTO movement_participants (
-					movement_id, participant_user_id, participant_contact_id, percentage
-				) VALUES ($1, $2, $3, $4)
+					movement_id, participant_user_id, participant_contact_id, percentage, amount
+				) VALUES ($1, $2, $3, $4, $5)
 			`
-			_, err = tx.Exec(ctx, query, id, p.ParticipantUserID, p.ParticipantContactID, p.Percentage)
+			_, err = tx.Exec(ctx, query, id, p.ParticipantUserID, p.ParticipantContactID, p.Percentage, p.Amount)
 			if err != nil {
 				return nil, err
 			}

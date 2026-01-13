@@ -68,11 +68,14 @@ async function testMovementCompartido() {
     const context = await browser.newContext();
     const page = await context.newPage();
     
-    // Listen for console errors
+    // Listen for console messages
     const consoleErrors = [];
+    const consoleLogs = [];
     page.on('console', msg => {
       if (msg.type() === 'error') {
         consoleErrors.push(msg.text());
+      } else if (msg.type() === 'log') {
+        consoleLogs.push(msg.text());
       }
     });
     
@@ -494,11 +497,137 @@ async function testMovementCompartido() {
     console.log('   Amount shown:', amountText, '(user\'s 50% portion)');
 
     // ==================================================================
-    // NOTE: Steps 9-10 (Edit and verify updated amount) are commented out
-    // The edit form for SPLIT movements uses complex dynamic selectors that
-    // would require more investigation to properly test. The core functionality
-    // (SPLIT movements appearing in Gastos view with correct amounts) is verified.
+    // STEP 9: Test Exact Amount Preservation (Values instead of Percentages)
     // ==================================================================
+    console.log('📝 Step 9: Testing exact amount preservation with values...');
+    
+    // Clear console logs to capture only this step
+    consoleLogs.length = 0;
+    
+    await page.goto(`${appUrl}/registrar-movimiento`, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(2000);
+    
+    // Select SPLIT type
+    await page.locator('button[data-tipo="SPLIT"]').click();
+    await page.waitForTimeout(500);
+    
+    // Fill form with exact values from the reported issue
+    await page.locator('#descripcion').fill('Test percentage precision');
+    await page.locator('#valor').fill('720000');
+    await page.selectOption('#categoria', 'Mercado');
+    await page.selectOption('#pagadorCompartido', 'Test User Split');
+    await page.waitForTimeout(500);
+    await page.selectOption('#metodo', 'Efectivo Test');
+    
+    // Add participant (María)
+    await page.locator('#addParticipantBtn').click();
+    await page.waitForTimeout(500);
+    
+    const participantSelects4 = await page.locator('#participantsList select').all();
+    if (participantSelects4.length >= 2) {
+      await participantSelects4[1].selectOption('María External');
+      await page.waitForTimeout(500);
+    }
+    
+    // Uncheck equitable to use custom values
+    await page.locator('#equitable').uncheck();
+    await page.waitForTimeout(500);
+    
+    // Enable "Mostrar como valor" to enter exact COP amounts
+    await page.locator('#showAsValue').check();
+    await page.waitForTimeout(500);
+    
+    // Enter exact amounts: Test User Split = 620,000, María = 100,000
+    // These should add up to 720,000 (total)
+    const amountInputs = await page.locator('#participantsList input[type="text"]').all();
+    if (amountInputs.length >= 2) {
+      // First participant (Test User Split) - need to clear and fill with Spanish format
+      await amountInputs[0].click();
+      await amountInputs[0].press('Control+A');
+      await amountInputs[0].fill('620000');
+      await amountInputs[0].blur();
+      await page.waitForTimeout(300);
+      
+      // Second participant (María) 
+      await amountInputs[1].click();
+      await amountInputs[1].press('Control+A');
+      await amountInputs[1].fill('100000');
+      await amountInputs[1].blur();
+      await page.waitForTimeout(300);
+    }
+    
+    // Submit form and confirm modal
+    await submitFormAndConfirm(page);
+    
+    // Wait for navigation back to home
+    await page.waitForURL('**/', { timeout: 5000 });
+    await page.waitForTimeout(1000);
+    
+    console.log('✅ Exact amount movement created');
+    
+    // Print console logs to see the payload
+    const payloadLog = consoleLogs.find(log => log.includes('Creating movement with payload'));
+    if (payloadLog) {
+      console.log('   Frontend payload:', payloadLog);
+    }
+    
+    // Verify amounts are stored correctly in database with amount field
+    const movement3Result = await pool.query(
+      'SELECT id, amount FROM movements WHERE household_id = $1 AND description = $2',
+      [householdId, 'Test percentage precision']
+    );
+    
+    const movement3 = movement3Result.rows[0];
+    const participants3Result = await pool.query(
+      `SELECT mp.percentage, mp.amount, 
+              mp.participant_user_id, mp.participant_contact_id,
+              COALESCE(u.name, c.name) as participant_name
+       FROM movement_participants mp
+       LEFT JOIN users u ON mp.participant_user_id = u.id
+       LEFT JOIN contacts c ON mp.participant_contact_id = c.id
+       WHERE mp.movement_id = $1
+       ORDER BY mp.amount DESC NULLS LAST, mp.percentage DESC`,
+      [movement3.id]
+    );
+    
+    console.log('   Movement amount:', movement3.amount);
+    console.log('   Participants:');
+    participants3Result.rows.forEach(p => {
+      console.log(`     - ${p.participant_name}: percentage=${p.percentage}, amount=${p.amount}`);
+    });
+    
+    // Find Test User Split and María participants
+    const testUserPart = participants3Result.rows.find(p => p.participant_name === 'Test User Split');
+    const mariaPart = participants3Result.rows.find(p => p.participant_name === 'María External');
+    
+    if (!testUserPart || !mariaPart) {
+      throw new Error('Could not find both participants in database');
+    }
+    
+    // Verify the amount field is set (not null)
+    if (testUserPart.amount === null || mariaPart.amount === null) {
+      throw new Error('Amount field should be set when entering values (not null)');
+    }
+    
+    // Verify exact amounts are stored
+    if (Math.abs(testUserPart.amount - 620000) > 0.01) {
+      throw new Error(`Expected Test User amount to be 620000, got ${testUserPart.amount}`);
+    }
+    
+    if (Math.abs(mariaPart.amount - 100000) > 0.01) {
+      throw new Error(`Expected María amount to be 100000, got ${mariaPart.amount}`);
+    }
+    
+    console.log('✅ Exact amounts stored in database');
+    console.log('   Test User Split: 620,000.00 ✓');
+    console.log('   María External: 100,000.00 ✓');
+    console.log('   Total: 720,000.00 ✓');
+    console.log('');
+    console.log('   ✅ PRECISION FIX VERIFIED:');
+    console.log('   - Frontend sends exact amounts when "Mostrar como valor" is checked');
+    console.log('   - Backend correctly stores amounts in database');
+    console.log('   - No precision loss (0 COP error instead of 8 COP)');
+    console.log('   - Amounts preserved with full precision in database');
 
     // ==================================================================
     // Cleanup

@@ -93,6 +93,7 @@ type Participant struct {
 	ParticipantContactID *string   `json:"participant_contact_id,omitempty"`
 	ParticipantName      string    `json:"participant_name"` // Populated from join
 	Percentage           float64   `json:"percentage"` // 0.0 to 1.0
+	Amount               *float64  `json:"amount,omitempty"` // Exact amount (optional, source of truth when set)
 	CreatedAt            time.Time `json:"created_at"`
 }
 
@@ -126,9 +127,10 @@ type CreateMovementInput struct {
 
 // ParticipantInput represents input for a participant
 type ParticipantInput struct {
-	ParticipantUserID    *string `json:"participant_user_id,omitempty"`
-	ParticipantContactID *string `json:"participant_contact_id,omitempty"`
-	Percentage           float64 `json:"percentage"` // 0.0 to 1.0
+	ParticipantUserID    *string  `json:"participant_user_id,omitempty"`
+	ParticipantContactID *string  `json:"participant_contact_id,omitempty"`
+	Percentage           float64  `json:"percentage"` // 0.0 to 1.0
+	Amount               *float64 `json:"amount,omitempty"` // Exact amount (optional, takes precedence over percentage)
 }
 
 // Validate validates the create movement input

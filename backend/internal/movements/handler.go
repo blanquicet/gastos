@@ -398,9 +398,10 @@ type CreateMovementRequest struct {
 
 // ParticipantRequestItem represents a participant in the HTTP request
 type ParticipantRequestItem struct {
-	ParticipantUserID    *string `json:"participant_user_id,omitempty"`
-	ParticipantContactID *string `json:"participant_contact_id,omitempty"`
-	Percentage           float64 `json:"percentage"`
+	ParticipantUserID    *string  `json:"participant_user_id,omitempty"`
+	ParticipantContactID *string  `json:"participant_contact_id,omitempty"`
+	Percentage           float64  `json:"percentage"`
+	Amount               *float64 `json:"amount,omitempty"`
 }
 
 // ToInput converts CreateMovementRequest to CreateMovementInput
@@ -433,6 +434,7 @@ func (r *CreateMovementRequest) ToInput() (*CreateMovementInput, error) {
 				ParticipantUserID:    p.ParticipantUserID,
 				ParticipantContactID: p.ParticipantContactID,
 				Percentage:           p.Percentage,
+				Amount:               p.Amount,
 			}
 		}
 	}
