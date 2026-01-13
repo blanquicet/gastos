@@ -3148,12 +3148,18 @@ button.loading::after {
   color: #9ca3af;
 }
 
-.movement-right {
+.movement-right-container {
   text-align: right;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 4px;
+  gap: 8px;
+}
+
+.movement-right-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .movement-amount {
@@ -3231,16 +3237,16 @@ button.loading::after {
   }
   
   .movement-main-info {
-    flex-direction: column;
     align-items: flex-start;
     gap: 12px;
   }
   
-  .movement-right {
+  .movement-right-container {
+    align-items: flex-end;
+  }
+  
+  .movement-right-actions {
     align-items: center;
-    width: 100%;
-    flex-direction: row;
-    justify-content: flex-end;
     gap: 8px;
   }
   
@@ -3254,7 +3260,6 @@ button.loading::after {
   
   .movement-amount {
     font-size: 16px;
-    margin-right: auto;
   }
   
   .movement-category-name {
