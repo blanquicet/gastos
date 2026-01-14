@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/blanquicet/gastos/backend/internal/accounts"
+	"github.com/blanquicet/gastos/backend/internal/audit"
 	"github.com/blanquicet/gastos/backend/internal/auth"
 	"github.com/blanquicet/gastos/backend/internal/budgets"
 	"github.com/blanquicet/gastos/backend/internal/categories"
@@ -72,6 +73,10 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 	sessionRepo := sessions.NewRepository(pool)
 	passwordResetRepo := users.NewPasswordResetRepository(pool)
 	householdRepo := households.NewRepository(pool)
+	
+	// Create audit log repository and service (needs to be early for other services)
+	auditRepo := audit.NewRepository(pool)
+	auditService := audit.NewService(auditRepo, logger)
 
 	// Create auth service
 	authService := auth.NewService(
@@ -211,6 +216,9 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 		cfg.SessionCookieName,
 		logger,
 	)
+	
+	// Create audit log handler
+	auditHandler := audit.NewHandler(auditService, logger)
 
 	// Create rate limiters for auth endpoints (if enabled)
 	// Login/Register: 5 requests per minute per IP (strict to prevent brute force)
@@ -322,6 +330,11 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 
 	// Category groups endpoints
 	mux.HandleFunc("GET /category-groups", categoryGroupsHandler.ListCategoryGroups)
+	
+	// Admin audit log endpoints (TODO: add admin-only middleware)
+	mux.HandleFunc("GET /admin/audit-logs", auditHandler.ListAuditLogs)
+	mux.HandleFunc("GET /admin/audit-logs/{id}", auditHandler.GetAuditLog)
+	mux.HandleFunc("POST /admin/audit-logs/cleanup", auditHandler.RunCleanup)
 
 	// Serve static files in development mode with SPA fallback
 	if cfg.StaticDir != "" {
