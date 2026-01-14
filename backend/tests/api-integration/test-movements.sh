@@ -123,6 +123,12 @@ PM_ID=$(echo "$CREATE_PM" | jq -r '.id')
 [ "$PM_ID" != "null" ] && [ -n "$PM_ID" ]
 echo -e "${GREEN}✓ Created payment method: $PM_ID${NC}\n"
 
+run_test "Create Jose's Savings Account (for receiving debt payments)"
+# Manually create account using direct DB insert since there's no accounts API yet
+JOSE_ACCOUNT_ID=$(docker compose exec -T postgres psql -U gastos -d gastos -t -c "INSERT INTO accounts (household_id, owner_id, name, type, initial_balance) VALUES ('$HOUSEHOLD_ID', '$JOSE_ID', 'Cuenta Jose', 'savings', 0) RETURNING id;" 2>/dev/null | tr -d ' ' | grep -v '^$' | head -1)
+[ "$JOSE_ACCOUNT_ID" != "" ] && [ -n "$JOSE_ACCOUNT_ID" ]
+echo -e "${GREEN}✓ Created Jose's account: $JOSE_ACCOUNT_ID${NC}\n"
+
 run_test "Create Credit Card"
 CREATE_CC=$(api_call $CURL_FLAGS -X POST $BASE_URL/payment-methods \
   -b $COOKIES_FILE \
@@ -323,23 +329,23 @@ DEBT_NO_COUNTERPARTY=$(curl $CURL_FLAGS -w "%{http_code}" -o /dev/null -X POST $
 [ "$DEBT_NO_COUNTERPARTY" = "400" ]
 echo -e "${GREEN}✓ Rejected DEBT_PAYMENT without counterparty${NC}\n"
 
-# Commenting out external payer test - requires accounts API not yet implemented
-# run_test "[DEBT_PAYMENT] External payer (contact pays Jose)"
-# CREATE_DEBT_EXTERNAL=$(api_call $CURL_FLAGS -X POST $BASE_URL/movements \
-#   -b $COOKIES_FILE \
-#   -H "Content-Type: application/json" \
-#   -d "{
-#     \"type\":\"DEBT_PAYMENT\",
-#     \"description\":\"Maria me paga\",
-#     \"amount\":40000,
-#     \"movement_date\":\"2026-01-19\",
-#     \"payer_contact_id\":\"$CONTACT_ID\",
-#     \"counterparty_user_id\":\"$JOSE_ID\",
-#     \"receiver_account_id\":\"$ACCOUNT_ID\"
-#   }")
-# echo "$CREATE_DEBT_EXTERNAL" | jq -e '.type == "DEBT_PAYMENT"' > /dev/null
-# echo "$CREATE_DEBT_EXTERNAL" | jq -e '.payer_name' > /dev/null
-# echo -e "${GREEN}✓ Created DEBT_PAYMENT with external payer${NC}\n"
+run_test "[DEBT_PAYMENT] External payer (contact pays Jose)"
+CREATE_DEBT_EXTERNAL=$(api_call $CURL_FLAGS -X POST $BASE_URL/movements \
+  -b $COOKIES_FILE \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"type\":\"DEBT_PAYMENT\",
+    \"description\":\"Maria me paga\",
+    \"amount\":40000,
+    \"movement_date\":\"2026-01-19\",
+    \"payer_contact_id\":\"$CONTACT_ID\",
+    \"counterparty_user_id\":\"$JOSE_ID\",
+    \"receiver_account_id\":\"$JOSE_ACCOUNT_ID\"
+  }")
+echo "$CREATE_DEBT_EXTERNAL" | jq -e '.type == "DEBT_PAYMENT"' > /dev/null
+echo "$CREATE_DEBT_EXTERNAL" | jq -e '.payer_name' > /dev/null
+echo "$CREATE_DEBT_EXTERNAL" | jq -e '.receiver_account_id != null' > /dev/null
+echo -e "${GREEN}✓ Created DEBT_PAYMENT with external payer and receiver account${NC}\n"
 
 # ═══════════════════════════════════════════════════════════
 # LIST, GET, UPDATE, DELETE
@@ -348,7 +354,7 @@ echo -e "${GREEN}✓ Rejected DEBT_PAYMENT without counterparty${NC}\n"
 run_test "List all movements"
 LIST_MOVEMENTS=$(api_call $CURL_FLAGS -X GET $BASE_URL/movements -b $COOKIES_FILE)
 MOVEMENT_COUNT=$(echo "$LIST_MOVEMENTS" | jq '.movements | length')
-[ "$MOVEMENT_COUNT" -ge "4" ]  # We have 4 movements (1 HOUSEHOLD + 2 SPLIT + 1 DEBT_PAYMENT)
+[ "$MOVEMENT_COUNT" -ge "5" ]  # We have 5 movements (1 HOUSEHOLD + 2 SPLIT + 2 DEBT_PAYMENT)
 echo "$LIST_MOVEMENTS" | jq -e '.totals.total_amount' > /dev/null
 echo "$LIST_MOVEMENTS" | jq -e '.totals.by_type' > /dev/null
 echo -e "${GREEN}✓ Listed $MOVEMENT_COUNT movements with totals${NC}\n"
@@ -362,7 +368,7 @@ echo -e "${GREEN}✓ Filtered by type: $HOUSEHOLD_COUNT HOUSEHOLD movements${NC}
 run_test "Filter by month"
 LIST_MONTH=$(api_call $CURL_FLAGS -X GET "$BASE_URL/movements?month=2026-01" -b $COOKIES_FILE)
 MONTH_COUNT=$(echo "$LIST_MONTH" | jq '.movements | length')
-[ "$MONTH_COUNT" -ge "4" ]  # We have 4 movements
+[ "$MONTH_COUNT" -ge "5" ]  # We have 5 movements
 echo -e "${GREEN}✓ Filtered by month: $MONTH_COUNT movements${NC}\n"
 
 run_test "Get movement by ID"
@@ -506,9 +512,9 @@ echo -e "${GREEN}✓ Rejected unauthorized access${NC}\n"
 run_test "Verify all created movements exist in list"
 FINAL_LIST=$(api_call $CURL_FLAGS -X GET $BASE_URL/movements -b $COOKIES_FILE)
 FINAL_COUNT=$(echo "$FINAL_LIST" | jq '.movements | length')
-# Created: 1 HOUSEHOLD + 2 SPLIT + 1 DEBT_PAYMENT = 4, deleted 1 = 3 remaining
-[ "$FINAL_COUNT" = "3" ]
-echo -e "${GREEN}✓ Confirmed 3 movements in database (4 created - 1 deleted)${NC}\n"
+# Created: 1 HOUSEHOLD + 2 SPLIT + 2 DEBT_PAYMENT = 5, deleted 1 = 4 remaining
+[ "$FINAL_COUNT" = "4" ]
+echo -e "${GREEN}✓ Confirmed 4 movements in database (5 created - 1 deleted)${NC}\n"
 
 run_test "Verify SPLIT movements have participants with correct percentages"
 # Get the custom SPLIT movement (30/70)
@@ -532,22 +538,18 @@ echo -e "${GREEN}✓ HOUSEHOLD movements have no participants${NC}\n"
 run_test "Verify DEBT_PAYMENT movements have counterparty info"
 DEBT_LIST=$(api_call $CURL_FLAGS -X GET "$BASE_URL/movements?type=DEBT_PAYMENT" -b $COOKIES_FILE)
 DEBT_COUNT=$(echo "$DEBT_LIST" | jq '.movements | length')
-[ "$DEBT_COUNT" -ge "0" ]  # We only have 1 debt payment now (deleted 1)
-if [ "$DEBT_COUNT" -gt "0" ]; then
-  # Verify they have counterparty names
-  echo "$DEBT_LIST" | jq -e '.movements[0].counterparty_name != null' > /dev/null
-  echo -e "${GREEN}✓ DEBT_PAYMENT movements have counterparty information${NC}\n"
-else
-  echo -e "${GREEN}✓ DEBT_PAYMENT movements check skipped (none remaining)${NC}\n"
-fi
+[ "$DEBT_COUNT" = "1" ]  # Created 2, deleted 1 = 1 remaining
+# Verify they have counterparty names
+echo "$DEBT_LIST" | jq -e '.movements[0].counterparty_name != null' > /dev/null
+echo "$DEBT_LIST" | jq -e '.movements[0].receiver_account_id != null' > /dev/null
+echo -e "${GREEN}✓ DEBT_PAYMENT movements have counterparty and receiver account${NC}\n"
 
 run_test "Verify totals calculation is correct"
 TOTAL_AMOUNT=$(echo "$FINAL_LIST" | jq '.totals.total_amount')
-# HOUSEHOLD (280000 after update) + SPLIT (120000) + SPLIT (100000) = 500000
-[ "$TOTAL_AMOUNT" = "500000" ]
+# HOUSEHOLD (280000 after update) + SPLIT (120000) + SPLIT (100000) + DEBT_PAYMENT (40000) = 540000
+[ "$TOTAL_AMOUNT" = "540000" ]
 BY_TYPE_COUNT=$(echo "$FINAL_LIST" | jq '.totals.by_type | length')
 [ "$BY_TYPE_COUNT" -ge "1" ]  # At least one type has totals
-echo -e "${GREEN}✓ Totals calculated correctly: $TOTAL_AMOUNT COP${NC}\n"
 echo -e "${GREEN}✓ Totals calculated correctly: $TOTAL_AMOUNT COP${NC}\n"
 
 run_test "Verify participant names are enriched (not just IDs)"
