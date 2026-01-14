@@ -2933,6 +2933,42 @@ button.loading::after {
   transform: rotate(90deg);
 }
 
+/* Budget Indicator */
+.budget-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  margin-right: 12px;
+  min-width: 140px;
+}
+
+.budget-text {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.budget-bar {
+  width: 100%;
+  height: 6px;
+  background-color: #e5e7eb;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.budget-bar-fill {
+  height: 100%;
+  transition: width 0.3s ease;
+  border-radius: 3px;
+}
+
+.budget-percentage {
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .expense-group-details {
   margin-top: 16px;
   padding-top: 16px;
@@ -3092,6 +3128,16 @@ button.loading::after {
   font-weight: 600;
   color: #9ca3af;
   flex-shrink: 0;
+}
+
+.category-chevron {
+  color: #9ca3af;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.category-chevron.rotated {
+  transform: rotate(90deg);
 }
 
 .expense-category-details {
@@ -3254,6 +3300,24 @@ button.loading::after {
   
   .expense-group-amount {
     font-size: 14px;
+  }
+  
+  /* Budget indicator mobile */
+  .budget-indicator {
+    min-width: 100px;
+    margin-right: 8px;
+  }
+  
+  .budget-text {
+    font-size: 10px;
+  }
+  
+  .budget-bar {
+    height: 5px;
+  }
+  
+  .budget-percentage {
+    font-size: 11px;
   }
   
   /* Loan cards mobile */

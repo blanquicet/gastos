@@ -1212,12 +1212,15 @@ async function loadIncomeData() {
  */
 async function loadMovementsData() {
   try {
-    // Load both HOUSEHOLD and SPLIT movements
-    const [householdResponse, splitResponse] = await Promise.all([
+    // Load both HOUSEHOLD and SPLIT movements, plus budgets
+    const [householdResponse, splitResponse, budgetsResponse] = await Promise.all([
       fetch(`${API_URL}/movements?type=HOUSEHOLD&month=${currentMonth}`, {
         credentials: 'include'
       }),
       fetch(`${API_URL}/movements?type=SPLIT&month=${currentMonth}`, {
+        credentials: 'include'
+      }),
+      fetch(`${API_URL}/budgets/${currentMonth}`, {
         credentials: 'include'
       })
     ]);
@@ -1226,6 +1229,17 @@ async function loadMovementsData() {
       console.error('Error loading movements data');
       movementsData = null;
       return;
+    }
+
+    // Load budgets (optional - don't fail if not available)
+    if (budgetsResponse.ok) {
+      budgetsData = await budgetsResponse.json();
+    } else if (budgetsResponse.status === 404) {
+      // No budgets for this month yet
+      budgetsData = { month: currentMonth, budgets: [], totals: { total_budget: 0, total_spent: 0, percentage: 0 } };
+    } else {
+      console.error('Error loading budgets data');
+      budgetsData = null;
     }
 
     const householdData = await householdResponse.json();
@@ -1707,6 +1721,39 @@ function renderMovementCategories() {
             const simplifiedName = getSimplifiedCategoryName(category, groupName);
             const safeCategoryId = category.replace(/[^a-zA-Z0-9]/g, '_');
             
+            // Calculate category budget from budgetsData
+            let categoryBudget = 0;
+            let hasCategoryBudget = false;
+            if (budgetsData && budgetsData.budgets) {
+              const budgetItem = budgetsData.budgets.find(b => b.category_name === category && b.amount > 0);
+              if (budgetItem) {
+                categoryBudget = budgetItem.amount;
+                hasCategoryBudget = true;
+              }
+            }
+
+            // Calculate budget indicator for category
+            let categoryBudgetIndicator = '';
+            if (hasCategoryBudget) {
+              const budgetPercentage = ((categoryData.total / categoryBudget) * 100).toFixed(0);
+              let budgetColor = '#10b981'; // Green - under budget
+              if (budgetPercentage >= 100) {
+                budgetColor = '#ef4444'; // Red - exceeded
+              } else if (budgetPercentage >= 80) {
+                budgetColor = '#f59e0b'; // Yellow - on track
+              }
+              
+              categoryBudgetIndicator = `
+                <div class="budget-indicator">
+                  <div class="budget-text">${formatCurrency(categoryData.total)} / ${formatCurrency(categoryBudget)}</div>
+                  <div class="budget-bar">
+                    <div class="budget-bar-fill" style="width: ${Math.min(budgetPercentage, 100)}%; background-color: ${budgetColor};"></div>
+                  </div>
+                  <div class="budget-percentage" style="color: ${budgetColor};">${budgetPercentage}%</div>
+                </div>
+              `;
+            }
+            
             // Sort movements by date (most recent first)
             const sortedMovements = categoryData.movements.sort((a, b) => 
               new Date(b.movement_date) - new Date(a.movement_date)
@@ -1719,6 +1766,10 @@ function renderMovementCategories() {
                     <span class="expense-category-name">${simplifiedName}</span>
                     <span class="expense-category-amount">${formatCurrency(categoryData.total)}</span>
                   </div>
+                  ${categoryBudgetIndicator}
+                  <svg class="category-chevron" width="16" height="16" viewBox="0 0 20 20" fill="none">
+                    <path d="M7.5 5L12.5 10L7.5 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
                 </div>
                 <div class="expense-category-details hidden" id="category-details-${safeCategoryId}">
                   ${sortedMovements.map(movement => `
@@ -2041,8 +2092,12 @@ function setupCategoryListeners() {
       if (category) {
         const safeId = category.replace(/[^a-zA-Z0-9]/g, '_');
         const details = document.getElementById(`category-details-${safeId}`);
+        const chevron = item.querySelector('.category-chevron');
         if (details) {
           details.classList.toggle('hidden');
+          if (chevron) {
+            chevron.classList.toggle('rotated');
+          }
         }
       }
     });
