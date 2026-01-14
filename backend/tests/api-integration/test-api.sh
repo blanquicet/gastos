@@ -706,6 +706,7 @@ AUTH_REGISTER_COUNT=$(echo "$AUTH_REGISTER_COUNT" | xargs)
 echo -e "${GREEN}✓ Found $AUTH_REGISTER_COUNT audit log(s) for Jose's login${NC}\n"
 
 run_test "Verify audit logs for household creation"
+sleep 5  # Wait for async audit log (increased for CI/loaded systems)
 HOUSEHOLD_AUDIT_COUNT=$(PAGER=cat psql $DATABASE_URL -t -c "
   SELECT COUNT(*) 
   FROM audit_logs 
