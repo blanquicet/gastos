@@ -1471,10 +1471,22 @@ async function copyBudgetsFromPrevMonth() {
       try {
         const error = await response.json();
         errorMessage = error.error || error.message || errorMessage;
+        
+        // Make specific errors more user-friendly
+        if (errorMessage.includes('already exist')) {
+          errorMessage = 'Ya existen presupuestos para este mes. Elimínalos primero si quieres copiarlos de nuevo.';
+        } else if (errorMessage.includes('must be after')) {
+          errorMessage = 'No se pueden copiar presupuestos: el mes destino debe ser posterior al mes origen.';
+        }
       } catch (e) {
         // If response is not JSON, try to get text
         try {
-          errorMessage = await response.text();
+          const text = await response.text();
+          if (text.includes('already exist')) {
+            errorMessage = 'Ya existen presupuestos para este mes. Elimínalos primero si quieres copiarlos de nuevo.';
+          } else {
+            errorMessage = text || errorMessage;
+          }
         } catch (textError) {
           // Use default message
         }
