@@ -6,6 +6,7 @@ set -e  # Exit on any error
 set -o pipefail  # Exit on pipe failure
 
 BASE_URL="${API_BASE_URL:-http://localhost:8080}"
+DATABASE_URL="${DATABASE_URL:-postgres://gastos:gastos_dev_password@localhost:5432/gastos?sslmode=disable}"
 COOKIES_FILE="/tmp/gastos-movements-test-cookies.txt"
 JOSE_EMAIL="jose+movements$(date +%s%N)@test.com"
 CARO_EMAIL="caro+movements$(date +%s%N)@test.com"
@@ -579,6 +580,95 @@ JAN_DEBTS_COUNT=$(echo "$DEBTS_JAN" | jq '.balances | length')
 echo -e "${GREEN}✓ Month filter works: $JAN_DEBTS_COUNT balance(s) in 2026-01${NC}\n"
 
 # ═══════════════════════════════════════════════════════════
+# AUDIT LOGGING VERIFICATION
+# ═══════════════════════════════════════════════════════════
+
+run_test "Verify audit log created for movement creation"
+AUDIT_COUNT=$(psql $DATABASE_URL -t -c "
+  SELECT COUNT(*) 
+  FROM audit_logs 
+  WHERE action = 'MOVEMENT_CREATED' 
+    AND resource_id = '$HOUSEHOLD_MOV_ID'
+")
+AUDIT_COUNT=$(echo "$AUDIT_COUNT" | xargs)  # Trim whitespace
+[ "$AUDIT_COUNT" -ge "1" ]
+echo -e "${GREEN}✓ Audit log exists for movement creation${NC}\n"
+
+run_test "Verify audit log has full snapshot (new_values)"
+AUDIT_SNAPSHOT=$(psql $DATABASE_URL -t -c "
+  SELECT new_values::text 
+  FROM audit_logs 
+  WHERE action = 'MOVEMENT_CREATED' 
+    AND resource_id = '$HOUSEHOLD_MOV_ID' 
+  ORDER BY created_at DESC 
+  LIMIT 1
+")
+echo "$AUDIT_SNAPSHOT" | grep -q "250000"  # Amount
+echo "$AUDIT_SNAPSHOT" | grep -q "Mercado del mes"  # Description
+echo -e "${GREEN}✓ Audit log contains full movement snapshot${NC}\n"
+
+run_test "Verify audit log for movement update has old and new values"
+UPDATE_AUDIT=$(psql $DATABASE_URL -t -c "
+  SELECT 
+    old_values::text,
+    new_values::text
+  FROM audit_logs 
+  WHERE action = 'MOVEMENT_UPDATED' 
+    AND resource_id = '$HOUSEHOLD_MOV_ID' 
+  ORDER BY created_at DESC 
+  LIMIT 1
+")
+echo "$UPDATE_AUDIT" | grep -q "250000"  # Old amount
+echo "$UPDATE_AUDIT" | grep -q "280000"  # New amount
+echo "$UPDATE_AUDIT" | grep -q "Mercado del mes + extras"  # New description
+echo -e "${GREEN}✓ Update audit log has old and new values${NC}\n"
+
+run_test "Verify audit log for movement deletion"
+DELETE_AUDIT=$(psql $DATABASE_URL -t -c "
+  SELECT COUNT(*) 
+  FROM audit_logs 
+  WHERE action = 'MOVEMENT_DELETED' 
+    AND resource_id = '$DEBT_MOV_ID'
+")
+DELETE_AUDIT=$(echo "$DELETE_AUDIT" | xargs)
+[ "$DELETE_AUDIT" = "1" ]
+echo -e "${GREEN}✓ Deletion audit log created${NC}\n"
+
+run_test "Verify audit log has user_id and household_id"
+AUDIT_METADATA=$(psql $DATABASE_URL -t -c "
+  SELECT user_id, household_id 
+  FROM audit_logs 
+  WHERE action = 'MOVEMENT_CREATED' 
+    AND resource_id = '$HOUSEHOLD_MOV_ID' 
+  LIMIT 1
+")
+echo "$AUDIT_METADATA" | grep -q "$JOSE_ID"
+echo "$AUDIT_METADATA" | grep -q "$HOUSEHOLD_ID"
+echo -e "${GREEN}✓ Audit log has correct user and household${NC}\n"
+
+run_test "List audit logs via admin API"
+ADMIN_LOGS=$(api_call $CURL_FLAGS -X GET "$BASE_URL/admin/audit-logs?action=MOVEMENT_CREATED" -b $COOKIES_FILE)
+LOGS_COUNT=$(echo "$ADMIN_LOGS" | jq '.logs | length')
+[ "$LOGS_COUNT" -ge "1" ]
+echo -e "${GREEN}✓ Admin API returns audit logs${NC}\n"
+
+run_test "Filter audit logs by household"
+HOUSEHOLD_LOGS=$(api_call $CURL_FLAGS -X GET "$BASE_URL/admin/audit-logs?household_id=$HOUSEHOLD_ID" -b $COOKIES_FILE)
+HOUSEHOLD_LOGS_COUNT=$(echo "$HOUSEHOLD_LOGS" | jq '.logs | length')
+[ "$HOUSEHOLD_LOGS_COUNT" -ge "5" ]  # All movements created
+echo -e "${GREEN}✓ Can filter audit logs by household${NC}\n"
+
+run_test "Verify audit log includes resource_type"
+RESOURCE_TYPE=$(psql $DATABASE_URL -t -c "
+  SELECT resource_type 
+  FROM audit_logs 
+  WHERE resource_id = '$HOUSEHOLD_MOV_ID' 
+  LIMIT 1
+" | xargs)
+[ "$RESOURCE_TYPE" = "movement" ]
+echo -e "${GREEN}✓ Audit log has correct resource_type${NC}\n"
+
+# ═══════════════════════════════════════════════════════════
 # SUMMARY
 # ═══════════════════════════════════════════════════════════
 
@@ -599,5 +689,6 @@ echo "  ✓ Update payer + participants simultaneously for SPLIT movements"
 echo "  ✓ Authorization and error handling"
 echo "  ✓ Data integrity: participants, percentages, enriched names, totals"
 echo "  ✓ Debt consolidation: calculate who owes whom (for Resume page)"
+echo "  ✓ Audit logging: all operations tracked with full snapshots"
 echo ""
 echo "Backend is ready for Phase 5 (Movements) 🚀"
