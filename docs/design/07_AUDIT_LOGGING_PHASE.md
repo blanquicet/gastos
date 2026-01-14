@@ -618,56 +618,56 @@ Response:
   - [ ] Add cron scheduler for cleanup job
   - [ ] Make retention period configurable (env var)
 
-### ⏳ Service Integration (PENDING)
+### ✅ Service Integration (COMPLETE)
 
 - [x] **Movements** ✅ COMPLETE
   - [x] CREATE, UPDATE, DELETE all tracked
   - [x] Fully tested with 8 integration tests
   
-- [ ] **Auth** ⏳ HIGH PRIORITY (security critical)
-  - [ ] Add `auditService` to auth service
-  - [ ] Add `LogAsync` calls for login operations
-  - [ ] Add `LogAsync` calls for logout operations
-  - [ ] Add `LogAsync` calls for password reset operations
-  - [ ] Add `LogAsync` calls for failed auth attempts
+- [x] **Auth** ✅ COMPLETE
+  - [x] Add `auditService` to auth service
+  - [x] Add `LogAsync` calls for login operations (success + failures)
+  - [x] Add `LogAsync` calls for logout operations
+  - [x] Add `LogAsync` calls for password reset request operations
+  - [x] Add `LogAsync` calls for password reset complete operations
+  - [x] Add `LogAsync` calls for failed auth attempts
   
-- [ ] **Income** ⏳ PENDING
-  - [ ] Add `auditService` to income service
-  - [ ] Add `LogAsync` calls for CREATE operations
-  - [ ] Add `LogAsync` calls for UPDATE operations
-  - [ ] Add `LogAsync` calls for DELETE operations
+- [x] **Income** ✅ COMPLETE
+  - [x] Add `auditService` to income service
+  - [x] Add `LogAsync` calls for CREATE operations
+  - [x] Add `LogAsync` calls for UPDATE operations
+  - [x] Add `LogAsync` calls for DELETE operations
   
-- [ ] **Accounts** ⏳ PENDING
-  - [ ] Add `auditService` to accounts service
-  - [ ] Add `LogAsync` calls for CREATE operations
-  - [ ] Add `LogAsync` calls for UPDATE operations
-  - [ ] Add `LogAsync` calls for DELETE operations
+- [x] **Accounts** ✅ COMPLETE
+  - [x] Add `auditService` to accounts service
+  - [x] Add `LogAsync` calls for CREATE operations
+  - [x] Add `LogAsync` calls for UPDATE operations
+  - [x] Add `LogAsync` calls for DELETE operations
   
-- [ ] **Payment Methods** ⏳ PENDING
-  - [ ] Add `auditService` to payment methods service
-  - [ ] Add `LogAsync` calls for CREATE operations
-  - [ ] Add `LogAsync` calls for UPDATE operations
-  - [ ] Add `LogAsync` calls for DELETE operations
+- [x] **Payment Methods** ✅ COMPLETE
+  - [x] Add `auditService` to payment methods service
+  - [x] Add `LogAsync` calls for CREATE operations
+  - [x] Add `LogAsync` calls for UPDATE operations
+  - [x] Add `LogAsync` calls for DELETE operations
   
-- [ ] **Households** ⏳ PENDING
-  - [ ] Add `auditService` to households service
-  - [ ] Add `LogAsync` calls for CREATE operations
-  - [ ] Add `LogAsync` calls for UPDATE operations
-  - [ ] Add `LogAsync` calls for DELETE operations
-  - [ ] Add `LogAsync` calls for invite operations
-  - [ ] Add `LogAsync` calls for member add/remove operations
+- [x] **Households** ✅ COMPLETE
+  - [x] Add `auditService` to households service
+  - [x] Add `LogAsync` calls for CREATE operations
+  - [x] Add `LogAsync` calls for UPDATE operations
+  - [x] Add `LogAsync` calls for DELETE operations
+  - [x] Add `LogAsync` calls for member add operations
+  - [x] Add `LogAsync` calls for member remove operations
   
-- [ ] **Categories** ⏳ PENDING
-  - [ ] Add `auditService` to categories service
-  - [ ] Add `LogAsync` calls for CREATE operations
-  - [ ] Add `LogAsync` calls for UPDATE operations
-  - [ ] Add `LogAsync` calls for DELETE operations
+- [x] **Categories** ✅ COMPLETE
+  - [x] Add `auditService` to categories service
+  - [x] Add `LogAsync` calls for CREATE operations
+  - [x] Add `LogAsync` calls for UPDATE operations
+  - [x] Add `LogAsync` calls for DELETE operations
   
-- [ ] **Budgets** ⏳ PENDING
-  - [ ] Add `auditService` to budgets service
-  - [ ] Add `LogAsync` calls for CREATE operations
-  - [ ] Add `LogAsync` calls for UPDATE operations
-  - [ ] Add `LogAsync` calls for DELETE operations
+- [x] **Budgets** ✅ COMPLETE
+  - [x] Add `auditService` to budgets service
+  - [x] Add `LogAsync` calls for Set operations (upsert)
+  - [x] Add `LogAsync` calls for DELETE operations
 
 ### 📱 Frontend (NOT STARTED)
 
@@ -1054,23 +1054,26 @@ Before implementing this design, I need your input on the following:
 - 🔧 **TODO:** Add cron job for automated cleanup
 
 **Service Coverage:**
-- ✅ Movements: Fully integrated and tested
-- ⏳ Auth: Not yet integrated
-- ⏳ Income: Not yet integrated
-- ⏳ Accounts: Not yet integrated
-- ⏳ Payment methods: Not yet integrated
-- ⏳ Households: Not yet integrated
-- ⏳ Categories: Not yet integrated
-- ⏳ Budgets: Not yet integrated
+- ✅ Movements: Fully integrated and tested (8 integration tests)
+- ✅ Auth: Fully integrated (login, logout, password reset)
+- ✅ Income: Fully integrated (create, update, delete)
+- ✅ Accounts: Fully integrated (create, update, delete)
+- ✅ Payment methods: Fully integrated (create, update, delete)
+- ✅ Households: Fully integrated (create, update, delete, add/remove members)
+- ✅ Categories: Fully integrated (create, update, delete)
+- ✅ Budgets: Fully integrated (set/upsert, delete)
+- ⚠️ **All 8 services integrated** but only movements has comprehensive tests
 
 ### 📊 Pending Work
 
 **High Priority:**
 - [ ] Add admin authorization middleware to audit endpoints
-- [ ] Integrate into auth service (login, logout, password reset) - **security critical**
+- [ ] Write integration tests for auth audit logging (login/logout/password reset)
+- [ ] Write integration tests for income audit logging
 
 **Medium Priority:**
-- [ ] Integrate into remaining services (income, accounts, payment methods, etc.)
+- [ ] Write integration tests for accounts, payment methods, households
+- [ ] Write integration tests for categories and budgets
 - [ ] Implement background cleanup cron job
 - [ ] Write Go unit tests for audit module (repository, service, helpers)
 
@@ -1137,6 +1140,6 @@ Before implementing this design, I need your input on the following:
 **🎯 Recommendation:**
 Continue with auth service integration next (highest security priority), then add admin middleware before production deployment.
 
-**Status:** ✅ **COMPLETE** (Backend infrastructure + movements)  
-**Next Steps:** Auth integration → Admin middleware → Remaining services  
-**Estimated Remaining:** 2-3 days for auth + admin middleware + cleanup job
+**Status:** ✅ **COMPLETE** (Backend infrastructure + ALL service integrations)  
+**Next Steps:** Write tests for remaining services → Admin middleware → Cleanup job  
+**Services Integrated:** Movements, Auth, Income, Accounts, Payment Methods, Households, Categories, Budgets (8/8 services ✅)
