@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/blanquicet/gastos/backend/internal/accounts"
+	"github.com/blanquicet/gastos/backend/internal/audit"
 	"github.com/blanquicet/gastos/backend/internal/households"
 	"github.com/blanquicet/gastos/backend/internal/n8nclient"
 )
@@ -17,16 +18,18 @@ type service struct {
 	accountsRepo  accounts.Repository
 	householdsRepo households.HouseholdRepository
 	n8nClient     *n8nclient.Client
+	auditService  audit.Service
 	logger        *slog.Logger
 }
 
 // NewService creates a new income service
-func NewService(repo Repository, accountsRepo accounts.Repository, householdsRepo households.HouseholdRepository, n8nClient *n8nclient.Client, logger *slog.Logger) Service {
+func NewService(repo Repository, accountsRepo accounts.Repository, householdsRepo households.HouseholdRepository, n8nClient *n8nclient.Client, auditService audit.Service, logger *slog.Logger) Service {
 	return &service{
 		repo:          repo,
 		accountsRepo:  accountsRepo,
 		householdsRepo: householdsRepo,
 		n8nClient:     n8nClient,
+		auditService:  auditService,
 		logger:        logger,
 	}
 }
@@ -73,6 +76,15 @@ func (s *service) Create(ctx context.Context, userID string, input *CreateIncome
 	// Create income
 	income, err := s.repo.Create(ctx, input, householdID)
 	if err != nil {
+		// Log failed creation
+		s.auditService.LogAsync(ctx, &audit.LogInput{
+			UserID:       audit.StringPtr(userID),
+			Action:       audit.ActionIncomeCreated,
+			ResourceType: "income",
+			HouseholdID:  audit.StringPtr(householdID),
+			Success:      false,
+			ErrorMessage: audit.StringPtr(err.Error()),
+		})
 		return nil, err
 	}
 
@@ -96,6 +108,17 @@ func (s *service) Create(ctx context.Context, userID string, input *CreateIncome
 		}
 		s.logger.Info("income sent to n8n successfully", "income_id", income.ID, "n8n_response", resp)
 	}
+
+	// Log successful creation
+	s.auditService.LogAsync(ctx, &audit.LogInput{
+		UserID:       audit.StringPtr(userID),
+		Action:       audit.ActionIncomeCreated,
+		ResourceType: "income",
+		ResourceID:   audit.StringPtr(income.ID),
+		HouseholdID:  audit.StringPtr(householdID),
+		Success:      true,
+		NewValues:    audit.StructToMap(income),
+	})
 
 	return income, nil
 }
@@ -218,8 +241,30 @@ func (s *service) Update(ctx context.Context, userID, id string, input *UpdateIn
 	// Update income
 	updated, err := s.repo.Update(ctx, id, input)
 	if err != nil {
+		// Log failed update
+		s.auditService.LogAsync(ctx, &audit.LogInput{
+			UserID:       audit.StringPtr(userID),
+			Action:       audit.ActionIncomeUpdated,
+			ResourceType: "income",
+			ResourceID:   audit.StringPtr(id),
+			HouseholdID:  audit.StringPtr(householdID),
+			Success:      false,
+			ErrorMessage: audit.StringPtr(err.Error()),
+		})
 		return nil, err
 	}
+
+	// Log successful update
+	s.auditService.LogAsync(ctx, &audit.LogInput{
+		UserID:       audit.StringPtr(userID),
+		Action:       audit.ActionIncomeUpdated,
+		ResourceType: "income",
+		ResourceID:   audit.StringPtr(id),
+		HouseholdID:  audit.StringPtr(householdID),
+		Success:      true,
+		OldValues:    audit.StructToMap(existing),
+		NewValues:    audit.StructToMap(updated),
+	})
 
 	return updated, nil
 }
@@ -243,5 +288,31 @@ func (s *service) Delete(ctx context.Context, userID, id string) error {
 	}
 
 	// Delete income
-	return s.repo.Delete(ctx, id)
+	err = s.repo.Delete(ctx, id)
+	if err != nil {
+		// Log failed deletion
+		s.auditService.LogAsync(ctx, &audit.LogInput{
+			UserID:       audit.StringPtr(userID),
+			Action:       audit.ActionIncomeDeleted,
+			ResourceType: "income",
+			ResourceID:   audit.StringPtr(id),
+			HouseholdID:  audit.StringPtr(householdID),
+			Success:      false,
+			ErrorMessage: audit.StringPtr(err.Error()),
+		})
+		return err
+	}
+
+	// Log successful deletion
+	s.auditService.LogAsync(ctx, &audit.LogInput{
+		UserID:       audit.StringPtr(userID),
+		Action:       audit.ActionIncomeDeleted,
+		ResourceType: "income",
+		ResourceID:   audit.StringPtr(id),
+		HouseholdID:  audit.StringPtr(householdID),
+		Success:      true,
+		OldValues:    audit.StructToMap(existing),
+	})
+
+	return nil
 }

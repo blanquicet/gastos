@@ -84,6 +84,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 		sessionRepo,
 		passwordResetRepo,
 		emailSender,
+		auditService,
 		cfg.SessionDuration,
 	)
 
@@ -146,7 +147,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 	
 	// Create income service and handler (needs n8n client for dual write)
 	incomeRepo := income.NewRepository(pool)
-	incomeService := income.NewService(incomeRepo, accountsRepo, householdRepo, n8nClient, logger)
+	incomeService := income.NewService(incomeRepo, accountsRepo, householdRepo, n8nClient, auditService, logger)
 	
 	incomeHandler := income.NewHandler(
 		incomeService,

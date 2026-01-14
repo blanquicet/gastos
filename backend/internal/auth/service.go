@@ -5,6 +5,8 @@ import (
 	"errors"
 	"strings"
 	"time"
+
+	"github.com/blanquicet/gastos/backend/internal/audit"
 )
 
 // EmailSender defines the interface for sending emails.
@@ -18,6 +20,7 @@ type Service struct {
 	sessions      SessionRepository
 	passwordReset PasswordResetRepository
 	emailSender   EmailSender
+	auditService  audit.Service
 	sessionTTL    time.Duration
 	resetTokenTTL time.Duration
 }
@@ -28,6 +31,7 @@ func NewService(
 	sessions SessionRepository,
 	passwordReset PasswordResetRepository,
 	emailSender EmailSender,
+	auditService audit.Service,
 	sessionTTL time.Duration,
 ) *Service {
 	return &Service{
@@ -35,6 +39,7 @@ func NewService(
 		sessions:      sessions,
 		passwordReset: passwordReset,
 		emailSender:   emailSender,
+		auditService:  auditService,
 		sessionTTL:    sessionTTL,
 		resetTokenTTL: 1 * time.Hour, // Password reset tokens expire in 1 hour
 	}
@@ -163,6 +168,16 @@ func (s *Service) Login(ctx context.Context, input LoginInput) (*Session, error)
 	user, err := s.users.GetByEmail(ctx, input.Email)
 	if err != nil {
 		if errors.Is(err, ErrUserNotFound) {
+			// Log failed login attempt (user not found)
+			s.auditService.LogAsync(ctx, &audit.LogInput{
+				Action:       audit.ActionAuthLogin,
+				ResourceType: "auth",
+				Success:      false,
+				ErrorMessage: audit.StringPtr("invalid credentials - user not found"),
+				Metadata: map[string]interface{}{
+					"email": input.Email,
+				},
+			})
 			return nil, ErrInvalidCredentials
 		}
 		return nil, err
@@ -174,6 +189,17 @@ func (s *Service) Login(ctx context.Context, input LoginInput) (*Session, error)
 		return nil, err
 	}
 	if !match {
+		// Log failed login attempt (invalid password)
+		s.auditService.LogAsync(ctx, &audit.LogInput{
+			UserID:       audit.StringPtr(user.ID),
+			Action:       audit.ActionAuthLogin,
+			ResourceType: "auth",
+			Success:      false,
+			ErrorMessage: audit.StringPtr("invalid credentials - wrong password"),
+			Metadata: map[string]interface{}{
+				"email": input.Email,
+			},
+		})
 		return nil, ErrInvalidCredentials
 	}
 
@@ -181,15 +207,71 @@ func (s *Service) Login(ctx context.Context, input LoginInput) (*Session, error)
 	expiresAt := time.Now().Add(s.sessionTTL)
 	session, err := s.sessions.Create(ctx, user.ID, expiresAt)
 	if err != nil {
+		// Log failed login (session creation failed)
+		s.auditService.LogAsync(ctx, &audit.LogInput{
+			UserID:       audit.StringPtr(user.ID),
+			Action:       audit.ActionAuthLogin,
+			ResourceType: "auth",
+			Success:      false,
+			ErrorMessage: audit.StringPtr(err.Error()),
+		})
 		return nil, err
 	}
+
+	// Log successful login
+	s.auditService.LogAsync(ctx, &audit.LogInput{
+		UserID:       audit.StringPtr(user.ID),
+		Action:       audit.ActionAuthLogin,
+		ResourceType: "auth",
+		ResourceID:   audit.StringPtr(session.ID),
+		Success:      true,
+		NewValues: map[string]interface{}{
+			"session_id": session.ID,
+			"email":      input.Email,
+			"expires_at": expiresAt,
+		},
+	})
 
 	return session, nil
 }
 
 // Logout invalidates a session.
 func (s *Service) Logout(ctx context.Context, sessionID string) error {
-	return s.sessions.Delete(ctx, sessionID)
+	// Get session to log user info
+	session, err := s.sessions.Get(ctx, sessionID)
+	var userID *string
+	if err == nil && session != nil {
+		userID = audit.StringPtr(session.UserID)
+	}
+
+	// Delete session
+	err = s.sessions.Delete(ctx, sessionID)
+	if err != nil {
+		// Log failed logout
+		s.auditService.LogAsync(ctx, &audit.LogInput{
+			UserID:       userID,
+			Action:       audit.ActionAuthLogout,
+			ResourceType: "auth",
+			ResourceID:   audit.StringPtr(sessionID),
+			Success:      false,
+			ErrorMessage: audit.StringPtr(err.Error()),
+		})
+		return err
+	}
+
+	// Log successful logout
+	s.auditService.LogAsync(ctx, &audit.LogInput{
+		UserID:       userID,
+		Action:       audit.ActionAuthLogout,
+		ResourceType: "auth",
+		ResourceID:   audit.StringPtr(sessionID),
+		Success:      true,
+		OldValues: map[string]interface{}{
+			"session_id": sessionID,
+		},
+	})
+
+	return nil
 }
 
 // GetUserBySession returns the user for a valid session.
@@ -212,6 +294,16 @@ func (s *Service) RequestPasswordReset(ctx context.Context, email string) (strin
 	user, err := s.users.GetByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, ErrUserNotFound) {
+			// Log password reset request for non-existent user (security event)
+			s.auditService.LogAsync(ctx, &audit.LogInput{
+				Action:       audit.ActionAuthPasswordResetRequest,
+				ResourceType: "auth",
+				Success:      false,
+				ErrorMessage: audit.StringPtr("user not found"),
+				Metadata: map[string]interface{}{
+					"email": email,
+				},
+			})
 			// Don't reveal if email exists - return nil to prevent enumeration
 			return "", nil
 		}
@@ -228,17 +320,47 @@ func (s *Service) RequestPasswordReset(ctx context.Context, email string) (strin
 	tokenHash := HashToken(token)
 	expiresAt := time.Now().Add(s.resetTokenTTL)
 
-	_, err = s.passwordReset.Create(ctx, user.ID, tokenHash, expiresAt)
+	resetRecord, err := s.passwordReset.Create(ctx, user.ID, tokenHash, expiresAt)
 	if err != nil {
+		// Log failed password reset token creation
+		s.auditService.LogAsync(ctx, &audit.LogInput{
+			UserID:       audit.StringPtr(user.ID),
+			Action:       audit.ActionAuthPasswordResetRequest,
+			ResourceType: "auth",
+			Success:      false,
+			ErrorMessage: audit.StringPtr(err.Error()),
+		})
 		return "", err
 	}
 
 	// Send password reset email
 	if err := s.emailSender.SendPasswordReset(ctx, email, token); err != nil {
+		// Log failed email send (but don't fail the request)
+		s.auditService.LogAsync(ctx, &audit.LogInput{
+			UserID:       audit.StringPtr(user.ID),
+			Action:       audit.ActionAuthPasswordResetRequest,
+			ResourceType: "auth",
+			ResourceID:   audit.StringPtr(resetRecord.ID),
+			Success:      false,
+			ErrorMessage: audit.StringPtr("email send failed: " + err.Error()),
+		})
 		// Log error but don't fail the request - token is already created
 		// User might try again and get a new token
 		return "", err
 	}
+
+	// Log successful password reset request
+	s.auditService.LogAsync(ctx, &audit.LogInput{
+		UserID:       audit.StringPtr(user.ID),
+		Action:       audit.ActionAuthPasswordResetRequest,
+		ResourceType: "auth",
+		ResourceID:   audit.StringPtr(resetRecord.ID),
+		Success:      true,
+		NewValues: map[string]interface{}{
+			"email":      email,
+			"expires_at": expiresAt,
+		},
+	})
 
 	return token, nil
 }
@@ -270,19 +392,51 @@ func (s *Service) ResetPassword(ctx context.Context, input ResetPasswordInput) e
 	tokenHash := HashToken(input.Token)
 	reset, err := s.passwordReset.GetByTokenHash(ctx, tokenHash)
 	if err != nil {
+		// Log failed password reset (token not found)
+		s.auditService.LogAsync(ctx, &audit.LogInput{
+			Action:       audit.ActionAuthPasswordResetComplete,
+			ResourceType: "auth",
+			Success:      false,
+			ErrorMessage: audit.StringPtr("invalid token"),
+		})
 		return err
 	}
 	if reset == nil {
+		// Log failed password reset (token expired/invalid)
+		s.auditService.LogAsync(ctx, &audit.LogInput{
+			Action:       audit.ActionAuthPasswordResetComplete,
+			ResourceType: "auth",
+			Success:      false,
+			ErrorMessage: audit.StringPtr("token expired or invalid"),
+		})
 		return ErrTokenExpired
 	}
 
 	// Check if token is expired
 	if time.Now().After(reset.ExpiresAt) {
+		// Log expired token usage attempt
+		s.auditService.LogAsync(ctx, &audit.LogInput{
+			UserID:       audit.StringPtr(reset.UserID),
+			Action:       audit.ActionAuthPasswordResetComplete,
+			ResourceType: "auth",
+			ResourceID:   audit.StringPtr(reset.ID),
+			Success:      false,
+			ErrorMessage: audit.StringPtr("token expired"),
+		})
 		return ErrTokenExpired
 	}
 
 	// Check if token was already used
 	if reset.UsedAt != nil {
+		// Log reused token attempt
+		s.auditService.LogAsync(ctx, &audit.LogInput{
+			UserID:       audit.StringPtr(reset.UserID),
+			Action:       audit.ActionAuthPasswordResetComplete,
+			ResourceType: "auth",
+			ResourceID:   audit.StringPtr(reset.ID),
+			Success:      false,
+			ErrorMessage: audit.StringPtr("token already used"),
+		})
 		return ErrTokenUsed
 	}
 
@@ -294,6 +448,15 @@ func (s *Service) ResetPassword(ctx context.Context, input ResetPasswordInput) e
 
 	// Update password
 	if err := s.users.UpdatePassword(ctx, reset.UserID, passwordHash); err != nil {
+		// Log failed password update
+		s.auditService.LogAsync(ctx, &audit.LogInput{
+			UserID:       audit.StringPtr(reset.UserID),
+			Action:       audit.ActionAuthPasswordResetComplete,
+			ResourceType: "auth",
+			ResourceID:   audit.StringPtr(reset.ID),
+			Success:      false,
+			ErrorMessage: audit.StringPtr(err.Error()),
+		})
 		return err
 	}
 
@@ -306,6 +469,18 @@ func (s *Service) ResetPassword(ctx context.Context, input ResetPasswordInput) e
 	if err := s.sessions.DeleteByUserID(ctx, reset.UserID); err != nil {
 		return err
 	}
+
+	// Log successful password reset
+	s.auditService.LogAsync(ctx, &audit.LogInput{
+		UserID:       audit.StringPtr(reset.UserID),
+		Action:       audit.ActionAuthPasswordResetComplete,
+		ResourceType: "auth",
+		ResourceID:   audit.StringPtr(reset.ID),
+		Success:      true,
+		Metadata: map[string]interface{}{
+			"sessions_invalidated": true,
+		},
+	})
 
 	return nil
 }
