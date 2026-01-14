@@ -10,7 +10,7 @@ COOKIES_FILE="/tmp/gastos-categories-cookies.txt"
 EMAIL="test+$(date +%s%N)@test.com"
 PASSWORD="Test1234!"
 DEBUG="${DEBUG:-false}"
-DATABASE_URL="${DATABASE_URL:-postgresql://gastos:gastos@localhost:5432/gastos?sslmode=disable}"
+DATABASE_URL="${DATABASE_URL:-postgresql://gastos:gastos_dev_password@localhost:5432/gastos?sslmode=disable}"
 
 # Curl flags based on debug mode
 CURL_FLAGS="-s"

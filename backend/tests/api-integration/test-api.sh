@@ -13,7 +13,7 @@ CARO_EMAIL="caro+$(date +%s%N)@test.com"
 PASSWORD="Test1234!"
 CLEANUP="${CLEANUP:-false}"
 DEBUG="${DEBUG:-false}"
-DATABASE_URL="${DATABASE_URL:-postgresql://gastos:gastos@localhost:5432/gastos?sslmode=disable}"
+DATABASE_URL="${DATABASE_URL:-postgresql://gastos:gastos_dev_password@localhost:5432/gastos?sslmode=disable}"
 
 # Curl flags based on debug mode
 CURL_FLAGS="-s"
@@ -710,7 +710,7 @@ HOUSEHOLD_AUDIT_COUNT=$(psql $DATABASE_URL -t -c "
   SELECT COUNT(*) 
   FROM audit_logs 
   WHERE action = 'HOUSEHOLD_CREATED' 
-    AND resource_id = '$HOUSEHOLD1_ID'
+    AND resource_id = '$HOUSEHOLD_ID'
     AND success = true
 ")
 HOUSEHOLD_AUDIT_COUNT=$(echo "$HOUSEHOLD_AUDIT_COUNT" | xargs)
@@ -722,7 +722,7 @@ HOUSEHOLD_SNAPSHOT=$(psql $DATABASE_URL -t -c "
   SELECT new_values::text 
   FROM audit_logs 
   WHERE action = 'HOUSEHOLD_CREATED' 
-    AND resource_id = '$HOUSEHOLD1_ID' 
+    AND resource_id = '$HOUSEHOLD_ID' 
   LIMIT 1
 ")
 echo "$HOUSEHOLD_SNAPSHOT" | grep -q "Household 1"
@@ -733,7 +733,7 @@ MEMBER_AUDIT_COUNT=$(psql $DATABASE_URL -t -c "
   SELECT COUNT(*) 
   FROM audit_logs 
   WHERE action = 'HOUSEHOLD_MEMBER_ADDED'
-    AND household_id = '$HOUSEHOLD1_ID'
+    AND household_id = '$HOUSEHOLD_ID'
     AND success = true
 ")
 MEMBER_AUDIT_COUNT=$(echo "$MEMBER_AUDIT_COUNT" | xargs)
@@ -769,7 +769,7 @@ INCOME_AUDIT_COUNT=$(psql $DATABASE_URL -t -c "
   SELECT COUNT(*) 
   FROM audit_logs 
   WHERE action = 'INCOME_CREATED'
-    AND household_id = '$HOUSEHOLD1_ID'
+    AND household_id = '$HOUSEHOLD_ID'
     AND success = true
 ")
 INCOME_AUDIT_COUNT=$(echo "$INCOME_AUDIT_COUNT" | xargs)
@@ -804,7 +804,7 @@ CATEGORY_AUDIT_COUNT=$(psql $DATABASE_URL -t -c "
   SELECT COUNT(*) 
   FROM audit_logs 
   WHERE action = 'CATEGORY_CREATED'
-    AND household_id = '$HOUSEHOLD1_ID'
+    AND household_id = '$HOUSEHOLD_ID'
     AND success = true
 ")
 CATEGORY_AUDIT_COUNT=$(echo "$CATEGORY_AUDIT_COUNT" | xargs)
@@ -816,7 +816,7 @@ BUDGET_AUDIT_COUNT=$(psql $DATABASE_URL -t -c "
   SELECT COUNT(*) 
   FROM audit_logs 
   WHERE action = 'BUDGET_CREATED'
-    AND household_id = '$HOUSEHOLD1_ID'
+    AND household_id = '$HOUSEHOLD_ID'
     AND success = true
 ")
 BUDGET_AUDIT_COUNT=$(echo "$BUDGET_AUDIT_COUNT" | xargs)
@@ -824,7 +824,7 @@ BUDGET_AUDIT_COUNT=$(echo "$BUDGET_AUDIT_COUNT" | xargs)
 echo -e "${GREEN}✓ Found $BUDGET_AUDIT_COUNT audit log(s) for budget creation${NC}\n"
 
 run_test "List all audit logs via admin API"
-AUDIT_LIST=$(api_call $CURL_FLAGS "$BASE_URL/admin/audit-logs?household_id=$HOUSEHOLD1_ID&limit=50")
+AUDIT_LIST=$(api_call $CURL_FLAGS "$BASE_URL/admin/audit-logs?household_id=$HOUSEHOLD_ID&limit=50")
 AUDIT_LIST_COUNT=$(echo "$AUDIT_LIST" | jq '.logs | length')
 [ "$AUDIT_LIST_COUNT" -ge "10" ]
 echo -e "${GREEN}✓ Admin API returned $AUDIT_LIST_COUNT audit logs for household${NC}\n"
@@ -854,7 +854,7 @@ if [ "$CLEANUP" = "true" ]; then
 
   run_test "Delete Test Households"
   # Delete households created during tests (some may already be deleted)
-  api_call $CURL_FLAGS -X DELETE $BASE_URL/households/$HOUSEHOLD1_ID -b $COOKIES_FILE > /dev/null 2>&1 || true
+  api_call $CURL_FLAGS -X DELETE $BASE_URL/households/$HOUSEHOLD_ID -b $COOKIES_FILE > /dev/null 2>&1 || true
   api_call $CURL_FLAGS -X DELETE $BASE_URL/households/$HOUSEHOLD2_ID -b $COOKIES_FILE > /dev/null 2>&1 || true
   echo -e "${GREEN}✓ Deleted test households${NC}\n"
 
