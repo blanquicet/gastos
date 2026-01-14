@@ -600,7 +600,7 @@ echo -e "${GREEN}✓ Month filter works: $JAN_DEBTS_COUNT balance(s) in 2026-01$
 # ═══════════════════════════════════════════════════════════
 
 run_test "Verify audit log created for movement creation"
-AUDIT_COUNT=$(psql $DATABASE_URL -t -c "
+AUDIT_COUNT=$(PAGER=cat psql $DATABASE_URL -t -c "
   SELECT COUNT(*) 
   FROM audit_logs 
   WHERE action = 'MOVEMENT_CREATED' 
@@ -611,7 +611,7 @@ AUDIT_COUNT=$(echo "$AUDIT_COUNT" | xargs)  # Trim whitespace
 echo -e "${GREEN}✓ Audit log exists for movement creation${NC}\n"
 
 run_test "Verify audit log has full snapshot (new_values)"
-AUDIT_SNAPSHOT=$(psql $DATABASE_URL -t -c "
+AUDIT_SNAPSHOT=$(PAGER=cat psql $DATABASE_URL -t -c "
   SELECT new_values::text 
   FROM audit_logs 
   WHERE action = 'MOVEMENT_CREATED' 
@@ -624,7 +624,7 @@ echo "$AUDIT_SNAPSHOT" | grep -q "Mercado del mes"  # Description
 echo -e "${GREEN}✓ Audit log contains full movement snapshot${NC}\n"
 
 run_test "Verify audit log for movement update has old and new values"
-UPDATE_AUDIT=$(psql $DATABASE_URL -t -c "
+UPDATE_AUDIT=$(PAGER=cat psql $DATABASE_URL -t -c "
   SELECT 
     old_values::text,
     new_values::text
@@ -640,7 +640,7 @@ echo "$UPDATE_AUDIT" | grep -q "Mercado del mes + extras"  # New description
 echo -e "${GREEN}✓ Update audit log has old and new values${NC}\n"
 
 run_test "Verify audit log for movement deletion"
-DELETE_AUDIT=$(psql $DATABASE_URL -t -c "
+DELETE_AUDIT=$(PAGER=cat psql $DATABASE_URL -t -c "
   SELECT COUNT(*) 
   FROM audit_logs 
   WHERE action = 'MOVEMENT_DELETED' 
@@ -651,7 +651,7 @@ DELETE_AUDIT=$(echo "$DELETE_AUDIT" | xargs)
 echo -e "${GREEN}✓ Deletion audit log created${NC}\n"
 
 run_test "Verify audit log has user_id and household_id"
-AUDIT_METADATA=$(psql $DATABASE_URL -t -c "
+AUDIT_METADATA=$(PAGER=cat psql $DATABASE_URL -t -c "
   SELECT user_id, household_id 
   FROM audit_logs 
   WHERE action = 'MOVEMENT_CREATED' 
@@ -675,7 +675,7 @@ HOUSEHOLD_LOGS_COUNT=$(echo "$HOUSEHOLD_LOGS" | jq '.logs | length')
 echo -e "${GREEN}✓ Can filter audit logs by household${NC}\n"
 
 run_test "Verify audit log includes resource_type"
-RESOURCE_TYPE=$(psql $DATABASE_URL -t -c "
+RESOURCE_TYPE=$(PAGER=cat psql $DATABASE_URL -t -c "
   SELECT resource_type 
   FROM audit_logs 
   WHERE resource_id = '$HOUSEHOLD_MOV_ID' 

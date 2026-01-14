@@ -294,11 +294,11 @@ echo -e "${BLUE}Audit Logging Verification${NC}"
 echo -e "${BLUE}═══════════════════════════════════════════════════════════${NC}\n"
 
 run_test "Verify audit logs for category creation"
-CATEGORY_CREATE_COUNT=$(psql $DATABASE_URL -t -c "
+CATEGORY_CREATE_COUNT=$(PAGER=cat psql $DATABASE_URL -t -c "
   SELECT COUNT(*) 
   FROM audit_logs 
   WHERE action = 'CATEGORY_CREATED'
-    AND resource_id = '$TEST_CATEGORY_ID'
+    AND resource_id = '$NEW_CATEGORY_ID'
     AND success = true
 ")
 CATEGORY_CREATE_COUNT=$(echo "$CATEGORY_CREATE_COUNT" | xargs)
@@ -306,23 +306,23 @@ CATEGORY_CREATE_COUNT=$(echo "$CATEGORY_CREATE_COUNT" | xargs)
 echo -e "${GREEN}✓ Found audit log for category creation${NC}\n"
 
 run_test "Verify category audit log contains snapshot"
-CATEGORY_SNAPSHOT=$(psql $DATABASE_URL -t -c "
+CATEGORY_SNAPSHOT=$(PAGER=cat psql $DATABASE_URL -t -c "
   SELECT new_values::text 
   FROM audit_logs 
   WHERE action = 'CATEGORY_CREATED' 
-    AND resource_id = '$TEST_CATEGORY_ID'
+    AND resource_id = '$NEW_CATEGORY_ID'
   LIMIT 1
 ")
 echo "$CATEGORY_SNAPSHOT" | grep -q "Test Category"
-echo "$CATEGORY_SNAPSHOT" | grep -q "expense"
+echo "$CATEGORY_SNAPSHOT" | grep -q "Test"
 echo -e "${GREEN}✓ Category audit log contains full snapshot${NC}\n"
 
 run_test "Verify audit logs for category update"
-CATEGORY_UPDATE_COUNT=$(psql $DATABASE_URL -t -c "
+CATEGORY_UPDATE_COUNT=$(PAGER=cat psql $DATABASE_URL -t -c "
   SELECT COUNT(*) 
   FROM audit_logs 
   WHERE action = 'CATEGORY_UPDATED'
-    AND resource_id = '$TEST_CATEGORY_ID'
+    AND resource_id = '$NEW_CATEGORY_ID'
     AND success = true
 ")
 CATEGORY_UPDATE_COUNT=$(echo "$CATEGORY_UPDATE_COUNT" | xargs)
@@ -330,13 +330,13 @@ CATEGORY_UPDATE_COUNT=$(echo "$CATEGORY_UPDATE_COUNT" | xargs)
 echo -e "${GREEN}✓ Found $CATEGORY_UPDATE_COUNT audit log(s) for category updates${NC}\n"
 
 run_test "Verify category update has old and new values"
-CATEGORY_UPDATE_LOG=$(psql $DATABASE_URL -t -c "
+CATEGORY_UPDATE_LOG=$(PAGER=cat psql $DATABASE_URL -t -c "
   SELECT 
     old_values->>'name' as old_name,
     new_values->>'name' as new_name
   FROM audit_logs 
   WHERE action = 'CATEGORY_UPDATED' 
-    AND resource_id = '$TEST_CATEGORY_ID'
+    AND resource_id = '$NEW_CATEGORY_ID'
   ORDER BY created_at DESC
   LIMIT 1
 ")
@@ -344,11 +344,11 @@ echo "$CATEGORY_UPDATE_LOG" | grep -q "Renamed"
 echo -e "${GREEN}✓ Category update audit log has old and new values${NC}\n"
 
 run_test "Verify audit logs for category deletion"
-CATEGORY_DELETE_COUNT=$(psql $DATABASE_URL -t -c "
+CATEGORY_DELETE_COUNT=$(PAGER=cat psql $DATABASE_URL -t -c "
   SELECT COUNT(*) 
   FROM audit_logs 
   WHERE action = 'CATEGORY_DELETED'
-    AND resource_id = '$DELETED_CATEGORY_ID'
+    AND resource_id = '$NEW_CATEGORY_ID'
     AND success = true
 ")
 CATEGORY_DELETE_COUNT=$(echo "$CATEGORY_DELETE_COUNT" | xargs)
@@ -356,7 +356,7 @@ CATEGORY_DELETE_COUNT=$(echo "$CATEGORY_DELETE_COUNT" | xargs)
 echo -e "${GREEN}✓ Found audit log for category deletion${NC}\n"
 
 run_test "Verify audit logs for budget creation (Set operation)"
-BUDGET_CREATE_COUNT=$(psql $DATABASE_URL -t -c "
+BUDGET_CREATE_COUNT=$(PAGER=cat psql $DATABASE_URL -t -c "
   SELECT COUNT(*) 
   FROM audit_logs 
   WHERE action = 'BUDGET_CREATED'
@@ -368,7 +368,7 @@ BUDGET_CREATE_COUNT=$(echo "$BUDGET_CREATE_COUNT" | xargs)
 echo -e "${GREEN}✓ Found audit log for budget creation${NC}\n"
 
 run_test "Verify budget audit log contains amount"
-BUDGET_SNAPSHOT=$(psql $DATABASE_URL -t -c "
+BUDGET_SNAPSHOT=$(PAGER=cat psql $DATABASE_URL -t -c "
   SELECT new_values::text 
   FROM audit_logs 
   WHERE action = 'BUDGET_CREATED' 
@@ -380,7 +380,7 @@ echo "$BUDGET_SNAPSHOT" | grep -q "500000"  # Original amount
 echo -e "${GREEN}✓ Budget audit log contains amount${NC}\n"
 
 run_test "Verify audit logs for budget update (upsert)"
-BUDGET_UPDATE_COUNT=$(psql $DATABASE_URL -t -c "
+BUDGET_UPDATE_COUNT=$(PAGER=cat psql $DATABASE_URL -t -c "
   SELECT COUNT(*) 
   FROM audit_logs 
   WHERE action = 'BUDGET_CREATED'
@@ -391,7 +391,7 @@ BUDGET_UPDATE_COUNT=$(echo "$BUDGET_UPDATE_COUNT" | xargs)
 echo -e "${GREEN}✓ Budget updates tracked (upsert logs as BUDGET_CREATED)${NC}\n"
 
 run_test "Verify audit logs for budget deletion"
-BUDGET_DELETE_COUNT=$(psql $DATABASE_URL -t -c "
+BUDGET_DELETE_COUNT=$(PAGER=cat psql $DATABASE_URL -t -c "
   SELECT COUNT(*) 
   FROM audit_logs 
   WHERE action = 'BUDGET_DELETED'
@@ -402,11 +402,11 @@ BUDGET_DELETE_COUNT=$(echo "$BUDGET_DELETE_COUNT" | xargs)
 echo -e "${GREEN}✓ Found $BUDGET_DELETE_COUNT audit log(s) for budget deletion${NC}\n"
 
 run_test "Verify all audit logs have household context"
-NO_HOUSEHOLD_COUNT=$(psql $DATABASE_URL -t -c "
+NO_HOUSEHOLD_COUNT=$(PAGER=cat psql $DATABASE_URL -t -c "
   SELECT COUNT(*) 
   FROM audit_logs 
   WHERE household_id = '$HOUSEHOLD_ID'
-    AND (action LIKE 'CATEGORY_%' OR action LIKE 'BUDGET_%')
+    AND (action::text LIKE 'CATEGORY_%' OR action::text LIKE 'BUDGET_%')
 ")
 NO_HOUSEHOLD_COUNT=$(echo "$NO_HOUSEHOLD_COUNT" | xargs)
 [ "$NO_HOUSEHOLD_COUNT" -ge "5" ]

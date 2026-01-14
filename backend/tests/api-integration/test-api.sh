@@ -694,7 +694,7 @@ echo -e "${GREEN}✓ Account balance updated correctly after income${NC}\n"
 # ═══════════════════════════════════════════════════════════
 
 run_test "Verify audit logs for user registration (AUTH)"
-AUTH_REGISTER_COUNT=$(psql $DATABASE_URL -t -c "
+AUTH_REGISTER_COUNT=$(PAGER=cat psql $DATABASE_URL -t -c "
   SELECT COUNT(*) 
   FROM audit_logs 
   WHERE action = 'AUTH_LOGIN' 
@@ -706,7 +706,7 @@ AUTH_REGISTER_COUNT=$(echo "$AUTH_REGISTER_COUNT" | xargs)
 echo -e "${GREEN}✓ Found $AUTH_REGISTER_COUNT audit log(s) for Jose's login${NC}\n"
 
 run_test "Verify audit logs for household creation"
-HOUSEHOLD_AUDIT_COUNT=$(psql $DATABASE_URL -t -c "
+HOUSEHOLD_AUDIT_COUNT=$(PAGER=cat psql $DATABASE_URL -t -c "
   SELECT COUNT(*) 
   FROM audit_logs 
   WHERE action = 'HOUSEHOLD_CREATED' 
@@ -718,7 +718,7 @@ HOUSEHOLD_AUDIT_COUNT=$(echo "$HOUSEHOLD_AUDIT_COUNT" | xargs)
 echo -e "${GREEN}✓ Found audit log for household creation${NC}\n"
 
 run_test "Verify audit log has full household snapshot"
-HOUSEHOLD_SNAPSHOT=$(psql $DATABASE_URL -t -c "
+HOUSEHOLD_SNAPSHOT=$(PAGER=cat psql $DATABASE_URL -t -c "
   SELECT new_values::text 
   FROM audit_logs 
   WHERE action = 'HOUSEHOLD_CREATED' 
@@ -729,7 +729,7 @@ echo "$HOUSEHOLD_SNAPSHOT" | grep -q "Household 1"
 echo -e "${GREEN}✓ Audit log contains household snapshot${NC}\n"
 
 run_test "Verify audit logs for household member addition"
-MEMBER_AUDIT_COUNT=$(psql $DATABASE_URL -t -c "
+MEMBER_AUDIT_COUNT=$(PAGER=cat psql $DATABASE_URL -t -c "
   SELECT COUNT(*) 
   FROM audit_logs 
   WHERE action = 'HOUSEHOLD_MEMBER_ADDED'
@@ -741,7 +741,7 @@ MEMBER_AUDIT_COUNT=$(echo "$MEMBER_AUDIT_COUNT" | xargs)
 echo -e "${GREEN}✓ Found $MEMBER_AUDIT_COUNT audit log(s) for member additions${NC}\n"
 
 run_test "Verify audit logs for account creation"
-ACCOUNT_AUDIT_COUNT=$(psql $DATABASE_URL -t -c "
+ACCOUNT_AUDIT_COUNT=$(PAGER=cat psql $DATABASE_URL -t -c "
   SELECT COUNT(*) 
   FROM audit_logs 
   WHERE action = 'ACCOUNT_CREATED'
@@ -753,7 +753,7 @@ ACCOUNT_AUDIT_COUNT=$(echo "$ACCOUNT_AUDIT_COUNT" | xargs)
 echo -e "${GREEN}✓ Found audit log for account creation${NC}\n"
 
 run_test "Verify audit log contains account snapshot with initial balance"
-ACCOUNT_SNAPSHOT=$(psql $DATABASE_URL -t -c "
+ACCOUNT_SNAPSHOT=$(PAGER=cat psql $DATABASE_URL -t -c "
   SELECT new_values::text 
   FROM audit_logs 
   WHERE action = 'ACCOUNT_CREATED' 
@@ -765,7 +765,7 @@ echo "$ACCOUNT_SNAPSHOT" | grep -q "BBVA"     # Institution
 echo -e "${GREEN}✓ Account audit log contains full snapshot${NC}\n"
 
 run_test "Verify audit logs for income creation"
-INCOME_AUDIT_COUNT=$(psql $DATABASE_URL -t -c "
+INCOME_AUDIT_COUNT=$(PAGER=cat psql $DATABASE_URL -t -c "
   SELECT COUNT(*) 
   FROM audit_logs 
   WHERE action = 'INCOME_CREATED'
@@ -777,7 +777,7 @@ INCOME_AUDIT_COUNT=$(echo "$INCOME_AUDIT_COUNT" | xargs)
 echo -e "${GREEN}✓ Found $INCOME_AUDIT_COUNT audit log(s) for income creation${NC}\n"
 
 run_test "Verify audit logs for income deletion"
-INCOME_DELETE_COUNT=$(psql $DATABASE_URL -t -c "
+INCOME_DELETE_COUNT=$(PAGER=cat psql $DATABASE_URL -t -c "
   SELECT COUNT(*) 
   FROM audit_logs 
   WHERE action = 'INCOME_DELETED'
@@ -789,7 +789,7 @@ INCOME_DELETE_COUNT=$(echo "$INCOME_DELETE_COUNT" | xargs)
 echo -e "${GREEN}✓ Found audit log for income deletion${NC}\n"
 
 run_test "Verify income deletion audit has old values"
-INCOME_DELETE_SNAPSHOT=$(psql $DATABASE_URL -t -c "
+INCOME_DELETE_SNAPSHOT=$(PAGER=cat psql $DATABASE_URL -t -c "
   SELECT old_values::text 
   FROM audit_logs 
   WHERE action = 'INCOME_DELETED' 
@@ -800,7 +800,7 @@ echo "$INCOME_DELETE_SNAPSHOT" | grep -q "$WITHDRAWAL_ID"
 echo -e "${GREEN}✓ Income deletion audit log contains old values${NC}\n"
 
 run_test "Verify audit logs for category creation"
-CATEGORY_AUDIT_COUNT=$(psql $DATABASE_URL -t -c "
+CATEGORY_AUDIT_COUNT=$(PAGER=cat psql $DATABASE_URL -t -c "
   SELECT COUNT(*) 
   FROM audit_logs 
   WHERE action = 'CATEGORY_CREATED'
@@ -811,8 +811,84 @@ CATEGORY_AUDIT_COUNT=$(echo "$CATEGORY_AUDIT_COUNT" | xargs)
 [ "$CATEGORY_AUDIT_COUNT" -ge "1" ]
 echo -e "${GREEN}✓ Found $CATEGORY_AUDIT_COUNT audit log(s) for category creation${NC}\n"
 
+run_test "Verify audit logs for payment method creation"
+PM_CREATE_AUDIT_COUNT=$(PAGER=cat psql $DATABASE_URL -t -c "
+  SELECT COUNT(*) 
+  FROM audit_logs 
+  WHERE action = 'PAYMENT_METHOD_CREATED'
+    AND resource_id = '$PM1_ID'
+    AND success = true
+")
+PM_CREATE_AUDIT_COUNT=$(echo "$PM_CREATE_AUDIT_COUNT" | xargs)
+[ "$PM_CREATE_AUDIT_COUNT" = "1" ]
+echo -e "${GREEN}✓ Found audit log for payment method creation${NC}\n"
+
+run_test "Verify payment method audit log contains snapshot"
+PM_SNAPSHOT=$(PAGER=cat psql $DATABASE_URL -t -c "
+  SELECT new_values::text 
+  FROM audit_logs 
+  WHERE action = 'PAYMENT_METHOD_CREATED' 
+    AND resource_id = '$PM1_ID'
+  LIMIT 1
+")
+echo "$PM_SNAPSHOT" | grep -q "Débito Jose"
+echo "$PM_SNAPSHOT" | grep -q "1234"  # last4
+echo "$PM_SNAPSHOT" | grep -q "Banco de Bogotá"
+echo -e "${GREEN}✓ Payment method audit log contains full snapshot${NC}\n"
+
+run_test "Verify audit logs for payment method update"
+PM_UPDATE_AUDIT_COUNT=$(PAGER=cat psql $DATABASE_URL -t -c "
+  SELECT COUNT(*) 
+  FROM audit_logs 
+  WHERE action = 'PAYMENT_METHOD_UPDATED'
+    AND resource_id = '$PM1_ID'
+    AND success = true
+")
+PM_UPDATE_AUDIT_COUNT=$(echo "$PM_UPDATE_AUDIT_COUNT" | xargs)
+[ "$PM_UPDATE_AUDIT_COUNT" = "1" ]
+echo -e "${GREEN}✓ Found audit log for payment method update${NC}\n"
+
+run_test "Verify payment method update has old and new values"
+PM_UPDATE_LOG=$(PAGER=cat psql $DATABASE_URL -t -c "
+  SELECT 
+    old_values->>'name' as old_name,
+    new_values->>'name' as new_name,
+    old_values->>'is_shared_with_household' as old_shared,
+    new_values->>'is_shared_with_household' as new_shared
+  FROM audit_logs 
+  WHERE action = 'PAYMENT_METHOD_UPDATED' 
+    AND resource_id = '$PM1_ID'
+  LIMIT 1
+")
+echo "$PM_UPDATE_LOG" | grep -q "Débito Jose"
+echo "$PM_UPDATE_LOG" | grep -q "Principal"
+echo -e "${GREEN}✓ Payment method update audit log has old and new values${NC}\n"
+
+run_test "Verify audit logs for payment method deletion"
+PM_DELETE_AUDIT_COUNT=$(PAGER=cat psql $DATABASE_URL -t -c "
+  SELECT COUNT(*) 
+  FROM audit_logs 
+  WHERE action = 'PAYMENT_METHOD_DELETED'
+    AND resource_id = '$PM2_ID'
+    AND success = true
+")
+PM_DELETE_AUDIT_COUNT=$(echo "$PM_DELETE_AUDIT_COUNT" | xargs)
+[ "$PM_DELETE_AUDIT_COUNT" = "1" ]
+echo -e "${GREEN}✓ Found audit log for payment method deletion${NC}\n"
+
+run_test "Verify payment method deletion has old values"
+PM_DELETE_SNAPSHOT=$(PAGER=cat psql $DATABASE_URL -t -c "
+  SELECT old_values::text 
+  FROM audit_logs 
+  WHERE action = 'PAYMENT_METHOD_DELETED' 
+    AND resource_id = '$PM2_ID'
+  LIMIT 1
+")
+echo "$PM_DELETE_SNAPSHOT" | grep -q "Efectivo"
+echo -e "${GREEN}✓ Payment method deletion audit log contains old values${NC}\n"
+
 run_test "Verify audit logs for budget creation"
-BUDGET_AUDIT_COUNT=$(psql $DATABASE_URL -t -c "
+BUDGET_AUDIT_COUNT=$(PAGER=cat psql $DATABASE_URL -t -c "
   SELECT COUNT(*) 
   FROM audit_logs 
   WHERE action = 'BUDGET_CREATED'
@@ -836,7 +912,7 @@ HOUSEHOLD_CREATE_COUNT=$(echo "$HOUSEHOLD_CREATE_LOGS" | jq '.logs | length')
 echo -e "${GREEN}✓ Found $HOUSEHOLD_CREATE_COUNT filtered audit log(s)${NC}\n"
 
 run_test "Verify audit logs contain user_id tracking"
-USER_LOGS=$(psql $DATABASE_URL -t -c "
+USER_LOGS=$(PAGER=cat psql $DATABASE_URL -t -c "
   SELECT COUNT(*) 
   FROM audit_logs 
   WHERE user_id = '$JOSE_ID'
