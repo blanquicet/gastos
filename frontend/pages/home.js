@@ -2522,7 +2522,7 @@ async function handleAddBudget(categoryId, categoryName) {
   
   const result = await setBudget(categoryId, currentMonth, parsedAmount);
   if (result) {
-    showSuccess('Presupuesto creado', `El presupuesto para ${categoryName} ha sido creado con ${formatCurrency(parsedAmount)}`);
+    showSuccess('Presupuesto creado', `El presupuesto para <strong>${categoryName}</strong> ha sido creado con ${formatCurrency(parsedAmount)}`);
     await loadBudgetsData();
     refreshDisplay();
   }
@@ -2551,7 +2551,7 @@ async function handleEditBudget(categoryId, budgetId, currentAmount, categoryNam
   if (parsedAmount === 0) {
     const deleted = await deleteBudget(budgetId);
     if (deleted) {
-      showSuccess('Presupuesto eliminado', `El presupuesto para ${categoryName} ha sido eliminado`);
+      showSuccess('Presupuesto eliminado', `El presupuesto para <strong>${categoryName}</strong> ha sido eliminado`);
       await loadBudgetsData();
       refreshDisplay();
     }
@@ -2560,7 +2560,7 @@ async function handleEditBudget(categoryId, budgetId, currentAmount, categoryNam
   
   const result = await setBudget(categoryId, currentMonth, parsedAmount);
   if (result) {
-    showSuccess('Presupuesto actualizado', `El presupuesto para ${categoryName} ha sido actualizado de ${formatCurrency(currentAmount)} a ${formatCurrency(parsedAmount)}`);
+    showSuccess('Presupuesto actualizado', `El presupuesto para <strong>${categoryName}</strong> ha sido actualizado de ${formatCurrency(currentAmount)} a ${formatCurrency(parsedAmount)}`);
     await loadBudgetsData();
     refreshDisplay();
   }
@@ -2572,7 +2572,7 @@ async function handleEditBudget(categoryId, budgetId, currentAmount, categoryNam
 async function handleDeleteBudget(budgetId, categoryName) {
   const confirmed = await showConfirmation(
     'Eliminar presupuesto',
-    `¿Estás seguro de que deseas eliminar el presupuesto para ${categoryName}?`,
+    `¿Estás seguro de que deseas eliminar el presupuesto para <strong>${categoryName}</strong>?`,
     'Eliminar'
   );
   
@@ -2580,7 +2580,7 @@ async function handleDeleteBudget(budgetId, categoryName) {
   
   const deleted = await deleteBudget(budgetId);
   if (deleted) {
-    showSuccess('Presupuesto eliminado', `El presupuesto para ${categoryName} ha sido eliminado`);
+    showSuccess('Presupuesto eliminado', `El presupuesto para <strong>${categoryName}</strong> ha sido eliminado`);
     await loadBudgetsData();
     refreshDisplay();
   }
