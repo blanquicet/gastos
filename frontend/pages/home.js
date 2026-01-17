@@ -2401,11 +2401,18 @@ function setupCategoryListeners() {
  */
 function setupBudgetListeners() {
   // Three-dots menu toggles
-  document.querySelectorAll('.three-dots-btn[data-category-id]').forEach(btn => {
+  const budgetButtons = document.querySelectorAll('.three-dots-btn[data-category-id]');
+  console.log('Budget buttons found:', budgetButtons.length);
+  
+  budgetButtons.forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
+      e.preventDefault();
+      console.log('Budget button clicked', btn.dataset.categoryId);
+      
       const categoryId = btn.dataset.categoryId;
       const menu = document.getElementById(`budget-menu-${categoryId}`);
+      console.log('Menu found:', menu);
       
       // Close all other menus
       document.querySelectorAll('.three-dots-menu').forEach(m => {
