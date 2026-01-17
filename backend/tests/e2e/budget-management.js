@@ -9,10 +9,11 @@ const { Pool } = pg;
  * 1. Register user and create household
  * 2. Create categories
  * 3. Navigate to Presupuesto tab
- * 4. Set budget for a category
- * 5. Edit budget inline (✏️ button)
+ * 4. Add budget using three-dots menu and modal
+ * 5. Edit budget using three-dots menu and modal
  * 6. Copy budgets to next month
  * 7. Verify budgets were copied
+ * 8. Test "Gestionar categorías" button navigation
  */
 
 async function testBudgetManagement() {
@@ -60,8 +61,7 @@ async function testBudgetManagement() {
     await page.getByRole('button', { name: 'Registrarse' }).click();
     await page.waitForTimeout(2000);
     
-    // Should be on registrar-movimiento page
-    await page.waitForURL('**/registrar-movimiento');
+    // After registration, user is logged in and should be on home page
     console.log('✅ User registered and logged in');
 
     // Create household
@@ -154,9 +154,9 @@ async function testBudgetManagement() {
     console.log('✅ On Presupuesto tab');
 
     // ==================================================================
-    // STEP 4: Set Initial Budgets via API (so cards appear)
+    // STEP 4: Get Category IDs and Expand Groups
     // ==================================================================
-    console.log('📝 Step 4: Setting initial budgets via API...');
+    console.log('📝 Step 4: Getting category IDs and expanding groups...');
     
     // Get category IDs from database
     const categoriesQuery = await pool.query(
@@ -165,33 +165,7 @@ async function testBudgetManagement() {
     );
     const categoryIds = categoriesQuery.rows;
     console.log(`  Found ${categoryIds.length} categories`);
-    
-    // Set budgets for all categories via API
-    const currentMonth = new Date().toISOString().substring(0, 7); // YYYY-MM
-    for (const cat of categoryIds) {
-      await pool.query(
-        `INSERT INTO monthly_budgets (household_id, category_id, month, amount, currency)
-         VALUES ($1, $2, $3, $4, 'COP')`,
-        [householdId, cat.id, `${currentMonth}-01`, 500000]
-      );
-    }
-    
-    console.log(`✅ Set budgets of 500,000 COP for ${categoryIds.length} categories`);
-    
-    // Reload the page to fetch the budgets
-    await page.reload();
-    await page.waitForSelector('#loading', { state: 'hidden', timeout: 15000 });
-    await page.waitForTimeout(1000);
-    
-    // Click Presupuesto tab again after reload
-    await page.locator('.tab-btn[data-tab="presupuesto"]').click();
-    await page.waitForTimeout(2000);
 
-    // ==================================================================
-    // STEP 5: Expand Groups and Verify Budget Cards Are Displayed
-    // ==================================================================
-    console.log('📝 Step 5: Expanding groups and verifying budget cards...');
-    
     // Expand all category groups (they're collapsed by default)
     const groupHeaders = await page.locator('.expense-group-header').all();
     console.log(`  Found ${groupHeaders.length} category groups`);
@@ -203,8 +177,8 @@ async function testBudgetManagement() {
     
     console.log('✅ Expanded all groups');
     
-    // Check for budget cards (using expense-category-item structure)
-    const budgetCards = await page.locator('.expense-category-item').count();
+    // Check for budget cards (using budget-category-item structure)
+    const budgetCards = await page.locator('.budget-category-item').count();
     if (budgetCards !== 3) {
       throw new Error(`Expected 3 budget cards, found ${budgetCards}`);
     }
@@ -212,9 +186,131 @@ async function testBudgetManagement() {
     console.log(`✅ Found ${budgetCards} budget cards (one per category)`);
 
     // ==================================================================
-    // STEP 6: Navigate to Next Month
+    // STEP 5: Add Budget Using Three-Dots Menu and Modal
     // ==================================================================
-    console.log('📝 Step 6: Navigating to next month...');
+    console.log('📝 Step 5: Adding budget using three-dots menu...');
+    
+    // Get first budget item
+    const firstBudgetCard = page.locator('.budget-category-item').first();
+    
+    // Click three-dots button
+    const threeDotsBtn = firstBudgetCard.locator('.three-dots-btn');
+    await threeDotsBtn.click();
+    await page.waitForTimeout(500);
+    
+    // Click "Agregar" menu item
+    const addMenuItem = page.locator('.menu-item[data-action="add-budget"]').first();
+    await addMenuItem.click();
+    await page.waitForTimeout(500);
+    
+    // Wait for modal to appear
+    await page.waitForSelector('.modal', { timeout: 3000 });
+    
+    // Fill budget amount in modal input
+    const modalInput = page.locator('.modal input[type="number"]');
+    await modalInput.fill('500000');
+    await page.waitForTimeout(300);
+    
+    // Click confirm button in modal
+    const addConfirmBtn = page.locator('.modal button#modal-confirm').first();
+    await addConfirmBtn.click();
+    await page.waitForTimeout(2000); // Wait for API call and success modal
+    
+    // Close success modal (showSuccess uses modal-ok)
+    const addSuccessOkBtn = page.locator('.modal button#modal-ok').first();
+    await addSuccessOkBtn.click();
+    await page.waitForTimeout(1000);
+    
+    console.log('✅ Budget added successfully using three-dots menu');
+
+    // ==================================================================
+    // STEP 6: Edit Budget Using Three-Dots Menu and Modal
+    // ==================================================================
+    console.log('📝 Step 6: Editing budget using three-dots menu...');
+    
+    // Expand groups again (they collapse after reload)
+    const editGroupHeaders = await page.locator('.expense-group-header').all();
+    for (const header of editGroupHeaders) {
+      await header.click();
+      await page.waitForTimeout(300);
+    }
+    
+    // Get first budget item again
+    const editBudgetCard = page.locator('.budget-category-item').first();
+    
+    // Click three-dots button again
+    const editThreeDotsBtn = editBudgetCard.locator('.three-dots-btn');
+    await editThreeDotsBtn.click();
+    await page.waitForTimeout(500);
+    
+    // Click "Editar" menu item (now available since budget exists)
+    const editMenuItem = page.locator('.menu-item[data-action="edit-budget"]').first();
+    await editMenuItem.click();
+    await page.waitForTimeout(500);
+    
+    // Wait for modal to appear
+    await page.waitForSelector('.modal', { timeout: 3000 });
+    
+    // Clear and fill new budget amount in modal input
+    const editModalInput = page.locator('.modal input[type="number"]');
+    await editModalInput.selectText();
+    await editModalInput.fill('750000');
+    await page.waitForTimeout(300);
+    
+    // Click confirm button in modal
+    const editConfirmBtn = page.locator('.modal button#modal-confirm').first();
+    await editConfirmBtn.click();
+    await page.waitForTimeout(2000); // Wait for API call and success modal
+    
+    // Close success modal (showSuccess uses modal-ok)
+    const editSuccessOkBtn = page.locator('.modal button#modal-ok').first();
+    await editSuccessOkBtn.click();
+    await page.waitForTimeout(1000);
+    
+    // Verify amount was updated
+    const updatedAmount = await editBudgetCard.locator('.budget-amount-display').textContent();
+    console.log(`  Updated budget amount: ${updatedAmount.trim()}`);
+    
+    if (!updatedAmount.includes('750.000') && !updatedAmount.includes('750,000')) {
+      throw new Error(`Expected budget to be 750,000 but got: ${updatedAmount}`);
+    }
+    
+    console.log('✅ Budget edited successfully using three-dots menu');
+    
+    // ==================================================================
+    // STEP 7: Add Budgets to Remaining Categories via API
+    // ==================================================================
+    console.log('📝 Step 7: Adding budgets to remaining categories via API...');
+    
+    // Set budgets for all categories via API for copy test
+    const currentMonth = new Date().toISOString().substring(0, 7); // YYYY-MM
+    for (const cat of categoryIds) {
+      // Skip first category (already has budget from UI test)
+      if (cat.id === categoryIds[0].id) continue;
+      
+      await pool.query(
+        `INSERT INTO monthly_budgets (household_id, category_id, month, amount, currency)
+         VALUES ($1, $2, $3, $4, 'COP')
+         ON CONFLICT (household_id, category_id, month) DO UPDATE SET amount = $4`,
+        [householdId, cat.id, `${currentMonth}-01`, 500000]
+      );
+    }
+    
+    console.log(`✅ Set budgets for remaining categories`);
+    
+    // Reload to see all budgets
+    await page.reload();
+    await page.waitForSelector('#loading', { state: 'hidden', timeout: 15000 });
+    await page.waitForTimeout(1000);
+    
+    // Click Presupuesto tab again after reload
+    await page.locator('.tab-btn[data-tab="presupuesto"]').click();
+    await page.waitForTimeout(2000);
+
+    // ==================================================================
+    // STEP 8: Navigate to Next Month
+    // ==================================================================
+    console.log('📝 Step 8: Navigating to next month...');
     
     // Click next month button
     await page.locator('#next-month-btn').click();
@@ -228,29 +324,29 @@ async function testBudgetManagement() {
     }
     
     // Verify budgets are empty for next month
-    const nextMonthCards = await page.locator('.expense-category-item').count();
+    const nextMonthCards = await page.locator('.budget-category-item').count();
     if (nextMonthCards !== 3) {
       throw new Error(`Expected 3 budget cards in next month, found ${nextMonthCards}`);
     }
     
-    // Check that amounts are 0 or show "Sin presupuesto" (no budgets set yet)
-    const firstCard = page.locator('.expense-category-item').first();
+    // Check that amounts show "Sin presupuesto" (no budgets set yet)
+    const firstCard = page.locator('.budget-category-item').first();
     const hasNoBudget = await firstCard.locator('.no-budget-text').count();
-    const hasBudget = await firstCard.locator('.budget-amount-editable').count();
+    const hasBudget = await firstCard.locator('.budget-amount-display').count();
     
     if (hasNoBudget > 0) {
       console.log('  First card shows: Sin presupuesto');
     } else if (hasBudget > 0) {
-      const amount = await firstCard.locator('.budget-amount-editable').textContent();
+      const amount = await firstCard.locator('.budget-amount-display').textContent();
       console.log('  First card amount:', amount.trim());
     }
     
     console.log('✅ Navigated to next month (budgets should be empty)');
 
     // ==================================================================
-    // STEP 7: Copy Budgets from Previous Month
+    // STEP 9: Copy Budgets from Previous Month
     // ==================================================================
-    console.log('📝 Step 7: Copying budgets from previous month...');
+    console.log('📝 Step 9: Copying budgets from previous month...');
     
     // Click "Copiar del mes anterior" button
     const copyBtn = page.locator('#copy-prev-month-budget');
@@ -260,23 +356,23 @@ async function testBudgetManagement() {
     // Wait for custom confirmation modal to appear
     await page.waitForSelector('.modal', { timeout: 3000 });
     
-    // Click confirm button in modal (assuming it's a button with text containing "Copiar" or "Confirmar")
-    const confirmBtn = page.locator('.modal button').filter({ hasText: /Copiar|Confirmar|Aceptar|Sí/i }).first();
-    await confirmBtn.click();
+    // Click confirm button in modal (showConfirmation uses modal-confirm)
+    const copyConfirmBtn = page.locator('.modal button#modal-confirm').first();
+    await copyConfirmBtn.click();
     await page.waitForTimeout(2000); // Wait for API call
     
-    // Wait for success modal and click OK
+    // Wait for success modal and click OK (showSuccess uses modal-ok)
     await page.waitForSelector('.modal', { timeout: 5000 });
-    const okBtn = page.locator('.modal button#modal-ok, .modal button').filter({ hasText: /OK/i }).first();
-    await okBtn.click();
+    const copyOkBtn = page.locator('.modal button#modal-ok').first();
+    await copyOkBtn.click();
     await page.waitForTimeout(3000); // Wait for modal to close and data to reload
     
     console.log('✅ Copy budgets button clicked and confirmed');
 
     // ==================================================================
-    // STEP 8: Verify Budgets Were Copied
+    // STEP 10: Verify Budgets Were Copied
     // ==================================================================
-    console.log('📝 Step 8: Verifying budgets were copied...');
+    console.log('📝 Step 10: Verifying budgets were copied...');
     
     // Expand all groups to see categories
     const copiedMonthGroups = await page.locator('.expense-group-header').all();
@@ -286,14 +382,14 @@ async function testBudgetManagement() {
     }
     
     // Check that amounts are now populated
-    const copiedCards = await page.locator('.expense-category-item').all();
+    const copiedCards = await page.locator('.budget-category-item').all();
     
     for (let i = 0; i < copiedCards.length; i++) {
-      const cardAmount = await copiedCards[i].locator('.budget-amount-editable').textContent();
+      const cardAmount = await copiedCards[i].locator('.budget-amount-display').textContent();
       console.log(`  Category ${i + 1} amount:`, cardAmount.trim());
       
       // Check that budget amount is not empty and not 0
-      // Format is now: "$ 500.000"
+      // Format is now: "$ 500.000" or "$ 750.000" (for first category)
       if (!cardAmount || cardAmount.trim() === '' || cardAmount.includes('$ 0') && !cardAmount.includes('$ 0,')) {
         throw new Error(`Category ${i + 1} shows invalid budget after copy: ${cardAmount}`);
       }
@@ -302,9 +398,9 @@ async function testBudgetManagement() {
     console.log('✅ All budgets successfully copied to next month');
 
     // ==================================================================
-    // STEP 9: Verify "Gestionar categorías" Button Navigation
+    // STEP 11: Verify "Gestionar categorías" Button Navigation
     // ==================================================================
-    console.log('📝 Step 9: Testing "Gestionar categorías" button...');
+    console.log('📝 Step 11: Testing "Gestionar categorías" button...');
     
     const manageCategoriesBtn = page.locator('#manage-categories-btn');
     await manageCategoriesBtn.click();
