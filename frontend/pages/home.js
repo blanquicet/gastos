@@ -525,8 +525,8 @@ function renderBudgets() {
           <button class="three-dots-btn" data-category-id="${budget.category_id}" data-budget-id="${hasBudget ? budget.id : ''}" data-category-name="${simplifiedName}" data-has-budget="${hasBudget}">⋮</button>
           <div class="three-dots-menu" id="budget-menu-${budget.category_id}">
             ${hasBudget ? `
-              <button class="menu-item" data-action="edit-budget" data-category-id="${budget.category_id}" data-budget-id="${budget.id}" data-amount="${budget.amount}" data-category-name="${simplifiedName}">Editar presupuesto</button>
-              <button class="menu-item" data-action="delete-budget" data-budget-id="${budget.id}" data-category-name="${simplifiedName}">Eliminar presupuesto</button>
+              <button class="menu-item" data-action="edit-budget" data-category-id="${budget.category_id}" data-budget-id="${budget.id}" data-amount="${budget.amount}" data-category-name="${simplifiedName}">Editar</button>
+              <button class="menu-item" data-action="delete-budget" data-budget-id="${budget.id}" data-category-name="${simplifiedName}">Eliminar</button>
             ` : `
               <button class="menu-item" data-action="add-budget" data-category-id="${budget.category_id}" data-category-name="${simplifiedName}">Agregar presupuesto</button>
             `}
