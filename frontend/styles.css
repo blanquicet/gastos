@@ -2731,6 +2731,29 @@ button.loading::after {
   background: #059669;
 }
 
+/* Add budget button */
+.btn-add-budget {
+  background: #10b981;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-add-budget:hover {
+  background: #059669;
+  transform: translateY(-1px);
+}
+
+.btn-add-budget:active {
+  transform: translateY(0);
+}
+
 /* Coming Soon */
 .coming-soon {
   text-align: center;
