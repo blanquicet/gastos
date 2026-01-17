@@ -2104,6 +2104,7 @@ async function loadMovementForEdit(movementId) {
  */
 async function loadIncomeForEdit(incomeId) {
   try {
+    console.log('[loadIncomeForEdit] Starting, incomeId:', incomeId);
     const response = await fetch(`${API_URL}/income/${incomeId}`, {
       credentials: 'include'
     });
@@ -2113,11 +2114,12 @@ async function loadIncomeForEdit(incomeId) {
     }
     
     const income = await response.json();
-    console.log('Income loaded for edit:', income);
+    console.log('[loadIncomeForEdit] Income loaded:', income);
     currentEditIncome = income;
     
     // Hide loading overlay
     hideFullScreenLoading();
+    console.log('[loadIncomeForEdit] Loading overlay hidden');
     
     // Pre-fill form fields
     const descripcionEl = document.getElementById('descripcion');
@@ -2140,22 +2142,28 @@ async function loadIncomeForEdit(incomeId) {
       fechaEl.value = dateStr;
     }
     
-    // Select INGRESO tipo button FIRST
+    console.log('[loadIncomeForEdit] Basic fields filled');
+    
+    // Update buttons and title for edit mode FIRST (before onTipoChange)
+    const submitBtn = document.getElementById('submitBtn');
+    const cancelBtn = document.getElementById('cancelBtn');
+    console.log('[loadIncomeForEdit] Looking for submitBtn:', submitBtn ? 'FOUND' : 'NOT FOUND');
+    if (submitBtn) {
+      const oldText = submitBtn.textContent;
+      submitBtn.textContent = 'Actualizar';
+      console.log(`[loadIncomeForEdit] Button text changed: "${oldText}" → "${submitBtn.textContent}"`);
+    }
+    if (cancelBtn) {
+      cancelBtn.classList.remove('hidden');
+    }
+    
+    // Select INGRESO tipo button and trigger onTipoChange AFTER updating button
     const ingresoBtn = document.querySelector('.tipo-btn[data-tipo="INGRESO"]');
     if (ingresoBtn) {
       ingresoBtn.classList.add('active');
       document.getElementById('tipo').value = 'INGRESO';
       onTipoChange();
-    }
-    
-    // Update buttons and title for edit mode AFTER onTipoChange()
-    const submitBtn = document.getElementById('submitBtn');
-    const cancelBtn = document.getElementById('cancelBtn');
-    if (submitBtn) {
-      submitBtn.textContent = 'Actualizar';
-    }
-    if (cancelBtn) {
-      cancelBtn.classList.remove('hidden');
+      console.log('[loadIncomeForEdit] Called onTipoChange()');
     }
     
     // Disable tipo selector buttons after selection

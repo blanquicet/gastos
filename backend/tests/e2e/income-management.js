@@ -357,13 +357,27 @@ async function testIncomeManagement() {
     
     // Should navigate to edit page
     await page.waitForURL(`**/registrar-movimiento?tipo=INGRESO&edit=${salaryIncomeId}`);
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(2000);
+    
+    // Wait for loading overlay to disappear
+    try {
+      await page.waitForSelector('.fullscreen-loading', { state: 'hidden', timeout: 5000 });
+    } catch (e) {
+      // Loading overlay may already be gone
+    }
     
     // Verify page title shows "Editar Ingreso"
     const pageTitle = await page.locator('h1').textContent();
     if (!pageTitle.includes('Editar Ingreso')) {
       throw new Error(`Expected "Editar Ingreso" title, got: ${pageTitle}`);
     }
+    
+    // Wait for form to be populated (button text should change to "Actualizar")
+    await page.waitForFunction(() => {
+      const btn = document.getElementById('submitBtn');
+      return btn && btn.textContent.trim() === 'Actualizar';
+    }, { timeout: 5000 });
+    console.log('  → Form loaded, button text is "Actualizar"');
     
     // Edit amount and description
     console.log('  → Filling amount: 5500000');
