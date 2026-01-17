@@ -574,6 +574,37 @@ function renderPaymentMethodSelect() {
 }
 
 /**
+ * Wait for a specific delay (Promise-based alternative to setTimeout)
+ * Returns a promise that can be cancelled
+ */
+function delay(ms) {
+  let timeoutId;
+  const promise = new Promise(resolve => {
+    timeoutId = setTimeout(resolve, ms);
+    pendingTimeouts.push(timeoutId);
+  });
+  promise.cancel = () => {
+    clearTimeout(timeoutId);
+    const index = pendingTimeouts.indexOf(timeoutId);
+    if (index > -1) pendingTimeouts.splice(index, 1);
+  };
+  return promise;
+}
+
+/**
+ * Wait for DOM element to be ready (with timeout)
+ */
+async function waitForElement(selector, timeout = 1000) {
+  const startTime = Date.now();
+  while (Date.now() - startTime < timeout) {
+    const element = document.getElementById(selector) || document.querySelector(selector);
+    if (element) return element;
+    await delay(50);
+  }
+  return null;
+}
+
+/**
  * Cleanup edit state and pending operations
  */
 function cleanupEditState() {
@@ -585,6 +616,46 @@ function cleanupEditState() {
   pendingTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
   pendingTimeouts = [];
 }
+
+/**
+ * Reset form to initial state - clears all fields and state
+ */
+function resetForm() {
+  // First cleanup any pending edit operations
+  cleanupEditState();
+  
+  // Clear all form inputs
+  document.getElementById('fecha').value = '';
+  document.getElementById('descripcion').value = '';
+  document.getElementById('monto').value = '';
+  
+  // Reset tipo to empty
+  const tipoEl = document.getElementById('tipo');
+  if (tipoEl) tipoEl.value = '';
+  
+  // Clear all optional/conditional fields
+  const optionalFields = ['pagador', 'tomador', 'categoria', 'metodo', 'cuentaReceptora', 'notas'];
+  optionalFields.forEach(fieldId => {
+    const el = document.getElementById(fieldId);
+    if (el) el.value = '';
+  });
+  
+  // Hide conditional sections
+  document.getElementById('pagadorRow').style.display = 'none';
+  document.getElementById('tomadorRow').style.display = 'none';
+  document.getElementById('categoriaRow').style.display = 'none';
+  document.getElementById('metodoRow').style.display = 'none';
+  document.getElementById('cuentaReceptoraRow').style.display = 'none';
+  
+  // Reset button states
+  document.getElementById('crearMovimientoBtn').style.display = 'inline-block';
+  document.getElementById('actualizarMovimientoBtn').style.display = 'none';
+  document.getElementById('cancelarEdicionBtn').style.display = 'none';
+  
+  // Clear status messages
+  setStatus('', '');
+}
+
 
 /**
  * Setup event listeners and initialize form
@@ -744,7 +815,7 @@ export async function setup() {
   const cancelBtn = document.getElementById('cancelBtn');
   if (cancelBtn) {
     cancelBtn.addEventListener('click', () => {
-      cleanupEditState();
+      resetForm();  // Use resetForm instead of just cleanupEditState
       router.navigate('/');
     });
   }
@@ -1574,18 +1645,22 @@ function readForm() {
   // Skip some validations in edit mode
   const isEditMode = !!currentEditMovement;
 
-  if (!isEditMode && effectiveTipo !== 'HOUSEHOLD' && !pagador) throw new Error('Pagador es obligatorio.');
+  // Validate payer is required (always - even in edit mode)
+  if (effectiveTipo !== 'HOUSEHOLD' && !pagador) {
+    throw new Error('Pagador es obligatorio.');
+  }
 
   // Categoria is required for HOUSEHOLD and SPLIT only (not for DEBT_PAYMENT or LOAN)
   if ((effectiveTipo === 'HOUSEHOLD' || effectiveTipo === 'SPLIT') && tipo !== 'LOAN' && !categoria) {
     throw new Error('Categoría es obligatoria.');
   }
 
-  const requiresMethod = !isEditMode && (effectiveTipo === 'HOUSEHOLD' || primaryUsers.includes(pagador));
+  // Payment method is required for HOUSEHOLD and when payer is a member (always)
+  const requiresMethod = effectiveTipo === 'HOUSEHOLD' || primaryUsers.includes(pagador);
   if (requiresMethod && !metodo) throw new Error('Método de pago es obligatorio.');
 
-  // Validate that the payment method is valid for the payer (skip in edit mode)
-  if (!isEditMode && metodo) {
+  // Validate that the payment method is valid for the payer (always)
+  if (metodo && requiresMethod) {
     const effectivePayer = effectiveTipo === 'HOUSEHOLD' ? (currentUser ? currentUser.name : '') : pagador;
     const availableMethods = getPaymentMethodsForPayer(effectivePayer);
     const isValidMethod = availableMethods.some(pm => pm.name === metodo);
@@ -1972,34 +2047,36 @@ async function loadMovementForEdit(movementId) {
     
     // For HOUSEHOLD and DEBT_PAYMENT movements, we need to show payment methods for the actual payer
     // (not currentUser, which is who's logged in)
-    // Use setTimeout to ensure the form fields are rendered after onTipoChange()
     if ((movement.type === 'HOUSEHOLD' || movement.type === 'DEBT_PAYMENT') && movement.payer_user_id) {
       const payerUser = Object.values(usersMap).find(u => u.id === movement.payer_user_id);
       if (payerUser) {
-        const timeoutId = setTimeout(() => {
-          showPaymentMethods(payerUser.name, true);
-          
-          // Now select the payment method after the dropdown is populated
-          const metodoEl = document.getElementById('metodo');
-          if (metodoEl && movement.payment_method_id) {
-            // Try to find payment method by ID first
-            let selectedPaymentMethodName = null;
-            const paymentMethod = paymentMethods.find(pm => pm.id === movement.payment_method_id);
+        // Use async/await instead of nested setTimeout
+        (async () => {
+          try {
+            await delay(50);
+            showPaymentMethods(payerUser.name, true);
             
-            if (paymentMethod) {
-              selectedPaymentMethodName = paymentMethod.name;
-              console.log('Found payment method by ID:', selectedPaymentMethodName);
-            } else if (movement.payment_method_name) {
-              // Fallback: use the name directly from the movement (might be inactive)
-              selectedPaymentMethodName = movement.payment_method_name;
-              console.log('Using payment method name from movement (possibly inactive):', selectedPaymentMethodName);
-            } else {
-              console.warn('Payment method not found in paymentMethods array:', movement.payment_method_id);
-            }
-            
-            if (selectedPaymentMethodName) {
-              // Small additional delay to ensure options are rendered
-              const nestedTimeoutId = setTimeout(() => {
+            // Now select the payment method after the dropdown is populated
+            const metodoEl = await waitForElement('metodo');
+            if (metodoEl && movement.payment_method_id) {
+              // Try to find payment method by ID first
+              let selectedPaymentMethodName = null;
+              const paymentMethod = paymentMethods.find(pm => pm.id === movement.payment_method_id);
+              
+              if (paymentMethod) {
+                selectedPaymentMethodName = paymentMethod.name;
+                console.log('Found payment method by ID:', selectedPaymentMethodName);
+              } else if (movement.payment_method_name) {
+                // Fallback: use the name directly from the movement (might be inactive)
+                selectedPaymentMethodName = movement.payment_method_name;
+                console.log('Using payment method name from movement (possibly inactive):', selectedPaymentMethodName);
+              } else {
+                console.warn('Payment method not found in paymentMethods array:', movement.payment_method_id);
+              }
+              
+              if (selectedPaymentMethodName) {
+                // Wait for options to be rendered
+                await delay(50);
                 const optionIndex = Array.from(metodoEl.options).findIndex(opt => opt.value === selectedPaymentMethodName);
                 
                 if (optionIndex >= 0) {
@@ -2016,58 +2093,64 @@ async function loadMovementForEdit(movementId) {
                   
                   console.log('Unavailable payment method added and selected');
                 }
-              }, 50);
-              pendingTimeouts.push(nestedTimeoutId);
+              }
             }
+          } catch (err) {
+            console.error('Error setting payment method:', err);
           }
-        }, 50);
-        pendingTimeouts.push(timeoutId);
+        })();
       }
     }
     
     // For SPLIT movements, handle payment method selection
     if (movement.type === 'SPLIT' && movement.payment_method_id) {
-      const metodoEl = document.getElementById('metodo');
-      if (metodoEl) {
-        let selectedPaymentMethodName = null;
-        const paymentMethod = paymentMethods.find(pm => pm.id === movement.payment_method_id);
-        
-        if (paymentMethod) {
-          selectedPaymentMethodName = paymentMethod.name;
-        } else if (movement.payment_method_name) {
-          selectedPaymentMethodName = movement.payment_method_name;
-        }
-        
-        if (selectedPaymentMethodName) {
-          const timeoutId = setTimeout(() => {
-            const optionIndex = Array.from(metodoEl.options).findIndex(opt => opt.value === selectedPaymentMethodName);
-            if (optionIndex >= 0) {
-              metodoEl.selectedIndex = optionIndex;
-            } else {
-              // Add as unavailable option
-              const unavailableOption = document.createElement('option');
-              unavailableOption.value = selectedPaymentMethodName;
-              unavailableOption.textContent = `${selectedPaymentMethodName} (no disponible)`;
-              unavailableOption.selected = true;
-              metodoEl.appendChild(unavailableOption);
+      (async () => {
+        try {
+          const metodoEl = await waitForElement('metodo');
+          if (metodoEl) {
+            let selectedPaymentMethodName = null;
+            const paymentMethod = paymentMethods.find(pm => pm.id === movement.payment_method_id);
+            
+            if (paymentMethod) {
+              selectedPaymentMethodName = paymentMethod.name;
+            } else if (movement.payment_method_name) {
+              selectedPaymentMethodName = movement.payment_method_name;
             }
-          }, 100);
-          pendingTimeouts.push(timeoutId);
+            
+            if (selectedPaymentMethodName) {
+              await delay(100);
+              const optionIndex = Array.from(metodoEl.options).findIndex(opt => opt.value === selectedPaymentMethodName);
+              if (optionIndex >= 0) {
+                metodoEl.selectedIndex = optionIndex;
+              } else {
+                // Add as unavailable option
+                const unavailableOption = document.createElement('option');
+                unavailableOption.value = selectedPaymentMethodName;
+                unavailableOption.textContent = `${selectedPaymentMethodName} (no disponible)`;
+                unavailableOption.selected = true;
+                metodoEl.appendChild(unavailableOption);
+              }
+            }
+          }
+        } catch (err) {
+          console.error('Error setting payment method for SPLIT:', err);
         }
-      }
+      })();
     }
     
     // For DEBT_PAYMENT movements with household member receiver, handle receiver account selection
     if (movement.type === 'DEBT_PAYMENT' && movement.receiver_account_id && movement.counterparty_user_id) {
-      const timeoutId = setTimeout(() => {
-        // Render the account selector for the receiver
-        const receiverUser = Object.values(usersMap).find(u => u.id === movement.counterparty_user_id);
-        if (receiverUser) {
-          renderCuentaReceptoraSelect(receiverUser.name);
-          
-          // Now select the account after the dropdown is populated
-          const nestedTimeoutId = setTimeout(() => {
-            const cuentaReceptoraEl = document.getElementById('cuentaReceptora');
+      (async () => {
+        try {
+          await delay(50);
+          // Render the account selector for the receiver
+          const receiverUser = Object.values(usersMap).find(u => u.id === movement.counterparty_user_id);
+          if (receiverUser) {
+            renderCuentaReceptoraSelect(receiverUser.name);
+            
+            // Wait for dropdown to be populated
+            await delay(50);
+            const cuentaReceptoraEl = await waitForElement('cuentaReceptora');
             if (cuentaReceptoraEl && movement.receiver_account_id) {
               // Try to find account by ID
               let selectedAccountName = null;
@@ -2102,11 +2185,11 @@ async function loadMovementForEdit(movementId) {
                 }
               }
             }
-          }, 50);
-          pendingTimeouts.push(nestedTimeoutId);
+          }
+        } catch (err) {
+          console.error('Error setting receiver account:', err);
         }
-      }, 100);
-      pendingTimeouts.push(timeoutId);
+      })();
     }
     
   } catch (error) {
@@ -2300,10 +2383,8 @@ async function onSubmit(e) {
       const successMessage = isEditingIncome ? 'Ingreso actualizado correctamente.' : 'Ingreso registrado correctamente.';
       setStatus(successMessage, 'ok');
       
-      // Clear edit state before navigation
-      if (currentEditIncome) {
-        currentEditIncome = null;
-      }
+      // Clear edit state and reset form before navigation
+      resetForm();
       
       // Navigate first (starts loading in background)
       const navigationTarget = '/?tab=ingresos&reload=ingresos';
@@ -2439,6 +2520,9 @@ async function onSubmit(e) {
     const message = wasEditMode 
       ? 'El movimiento se actualizó correctamente.'
       : 'El movimiento se registró correctamente.';
+    
+    // Clear edit state and reset form before navigation
+    resetForm();
     
     // Determine which tabs need to be reloaded based on movement type
     const affectedTabs = [];

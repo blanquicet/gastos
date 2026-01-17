@@ -118,17 +118,17 @@ return nil, fmt.Errorf("failed to get audit log: %w", err)
 }
 
 // Unmarshal JSON fields
-if oldValuesJSON != nil {
+if len(oldValuesJSON) > 0 {
 if err := json.Unmarshal(oldValuesJSON, &log.OldValues); err != nil {
 return nil, fmt.Errorf("failed to unmarshal old_values: %w", err)
 }
 }
-if newValuesJSON != nil {
+if len(newValuesJSON) > 0 {
 if err := json.Unmarshal(newValuesJSON, &log.NewValues); err != nil {
 return nil, fmt.Errorf("failed to unmarshal new_values: %w", err)
 }
 }
-if metadataJSON != nil {
+if len(metadataJSON) > 0 {
 if err := json.Unmarshal(metadataJSON, &log.Metadata); err != nil {
 return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
 }
@@ -247,17 +247,17 @@ return nil, 0, fmt.Errorf("failed to scan audit log: %w", err)
 }
 
 // Unmarshal JSON fields
-if oldValuesJSON != nil {
+if len(oldValuesJSON) > 0 {
 if err := json.Unmarshal(oldValuesJSON, &log.OldValues); err != nil {
 return nil, 0, fmt.Errorf("failed to unmarshal old_values: %w", err)
 }
 }
-if newValuesJSON != nil {
+if len(newValuesJSON) > 0 {
 if err := json.Unmarshal(newValuesJSON, &log.NewValues); err != nil {
 return nil, 0, fmt.Errorf("failed to unmarshal new_values: %w", err)
 }
 }
-if metadataJSON != nil {
+if len(metadataJSON) > 0 {
 if err := json.Unmarshal(metadataJSON, &log.Metadata); err != nil {
 return nil, 0, fmt.Errorf("failed to unmarshal metadata: %w", err)
 }

@@ -95,9 +95,14 @@ filters.Offset = o
 // Query audit logs
 logs, total, err := h.service.Query(ctx, filters)
 if err != nil {
-h.logger.Error("Failed to query audit logs", "error", err)
+h.logger.Error("Failed to query audit logs", "error", err, "filters", filters)
 http.Error(w, "Failed to query audit logs", http.StatusInternalServerError)
 return
+}
+
+// Ensure logs is never nil (return empty array instead)
+if logs == nil {
+logs = []*AuditLog{}
 }
 
 response := map[string]interface{}{
@@ -108,7 +113,9 @@ response := map[string]interface{}{
 }
 
 w.Header().Set("Content-Type", "application/json")
-json.NewEncoder(w).Encode(response)
+if err := json.NewEncoder(w).Encode(response); err != nil {
+h.logger.Error("Failed to encode response", "error", err)
+}
 }
 
 // GetAuditLog handles GET /admin/audit-logs/{id}
