@@ -309,6 +309,15 @@ button.ghost {
   font-size: 16px;
   font-weight: 600;
   border-radius: 12px;
+  /* Subtle style - light background with border */
+  background: #f9fafb;
+  color: #374151;
+  border: 1px solid #e5e7eb;
+}
+
+.footer-buttons button:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
 }
 
 #submitBtn {
