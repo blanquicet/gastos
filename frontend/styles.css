@@ -3552,3 +3552,15 @@ button.loading::after {
   -moz-appearance: textfield;
   appearance: textfield;
 }
+
+/* Remove spinner arrows from modal number inputs */
+#modal-input[type="number"]::-webkit-inner-spin-button,
+#modal-input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+#modal-input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
