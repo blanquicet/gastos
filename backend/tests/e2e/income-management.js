@@ -492,14 +492,19 @@ async function testIncomeManagement() {
     // ==================================================================
     console.log('📝 Step 10: Deleting savings withdrawal...');
     
-    // Find the withdrawal card and click the three-dots menu
-    const withdrawalCard = page.locator('.income-card').filter({ hasText: 'Retiro para bolsillo' }).first();
-    const withdrawalMenuButton = withdrawalCard.locator('.three-dots-menu-btn');
+    // Expand the category that contains the withdrawal (should be "savings_withdrawal")
+    const withdrawalCategory = page.locator('.category-card[data-type="savings_withdrawal"]');
+    await withdrawalCategory.click();
+    await page.waitForTimeout(1000);
+    
+    // Find the withdrawal income entry and click the three-dots menu
+    const withdrawalEntry = page.locator('.income-detail-entry').filter({ hasText: 'Retiro para bolsillo' }).first();
+    const withdrawalMenuButton = withdrawalEntry.locator('.three-dots-btn');
     await withdrawalMenuButton.click();
     await page.waitForTimeout(500);
     
     // Click "Eliminar" in the menu
-    const deleteButton = page.locator('.menu-option').filter({ hasText: 'Eliminar' }).first();
+    const deleteButton = page.locator('.menu-item[data-action="delete"]').first();
     await deleteButton.click();
     await page.waitForTimeout(500);
     

@@ -29,6 +29,7 @@ let participants = []; // [{ name, pct }]
 let currentUser = null;
 let currentEditMovement = null; // Movement being edited (if in edit mode)
 let currentEditIncome = null; // Income being edited (if in edit mode)
+let pendingTimeouts = []; // Track setTimeout IDs to cancel on cleanup
 
 /**
  * Helper: Format number with Spanish/Colombian format (e.g., 71.033,90)
@@ -573,6 +574,19 @@ function renderPaymentMethodSelect() {
 }
 
 /**
+ * Cleanup edit state and pending operations
+ */
+function cleanupEditState() {
+  // Clear edit state
+  currentEditMovement = null;
+  currentEditIncome = null;
+  
+  // Cancel all pending setTimeout operations
+  pendingTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
+  pendingTimeouts = [];
+}
+
+/**
  * Setup event listeners and initialize form
  */
 export async function setup() {
@@ -730,6 +744,7 @@ export async function setup() {
   const cancelBtn = document.getElementById('cancelBtn');
   if (cancelBtn) {
     cancelBtn.addEventListener('click', () => {
+      cleanupEditState();
       router.navigate('/');
     });
   }
