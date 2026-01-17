@@ -137,11 +137,15 @@ export function showSuccess(title, message) {
 
 /**
  * Show an error modal
- * @param {string} title - Modal title
- * @param {string} message - Error message
+ * @param {string} titleOrMessage - Modal title, or message if only one param is passed
+ * @param {string} [message] - Error message (optional if first param is the message)
  * @returns {Promise<void>}
  */
-export function showError(title, message) {
+export function showError(titleOrMessage, message) {
+  // If only one parameter is passed, use it as message with default title
+  const title = message ? titleOrMessage : 'Error';
+  const errorMessage = message || titleOrMessage;
+  
   return new Promise((resolve) => {
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
@@ -154,7 +158,7 @@ export function showError(title, message) {
         <h3>⚠ ${title}</h3>
       </div>
       <div class="modal-body">
-        <p style="color: #dc2626;">${message}</p>
+        <p style="color: #dc2626;">${errorMessage}</p>
       </div>
       <div class="modal-footer">
         <button id="modal-ok" class="btn-secondary">OK</button>

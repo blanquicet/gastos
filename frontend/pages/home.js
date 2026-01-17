@@ -1512,7 +1512,7 @@ async function copyBudgetsFromPrevMonth() {
     return result;
   } catch (error) {
     console.error('Error copying budgets:', error);
-    showError(error.message);
+    showError('Error al copiar presupuestos', error.message);
     return null;
   }
 }
@@ -2079,7 +2079,7 @@ async function handleDeleteIncome(incomeId) {
     refreshDisplay();
   } catch (error) {
     console.error('Error deleting income:', error);
-    showError(error.message || 'Error al eliminar el ingreso');
+    showError('Error al eliminar', error.message || 'Error al eliminar el ingreso');
   }
 }
 
@@ -2121,7 +2121,7 @@ async function handleDeleteMovement(movementId) {
     refreshDisplay();
   } catch (error) {
     console.error('Error deleting movement:', error);
-    showError(error.message || 'Error al eliminar el movimiento');
+    showError('Error al eliminar', error.message || 'Error al eliminar el movimiento');
   }
 }
 
@@ -2846,7 +2846,7 @@ async function handleDeleteLoanMovement(movementId) {
     refreshDisplay();
   } catch (error) {
     console.error('Error deleting loan movement:', error);
-    showError(error.message || 'Error al eliminar el movimiento');
+    showError('Error al eliminar', error.message || 'Error al eliminar el movimiento');
   }
 }
 
