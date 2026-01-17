@@ -1837,7 +1837,7 @@ function renderMovementCategories() {
                 <div class="expense-category-header">
                   <div class="expense-category-info">
                     <span class="expense-category-name">${simplifiedName}</span>
-                    <span class="expense-category-amount">${formatCurrency(categoryData.total)}</span>
+                    ${!hasCategoryBudget ? `<span class="expense-category-amount">${formatCurrency(categoryData.total)}</span>` : ''}
                   </div>
                   ${categoryBudgetIndicator}
                   <svg class="category-chevron" width="16" height="16" viewBox="0 0 20 20" fill="none">
