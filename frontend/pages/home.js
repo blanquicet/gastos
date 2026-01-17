@@ -522,15 +522,15 @@ function renderBudgets() {
           </div>
         </div>
         <div class="entry-actions">
-          ${hasBudget ? `
-            <button class="three-dots-btn" data-category-id="${budget.category_id}" data-budget-id="${budget.id}" data-category-name="${simplifiedName}" data-has-budget="true">⋮</button>
-            <div class="three-dots-menu" id="budget-menu-${budget.category_id}">
+          <button class="three-dots-btn" data-category-id="${budget.category_id}" data-budget-id="${hasBudget ? budget.id : ''}" data-category-name="${simplifiedName}" data-has-budget="${hasBudget}">⋮</button>
+          <div class="three-dots-menu" id="budget-menu-${budget.category_id}">
+            ${hasBudget ? `
               <button class="menu-item" data-action="edit-budget" data-category-id="${budget.category_id}" data-budget-id="${budget.id}" data-amount="${budget.amount}" data-category-name="${simplifiedName}">Editar</button>
               <button class="menu-item" data-action="delete-budget" data-budget-id="${budget.id}" data-category-name="${simplifiedName}">Eliminar</button>
-            </div>
-          ` : `
-            <button class="btn-add-budget" data-category-id="${budget.category_id}" data-category-name="${simplifiedName}">+ Agregar</button>
-          `}
+            ` : `
+              <button class="menu-item" data-action="add-budget" data-category-id="${budget.category_id}" data-category-name="${simplifiedName}">Agregar</button>
+            `}
+          </div>
         </div>
       </div>
     `;
@@ -2400,15 +2400,6 @@ function setupCategoryListeners() {
  * Setup budget listeners (for presupuesto tab)
  */
 function setupBudgetListeners() {
-  // Add budget buttons (when no budget exists)
-  document.querySelectorAll('.btn-add-budget').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      await handleAddBudget(btn.dataset.categoryId, btn.dataset.categoryName);
-    });
-  });
-  
   // Three-dots menu toggles for budget items
   document.querySelectorAll('.three-dots-btn[data-category-id]').forEach(btn => {
     btn.addEventListener('click', (e) => {
@@ -2442,7 +2433,7 @@ function setupBudgetListeners() {
   });
   
   // Menu action buttons for budgets
-  document.querySelectorAll('.three-dots-menu .menu-item[data-action^="edit-budget"], .three-dots-menu .menu-item[data-action^="delete-budget"]').forEach(item => {
+  document.querySelectorAll('.three-dots-menu .menu-item[data-action^="add-budget"], .three-dots-menu .menu-item[data-action^="edit-budget"], .three-dots-menu .menu-item[data-action^="delete-budget"]').forEach(item => {
     item.addEventListener('click', async (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -2451,7 +2442,9 @@ function setupBudgetListeners() {
       // Close menu
       item.closest('.three-dots-menu').style.display = 'none';
       
-      if (action === 'edit-budget') {
+      if (action === 'add-budget') {
+        await handleAddBudget(item.dataset.categoryId, item.dataset.categoryName);
+      } else if (action === 'edit-budget') {
         await handleEditBudget(
           item.dataset.categoryId,
           item.dataset.budgetId,
