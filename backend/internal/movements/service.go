@@ -712,6 +712,27 @@ func (s *service) Update(ctx context.Context, userID, id string, input *UpdateMo
 		}
 	}
 
+	// Type-specific validations (type cannot change, use existing.Type)
+	switch existing.Type {
+	case TypeDebtPayment:
+		// DEBT_PAYMENT must have a counterparty
+		finalCounterpartyUserID := counterpartyUserID // Already computed above
+		finalCounterpartyContactID := existing.CounterpartyContactID
+		if input.CounterpartyContactID != nil {
+			finalCounterpartyContactID = input.CounterpartyContactID
+		}
+		
+		if finalCounterpartyUserID == nil && finalCounterpartyContactID == nil {
+			return nil, errors.New("counterparty is required for debt payment")
+		}
+		
+	case TypeSplit:
+		// SPLIT must have participants (if being updated)
+		if input.Participants != nil && len(*input.Participants) == 0 {
+			return nil, errors.New("participants are required for split movements")
+		}
+	}
+
 	// Update movement
 	updated, err := s.repo.Update(ctx, id, input)
 	if err != nil {
