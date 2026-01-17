@@ -371,11 +371,6 @@ async function testIncomeManagement() {
     
     // Submit
     await page.locator('#submitBtn').click();
-    await page.waitForTimeout(2000);
-    
-    // Should navigate back to Ingresos tab
-    await page.waitForURL('**/?tab=ingresos*', { timeout: 10000 });
-    await page.waitForTimeout(2000);
     
     // Try to click modal OK button if present
     try {
@@ -383,10 +378,14 @@ async function testIncomeManagement() {
       const editModalTitle = await page.locator('.modal-title').textContent({ timeout: 1000 });
       console.log(`✓ Edit modal shown: "${editModalTitle}"`);
       await page.locator('#modal-ok').click();
-      await page.waitForTimeout(1000);
+      await page.waitForTimeout(500);
     } catch (e) {
       console.log('ℹ️ Edit modal not shown or already dismissed');
     }
+    
+    // Should navigate back to Ingresos tab
+    await page.waitForURL('**/?tab=ingresos*', { timeout: 10000 });
+    await page.waitForTimeout(2000);
     
     await page.waitForTimeout(1000);
     

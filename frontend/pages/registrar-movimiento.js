@@ -2128,7 +2128,11 @@ async function loadIncomeForEdit(incomeId) {
     const ingresoCuentaEl = document.getElementById('ingresoCuenta');
     
     if (descripcionEl) descripcionEl.value = income.description || '';
-    if (valorEl) valorEl.value = formatNumber(income.amount);
+    // Clear valor first, then set it to avoid appending
+    if (valorEl) {
+      valorEl.value = '';
+      valorEl.value = formatNumber(income.amount);
+    }
     
     if (fechaEl && income.income_date) {
       // Extract date in YYYY-MM-DD format without timezone conversion
@@ -2136,7 +2140,15 @@ async function loadIncomeForEdit(incomeId) {
       fechaEl.value = dateStr;
     }
     
-    // Update buttons and title for edit mode
+    // Select INGRESO tipo button FIRST
+    const ingresoBtn = document.querySelector('.tipo-btn[data-tipo="INGRESO"]');
+    if (ingresoBtn) {
+      ingresoBtn.classList.add('active');
+      document.getElementById('tipo').value = 'INGRESO';
+      onTipoChange();
+    }
+    
+    // Update buttons and title for edit mode AFTER onTipoChange()
     const submitBtn = document.getElementById('submitBtn');
     const cancelBtn = document.getElementById('cancelBtn');
     if (submitBtn) {
@@ -2144,14 +2156,6 @@ async function loadIncomeForEdit(incomeId) {
     }
     if (cancelBtn) {
       cancelBtn.classList.remove('hidden');
-    }
-    
-    // Select INGRESO tipo button
-    const ingresoBtn = document.querySelector('.tipo-btn[data-tipo="INGRESO"]');
-    if (ingresoBtn) {
-      ingresoBtn.classList.add('active');
-      document.getElementById('tipo').value = 'INGRESO';
-      onTipoChange();
     }
     
     // Disable tipo selector buttons after selection
@@ -2170,13 +2174,11 @@ async function loadIncomeForEdit(incomeId) {
     
     // Set income-specific fields after form UI is updated
     setTimeout(() => {
-      // Set member
+      // Set member (use ID, not name)
       if (ingresoMiembroEl && income.member_id) {
-        // Find user by ID
-        const member = Object.values(usersMap).find(u => u.id === income.member_id);
-        if (member) {
-          ingresoMiembroEl.value = member.name;
-        }
+        ingresoMiembroEl.value = income.member_id;
+        // Trigger change event to load accounts for this member
+        ingresoMiembroEl.dispatchEvent(new Event('change'));
       }
       
       // Set income type
@@ -2184,17 +2186,12 @@ async function loadIncomeForEdit(incomeId) {
         ingresoTipoEl.value = income.type;
       }
       
-      // Set account
-      if (ingresoCuentaEl && income.account_id) {
-        // Find account by ID
-        const account = accounts.find(acc => acc.id === income.account_id);
-        if (account) {
-          ingresoCuentaEl.value = account.name;
-        } else if (income.account_name) {
-          // Fallback: use the name from the income
-          ingresoCuentaEl.value = income.account_name;
+      // Set account (use ID, not name) - needs to happen after member selection
+      setTimeout(() => {
+        if (ingresoCuentaEl && income.account_id) {
+          ingresoCuentaEl.value = income.account_id;
         }
-      }
+      }, 100);
     }, 50);
     
   } catch (error) {
