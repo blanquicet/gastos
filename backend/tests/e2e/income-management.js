@@ -192,11 +192,7 @@ async function testIncomeManagement() {
     await page.locator('#submitBtn').click();
     await page.waitForTimeout(2000);
     
-    // Should navigate to Ingresos tab after submission
-    await page.waitForURL('**/?tab=ingresos*', { timeout: 10000 });
-    await page.waitForTimeout(2000);
-    
-    // Try to click modal OK button if present
+    // Try to click modal OK button if present (modal blocks navigation)
     try {
       await page.waitForSelector('.modal-overlay', { state: 'visible', timeout: 3000 });
       const modalTitle = await page.locator('.modal-title').textContent({ timeout: 1000 });
@@ -206,6 +202,10 @@ async function testIncomeManagement() {
     } catch (e) {
       console.log('ℹ️ Modal not shown or already dismissed');
     }
+    
+    // Should navigate to Ingresos tab after submission
+    await page.waitForURL('**/?tab=ingresos*', { timeout: 10000 });
+    await page.waitForTimeout(2000);
     
     // Get income ID from database
     const salaryResult = await pool.query(
