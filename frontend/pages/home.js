@@ -520,10 +520,10 @@ function renderBudgets() {
               <span class="budget-amount-editable" data-category-id="${budget.category_id}" data-budget-id="${budget.id}" data-amount="${budget.amount}">
                 ${formatCurrency(budget.amount)}
               </span>
-              <button class="btn-edit-budget-inline" data-category-id="${budget.category_id}" data-budget-id="${budget.id}" data-amount="${budget.amount}" title="Editar presupuesto">✏️</button>
+              <button class="btn-edit-budget-inline" data-category-id="${budget.category_id}" data-budget-id="${budget.id}" data-amount="${budget.amount}" data-category-name="${simplifiedName}" title="Editar presupuesto">✏️</button>
             ` : `
               <span class="no-budget-text">Sin presupuesto</span>
-              <button class="btn-add-budget-inline" data-category-id="${budget.category_id}" title="Agregar presupuesto">➕</button>
+              <button class="btn-add-budget-inline" data-category-id="${budget.category_id}" data-category-name="${simplifiedName}" title="Agregar presupuesto">➕</button>
             `}
           </div>
         </div>
@@ -2401,6 +2401,7 @@ function setupBudgetListeners() {
       e.preventDefault();
       e.stopPropagation();
       const categoryId = btn.dataset.categoryId;
+      const categoryName = btn.dataset.categoryName;
       
       // Replace button with inline input field
       const parent = btn.parentElement;
@@ -2443,7 +2444,7 @@ function setupBudgetListeners() {
         
         const result = await setBudget(categoryId, currentMonth, amount);
         if (result) {
-          showSuccess('Presupuesto creado', `El presupuesto ha sido creado con ${formatCurrency(amount)}`);
+          showSuccess('Presupuesto creado', `El presupuesto para ${categoryName} ha sido creado con ${formatCurrency(amount)}`);
           await loadBudgetsData();
           refreshDisplay();
         }
@@ -2468,6 +2469,7 @@ function setupBudgetListeners() {
       e.preventDefault();
       e.stopPropagation();
       const categoryId = btn.dataset.categoryId;
+      const categoryName = btn.dataset.categoryName;
       const currentAmount = btn.dataset.amount;
       
       // Find the amount span
@@ -2509,10 +2511,11 @@ function setupBudgetListeners() {
         // If amount is 0, delete the budget instead of updating
         if (amount === 0) {
           const budgetId = btn.dataset.budgetId;
+          const categoryName = btn.dataset.categoryName;
           if (budgetId) {
             const deleted = await deleteBudget(budgetId);
             if (deleted) {
-              showSuccess('Presupuesto eliminado', 'El presupuesto ha sido eliminado');
+              showSuccess('Presupuesto eliminado', `El presupuesto para ${categoryName} ha sido eliminado`);
               await loadBudgetsData();
               refreshDisplay();
             }
@@ -2522,7 +2525,7 @@ function setupBudgetListeners() {
         
         const result = await setBudget(categoryId, currentMonth, amount);
         if (result) {
-          showSuccess('Presupuesto actualizado', `El presupuesto ha sido actualizado a ${formatCurrency(amount)}`);
+          showSuccess('Presupuesto actualizado', `El presupuesto para ${categoryName} ha sido actualizado a ${formatCurrency(amount)}`);
           await loadBudgetsData();
           refreshDisplay();
         }
