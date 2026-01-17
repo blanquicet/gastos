@@ -227,6 +227,16 @@ func (i *CreateMovementInput) Validate() error {
 		if hasCounterpartyUser && hasCounterpartyContact {
 			return errors.New("cannot specify both counterparty_user_id and counterparty_contact_id")
 		}
+		
+		// Validate payer != counterparty (when both are users)
+		if hasPayerUser && hasCounterpartyUser && *i.PayerUserID == *i.CounterpartyUserID {
+			return errors.New("payer and counterparty cannot be the same person")
+		}
+		// Validate payer != counterparty (when both are contacts)
+		if hasPayerContact && hasCounterpartyContact && *i.PayerContactID == *i.CounterpartyContactID {
+			return errors.New("payer and counterparty cannot be the same contact")
+		}
+		
 		// Category is optional for DEBT_PAYMENT (no longer required)
 		// No participants allowed
 		if len(i.Participants) > 0 {
@@ -266,6 +276,21 @@ func (i *UpdateMovementInput) Validate() error {
 	if i.Description != nil && *i.Description == "" {
 		return errors.New("description cannot be empty")
 	}
+	
+	// Validate payer != counterparty if both are being updated
+	// Check user IDs
+	if i.PayerUserID != nil && i.CounterpartyUserID != nil {
+		if *i.PayerUserID == *i.CounterpartyUserID {
+			return errors.New("payer and counterparty cannot be the same person")
+		}
+	}
+	// Check contact IDs
+	if i.PayerContactID != nil && i.CounterpartyContactID != nil {
+		if *i.PayerContactID == *i.CounterpartyContactID {
+			return errors.New("payer and counterparty cannot be the same contact")
+		}
+	}
+	
 	return nil
 }
 

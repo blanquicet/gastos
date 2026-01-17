@@ -677,6 +677,41 @@ func (s *service) Update(ctx context.Context, userID, id string, input *UpdateMo
 		}
 	}
 
+	// Additional validation: payer != counterparty for DEBT_PAYMENT
+	// Must check final values (input merged with existing)
+	if existing.Type == TypeDebtPayment {
+		finalPayerUserID := existing.PayerUserID
+		if input.PayerUserID != nil {
+			finalPayerUserID = input.PayerUserID
+		}
+		
+		finalPayerContactID := existing.PayerContactID
+		if input.PayerContactID != nil {
+			finalPayerContactID = input.PayerContactID
+		}
+		
+		finalCounterpartyUserID := counterpartyUserID // Already computed above (line 630)
+		
+		finalCounterpartyContactID := existing.CounterpartyContactID
+		if input.CounterpartyContactID != nil {
+			finalCounterpartyContactID = input.CounterpartyContactID
+		}
+		
+		// Check if payer and counterparty are the same (both users)
+		if finalPayerUserID != nil && finalCounterpartyUserID != nil {
+			if *finalPayerUserID == *finalCounterpartyUserID {
+				return nil, errors.New("payer and counterparty cannot be the same person")
+			}
+		}
+		
+		// Check if payer and counterparty are the same (both contacts)
+		if finalPayerContactID != nil && finalCounterpartyContactID != nil {
+			if *finalPayerContactID == *finalCounterpartyContactID {
+				return nil, errors.New("payer and counterparty cannot be the same contact")
+			}
+		}
+	}
+
 	// Update movement
 	updated, err := s.repo.Update(ctx, id, input)
 	if err != nil {

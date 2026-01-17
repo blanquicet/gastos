@@ -1597,7 +1597,8 @@ function readForm() {
     }
   }
 
-  if (!isEditMode && (effectiveTipo === 'DEBT_PAYMENT' || tipo === 'LOAN')) {
+  // Validate payer != counterparty for DEBT_PAYMENT (always, including edit mode)
+  if (effectiveTipo === 'DEBT_PAYMENT' || tipo === 'LOAN') {
     if (!tomador) throw new Error('Debes seleccionar quién recibió.');
     if (tomador === pagador) throw new Error('El que prestó/pagó y el que recibió no pueden ser la misma persona.');
   }
@@ -1975,7 +1976,7 @@ async function loadMovementForEdit(movementId) {
     if ((movement.type === 'HOUSEHOLD' || movement.type === 'DEBT_PAYMENT') && movement.payer_user_id) {
       const payerUser = Object.values(usersMap).find(u => u.id === movement.payer_user_id);
       if (payerUser) {
-        setTimeout(() => {
+        const timeoutId = setTimeout(() => {
           showPaymentMethods(payerUser.name, true);
           
           // Now select the payment method after the dropdown is populated
@@ -1998,7 +1999,7 @@ async function loadMovementForEdit(movementId) {
             
             if (selectedPaymentMethodName) {
               // Small additional delay to ensure options are rendered
-              setTimeout(() => {
+              const nestedTimeoutId = setTimeout(() => {
                 const optionIndex = Array.from(metodoEl.options).findIndex(opt => opt.value === selectedPaymentMethodName);
                 
                 if (optionIndex >= 0) {
@@ -2016,9 +2017,11 @@ async function loadMovementForEdit(movementId) {
                   console.log('Unavailable payment method added and selected');
                 }
               }, 50);
+              pendingTimeouts.push(nestedTimeoutId);
             }
           }
         }, 50);
+        pendingTimeouts.push(timeoutId);
       }
     }
     
@@ -2036,7 +2039,7 @@ async function loadMovementForEdit(movementId) {
         }
         
         if (selectedPaymentMethodName) {
-          setTimeout(() => {
+          const timeoutId = setTimeout(() => {
             const optionIndex = Array.from(metodoEl.options).findIndex(opt => opt.value === selectedPaymentMethodName);
             if (optionIndex >= 0) {
               metodoEl.selectedIndex = optionIndex;
@@ -2049,20 +2052,21 @@ async function loadMovementForEdit(movementId) {
               metodoEl.appendChild(unavailableOption);
             }
           }, 100);
+          pendingTimeouts.push(timeoutId);
         }
       }
     }
     
     // For DEBT_PAYMENT movements with household member receiver, handle receiver account selection
     if (movement.type === 'DEBT_PAYMENT' && movement.receiver_account_id && movement.counterparty_user_id) {
-      setTimeout(() => {
+      const timeoutId = setTimeout(() => {
         // Render the account selector for the receiver
         const receiverUser = Object.values(usersMap).find(u => u.id === movement.counterparty_user_id);
         if (receiverUser) {
           renderCuentaReceptoraSelect(receiverUser.name);
           
           // Now select the account after the dropdown is populated
-          setTimeout(() => {
+          const nestedTimeoutId = setTimeout(() => {
             const cuentaReceptoraEl = document.getElementById('cuentaReceptora');
             if (cuentaReceptoraEl && movement.receiver_account_id) {
               // Try to find account by ID
@@ -2099,8 +2103,10 @@ async function loadMovementForEdit(movementId) {
               }
             }
           }, 50);
+          pendingTimeouts.push(nestedTimeoutId);
         }
       }, 100);
+      pendingTimeouts.push(timeoutId);
     }
     
   } catch (error) {
