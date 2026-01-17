@@ -494,6 +494,18 @@ async function testIncomeManagement() {
     // ==================================================================
     console.log('📝 Step 10: Deleting savings withdrawal...');
     
+    // Close any modal that might still be open from previous step
+    try {
+      const modal = page.locator('.modal-overlay');
+      if (await modal.isVisible({ timeout: 1000 })) {
+        await page.locator('#modal-ok').click();
+        await page.waitForSelector('.modal-overlay', { state: 'detached', timeout: 3000 });
+        console.log('✓ Closed lingering modal before step 10');
+      }
+    } catch (e) {
+      // No modal to close, that's fine
+    }
+    
     // Expand the category that contains the withdrawal (should be "savings_withdrawal")
     const withdrawalCategory = page.locator('.category-card[data-type="savings_withdrawal"]');
     await withdrawalCategory.click();
