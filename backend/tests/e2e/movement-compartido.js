@@ -349,7 +349,8 @@ async function testMovementCompartido() {
     await page.waitForTimeout(500);
     
     // Set custom percentages: 70% / 30%
-    const pctInputs = await page.locator('#participantsList input[type="number"]').all();
+    // Inputs are type="text" now, not "number"
+    const pctInputs = await page.locator('#participantsList input[type="text"]').all();
     if (pctInputs.length >= 2) {
       await pctInputs[0].fill('70');
       await pctInputs[1].fill('30');
@@ -417,7 +418,7 @@ async function testMovementCompartido() {
     await page.locator('#equitable').uncheck();
     await page.waitForTimeout(500);
     
-    const pctInputs3 = await page.locator('#participantsList input[type="number"]').all();
+    const pctInputs3 = await page.locator('#participantsList input[type="text"]').all();
     if (pctInputs3.length >= 2) {
       await pctInputs3[0].fill('40');
       await pctInputs3[1].fill('30');
@@ -454,11 +455,28 @@ async function testMovementCompartido() {
     }
     
     // The movement should be in the current month (default date is today)
-    // Wait for movements to load
-    await page.waitForTimeout(1000);
+    // Wait for movements to load - check if data is loaded
+    await page.waitForTimeout(2000);
+    
+    // Check if there are any expense groups visible
+    const expenseGroups = await page.locator('.expense-group-card').all();
+    console.log(`Found ${expenseGroups.length} expense groups`);
+    
+    // If there are no groups with data-group="Casa", check what groups exist
+    if (expenseGroups.length === 0) {
+      console.log('❌ No expense groups found - might be a loading issue');
+      throw new Error('No expense groups found in Gastos view');
+    }
+    
+    // Log all visible group names
+    for (const group of expenseGroups) {
+      const groupName = await group.getAttribute('data-group');
+      console.log(`  - Group: ${groupName}`);
+    }
     
     // First expand the "Casa" group that contains "Mercado"
     const casaGroup = page.locator('.expense-group-card[data-group="Casa"]');
+    await casaGroup.waitFor({ state: 'visible', timeout: 5000 });
     const casaHeader = casaGroup.locator('.expense-group-header');
     await casaHeader.click();
     await page.waitForTimeout(500);

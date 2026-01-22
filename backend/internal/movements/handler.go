@@ -1,6 +1,7 @@
 package movements
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -387,7 +388,8 @@ type CreateMovementRequest struct {
 	Type         string                      `json:"type"`
 	Description  string                      `json:"description"`
 	Amount       float64                     `json:"amount"`
-	Category     *string                     `json:"category,omitempty"`
+	Category     *string                     `json:"category,omitempty"`     // Legacy: category name
+	CategoryID   *string                     `json:"category_id,omitempty"`  // New: category ID (UUID)
 	MovementDate string                      `json:"movement_date"` // YYYY-MM-DD format
 	
 	PayerUserID    *string `json:"payer_user_id,omitempty"`
@@ -422,6 +424,7 @@ func (r *CreateMovementRequest) ToInput() (*CreateMovementInput, error) {
 		Description:           r.Description,
 		Amount:                r.Amount,
 		Category:              r.Category,
+		CategoryID:            r.CategoryID,
 		MovementDate:          movementDate,
 		PayerUserID:           r.PayerUserID,
 		PayerContactID:        r.PayerContactID,
@@ -449,12 +452,20 @@ func (r *CreateMovementRequest) ToInput() (*CreateMovementInput, error) {
 
 // FormConfigHandler handles requests for movement form configuration data
 type FormConfigHandler struct {
-	authSvc            *auth.Service
-	householdRepo      households.HouseholdRepository
-	paymentMethodRepo  paymentmethods.Repository
-	categoryGroupsRepo categorygroups.Repository
-	cookieName         string
-	logger             *slog.Logger
+	authSvc                   *auth.Service
+	householdRepo             households.HouseholdRepository
+	paymentMethodRepo         paymentmethods.Repository
+	categoryGroupsRepo        categorygroups.Repository
+	getTemplatesByCategory    func(ctx context.Context, userID string) (map[string][]TemplateBasicInfo, error)
+	cookieName                string
+	logger                    *slog.Logger
+}
+
+// TemplateBasicInfo contains minimal template information (to avoid import cycles)
+type TemplateBasicInfo struct {
+	ID         string
+	Name       string
+	CategoryID *string
 }
 
 // NewFormConfigHandler creates a new form config handler
@@ -463,16 +474,18 @@ func NewFormConfigHandler(
 	householdRepo households.HouseholdRepository,
 	paymentMethodRepo paymentmethods.Repository,
 	categoryGroupsRepo categorygroups.Repository,
+	getTemplatesByCategory func(ctx context.Context, userID string) (map[string][]TemplateBasicInfo, error),
 	cookieName string,
 	logger *slog.Logger,
 ) *FormConfigHandler {
 	return &FormConfigHandler{
-		authSvc:            authSvc,
-		householdRepo:      householdRepo,
-		paymentMethodRepo:  paymentMethodRepo,
-		categoryGroupsRepo: categoryGroupsRepo,
-		cookieName:         cookieName,
-		logger:             logger,
+		authSvc:                authSvc,
+		householdRepo:          householdRepo,
+		paymentMethodRepo:      paymentMethodRepo,
+		categoryGroupsRepo:     categoryGroupsRepo,
+		getTemplatesByCategory: getTemplatesByCategory,
+		cookieName:             cookieName,
+		logger:                 logger,
 	}
 }
 
@@ -497,9 +510,16 @@ type PaymentMethod struct {
 
 // FormConfigResponse is the response for movement form configuration
 type FormConfigResponse struct {
-	Users          []User                         `json:"users"`
-	PaymentMethods []PaymentMethod                `json:"payment_methods"`
-	CategoryGroups []*categorygroups.CategoryGroup `json:"category_groups"`
+	Users              []User                                       `json:"users"`
+	PaymentMethods     []PaymentMethod                              `json:"payment_methods"`
+	CategoryGroups     []*categorygroups.CategoryGroup              `json:"category_groups"`
+	RecurringTemplates map[string][]RecurringMovementTemplateInfo   `json:"recurring_templates"` // category_id -> templates
+}
+
+// RecurringMovementTemplateInfo represents a recurring template in the form config
+type RecurringMovementTemplateInfo struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 // GetFormConfig handles GET /api/movement-form-config
@@ -611,10 +631,32 @@ func (h *FormConfigHandler) GetFormConfig(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	// Get recurring templates grouped by category
+	templatesRaw, err := h.getTemplatesByCategory(r.Context(), user.ID)
+	if err != nil {
+		// Log error but don't fail the request - templates are optional
+		h.logger.Warn("failed to list recurring templates", "error", err)
+		templatesRaw = make(map[string][]TemplateBasicInfo)
+	}
+
+	// Convert to response format
+	recurringTemplates := make(map[string][]RecurringMovementTemplateInfo)
+	for categoryID, templates := range templatesRaw {
+		var templateInfos []RecurringMovementTemplateInfo
+		for _, t := range templates {
+			templateInfos = append(templateInfos, RecurringMovementTemplateInfo{
+				ID:   t.ID,
+				Name: t.Name,
+			})
+		}
+		recurringTemplates[categoryID] = templateInfos
+	}
+
 	response := FormConfigResponse{
-		Users:          users,
-		PaymentMethods: paymentMethods,
-		CategoryGroups: categoryGroups,
+		Users:              users,
+		PaymentMethods:     paymentMethods,
+		CategoryGroups:     categoryGroups,
+		RecurringTemplates: recurringTemplates,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

@@ -30,6 +30,13 @@ let currentUser = null;
 let currentEditMovement = null; // Movement being edited (if in edit mode)
 let currentEditIncome = null; // Income being edited (if in edit mode)
 let pendingTimeouts = []; // Track setTimeout IDs to cancel on cleanup
+let scopeParam = null; // Scope parameter from URL (for edit mode)
+
+// Recurring templates
+let recurringTemplatesMap = {}; // Map of category_id -> templates (from formConfig)
+let recurringTemplates = []; // Templates for selected category (subset of map)
+let selectedTemplate = null; // Currently selected template
+let isLoadingTemplates = false; // Track if fetching templates
 
 /**
  * Helper: Format number with Spanish/Colombian format (e.g., 71.033,90)
@@ -169,6 +176,25 @@ export function render(user) {
             
           </label>
 
+          <label class="field col-span-2 hidden" id="recurringTemplateWrap">
+            <span style="display: flex; align-items: center; gap: 8px;">
+              ¿Gasto presupuestado?
+              <span id="templateLoadingSpinner" class="hidden" style="display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #6b7280;">
+                <svg class="animate-spin" style="height: 14px; width: 14px;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Cargando...
+              </span>
+            </span>
+            <select name="recurringTemplate" id="recurringTemplate">
+              <option value="" selected>Ninguno (crear manualmente)</option>
+            </select>
+            <small style="color: #6b7280; font-size: 12px; margin-top: 4px; display: block;">
+              Opcional: Selecciona para pre-llenar el formulario
+            </small>
+          </label>
+
           <label class="field col-span-2">
             <span>Monto total</span>
             <div class="input-wrapper" id="valorWrapper" style="display: flex; align-items: center; border: 1px solid #e5e7eb; border-radius: 12px; padding: 0; background-color: white;">
@@ -272,7 +298,7 @@ export function render(user) {
               <button type="button" class="secondary" id="addParticipantBtn">Agregar participante</button>
             </div>
 
-            <p class="note">
+            <p class="note" id="participantsHint">
               Si no es equitativo, puedes editar los porcentajes. La suma debe ser 100%.
             </p>
           </section>
@@ -360,6 +386,16 @@ export function render(user) {
             
           </label>
 
+          <label class="field col-span-2 hidden" id="recurringTemplateWrap2">
+            <span>¿Gasto presupuestado?</span>
+            <select name="recurringTemplate" id="recurringTemplate2">
+              <option value="" selected>Ninguno (crear manualmente)</option>
+            </select>
+            <small style="color: #6b7280; font-size: 12px; margin-top: 4px; display: block;">
+              Opcional: Selecciona para pre-llenar el formulario
+            </small>
+          </label>
+
           <label class="field col-span-2">
             <span>Monto total</span>
             <div class="input-wrapper" id="valorWrapper" style="display: flex; align-items: center; border: 1px solid #e5e7eb; border-radius: 12px; padding: 0; background-color: white;">
@@ -463,7 +499,7 @@ export function render(user) {
               <button type="button" class="secondary" id="addParticipantBtn">Agregar participante</button>
             </div>
 
-            <p class="note">
+            <p class="note" id="participantsHint">
               Si no es equitativo, puedes editar los porcentajes. La suma debe ser 100%.
             </p>
           </section>
@@ -517,6 +553,9 @@ async function loadFormConfig() {
     // Use categories from API
     categories = config.categories || [];
     categoryGroups = config.category_groups || [];
+    
+    // Store recurring templates map (optimization - single API call)
+    recurringTemplatesMap = config.recurring_templates || {};
     
     // Load accounts for income registration
     await loadAccounts();
@@ -682,6 +721,7 @@ export async function setup() {
   // Check URL params for edit mode and tipo pre-selection
   const urlParams = new URLSearchParams(window.location.search);
   const editId = urlParams.get('edit');
+  scopeParam = urlParams.get('scope'); // Extract scope parameter and assign to global variable
   const isEditMode = !!editId;
   const tipoParam = urlParams.get('tipo');
 
@@ -802,6 +842,70 @@ export async function setup() {
     tomadorEl.addEventListener('change', onTomadorChange);
   }
   
+  // Event listener for category change - fetch recurring templates
+  const categoriaEl = document.getElementById('categoria');
+  if (categoriaEl) {
+    categoriaEl.addEventListener('change', (e) => {
+      const categoryName = e.target.value;
+      const templateWrap = document.getElementById('recurringTemplateWrap');
+      const templateWrap2 = document.getElementById('recurringTemplateWrap2');
+      
+      if (!categoryName) {
+        // Hide template field if no category selected
+        if (templateWrap) templateWrap.classList.add('hidden');
+        if (templateWrap2) templateWrap2.classList.add('hidden');
+        recurringTemplates = [];
+        return;
+      }
+      
+      // Find category ID from categoryName (search in categoryGroups)
+      let categoryId = null;
+      for (const group of categoryGroups) {
+        const category = group.categories.find(c => c.name === categoryName);
+        if (category) {
+          categoryId = category.id;
+          break;
+        }
+      }
+      
+      // Get templates from map (already loaded in formConfig - no API call needed!)
+      recurringTemplates = categoryId && recurringTemplatesMap[categoryId] 
+        ? recurringTemplatesMap[categoryId] 
+        : [];
+      
+      // Render template dropdown
+      renderRecurringTemplatesSelect();
+      
+      // Show template field if there are templates or allow manual creation
+      if (templateWrap) templateWrap.classList.remove('hidden');
+      if (templateWrap2) templateWrap2.classList.remove('hidden');
+    });
+  }
+  
+  // Event listeners for template selection - apply prefill
+  const templateEl = document.getElementById('recurringTemplate');
+  const templateEl2 = document.getElementById('recurringTemplate2');
+  
+  const onTemplateChange = async (e) => {
+    const templateId = e.target.value;
+    
+    if (!templateId) {
+      // User selected "Ninguno" - clear template
+      clearTemplateSelection();
+      return;
+    }
+    
+    // Apply prefill from template
+    await applyTemplatePrefill(templateId);
+  };
+  
+  if (templateEl) {
+    templateEl.addEventListener('change', onTemplateChange);
+  }
+  if (templateEl2) {
+    templateEl2.addEventListener('change', onTemplateChange);
+  }
+  
   addParticipantBtn.addEventListener('click', onAddParticipant);
   form.addEventListener('submit', onSubmit);
   
@@ -895,7 +999,7 @@ function renderCategorySelect() {
       
       group.categories.forEach(category => {
         const opt = document.createElement('option');
-        opt.value = category.name;
+        opt.value = category.id; // Use category ID instead of name
         // Simplify display text by removing "GroupName - " prefix
         const displayText = getSimplifiedCategoryName(category.name, group.name);
         opt.textContent = displayText;
@@ -954,6 +1058,182 @@ function getSimplifiedCategoryName(category, groupName) {
   
   // Capitalize first letter of the original category
   return category.length > 0 ? category.charAt(0).toUpperCase() + category.slice(1) : category;
+}
+
+/**
+ * Fetch pre-fill data for a template
+ */
+async function fetchTemplatePrefillData(templateId, invertRoles = false) {
+  try {
+    const token = localStorage.getItem('token');
+    const url = `${API_URL}/recurring-movements/prefill/${templateId}${invertRoles ? '?invert_roles=true' : ''}`;
+    
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      console.error('Failed to fetch template prefill:', response.status);
+      return null;
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching template prefill:', error);
+    return null;
+  }
+}
+
+/**
+ * Render recurring templates dropdown
+ */
+function renderRecurringTemplatesSelect() {
+  const templateEl = document.getElementById('recurringTemplate');
+  const templateEl2 = document.getElementById('recurringTemplate2');
+  
+  const renderDropdown = (el) => {
+    if (!el) return;
+    
+    el.innerHTML = '';
+    
+    const base = document.createElement('option');
+    base.value = '';
+    base.textContent = recurringTemplates.length === 0 ? 'No hay gastos presupuestados' : 'Ninguno (crear manualmente)';
+    base.selected = true;
+    el.appendChild(base);
+    
+    for (const template of recurringTemplates) {
+      const opt = document.createElement('option');
+      opt.value = template.id;
+      opt.textContent = template.name;
+      el.appendChild(opt);
+    }
+    
+    // Disable if no templates
+    el.disabled = recurringTemplates.length === 0;
+  };
+  
+  renderDropdown(templateEl);
+  renderDropdown(templateEl2);
+}
+
+/**
+ * Apply pre-fill data to form
+ */
+async function applyTemplatePrefill(templateId) {
+  // Show loading indicator
+  const loadingEl = document.getElementById('templateLoadingSpinner');
+  if (loadingEl) loadingEl.classList.remove('hidden');
+  
+  try {
+    // Determine if we need role inversion based on current movement type
+    const tipoEl = document.getElementById('tipo');
+    const currentType = tipoEl ? tipoEl.value : null;
+    const needsInversion = currentType === 'DEBT_PAYMENT';
+    
+    const prefillData = await fetchTemplatePrefillData(templateId, needsInversion);
+    if (!prefillData) {
+      console.error('Could not fetch prefill data');
+      return;
+    }
+    
+    // Get the template
+    const template = recurringTemplates.find(t => t.id === templateId);
+    if (!template) return;
+  
+  // Pre-fill description
+  const descripcionEl = document.getElementById('descripcion');
+  if (descripcionEl && prefillData.description) {
+    descripcionEl.value = prefillData.description;
+  }
+  
+  // Pre-fill amount (always available from template)
+  const valorEl = document.getElementById('valor');
+  if (valorEl && prefillData.amount) {
+    valorEl.value = toEditableNumber(prefillData.amount);
+  }
+  
+  // Pre-fill payer
+  if (prefillData.payer_user_id) {
+    const pagadorEl = document.getElementById('pagador');
+    if (pagadorEl) {
+      // Find user name from ID
+      const payerUser = users.find(u => u.id === prefillData.payer_user_id);
+      if (payerUser) {
+        pagadorEl.value = payerUser.name;
+        // Trigger change to update dependent fields
+        pagadorEl.dispatchEvent(new Event('change'));
+      }
+    }
+  } else if (prefillData.payer_contact_id) {
+    const pagadorEl = document.getElementById('pagador');
+    if (pagadorEl) {
+      // Find contact name from ID
+      const payerContact = users.find(u => u.id === prefillData.payer_contact_id);
+      if (payerContact) {
+        pagadorEl.value = payerContact.name;
+        pagadorEl.dispatchEvent(new Event('change'));
+      }
+    }
+  }
+  
+  // Pre-fill payment method
+  if (prefillData.payment_method_id) {
+    const metodoEl = document.getElementById('metodoPago');
+    if (metodoEl) {
+      // Find payment method name from ID
+      const method = paymentMethods.find(m => m.id === prefillData.payment_method_id);
+      if (method) {
+        metodoEl.value = method.name;
+      }
+    }
+  }
+  
+  // Pre-fill participants for SPLIT movements
+  if (prefillData.participants && prefillData.participants.length > 0) {
+    participants = prefillData.participants.map(p => ({
+      name: users.find(u => u.id === p.participant_user_id)?.name || '',
+      pct: p.percentage * 100 // Convert decimal to percentage
+    }));
+    renderParticipants();
+  }
+  
+  // Pre-fill counterparty for DEBT_PAYMENT
+  if (prefillData.counterparty_user_id || prefillData.counterparty_contact_id) {
+    const contraparteEl = document.getElementById('contraparte');
+    if (contraparteEl) {
+      const counterpartyId = prefillData.counterparty_user_id || prefillData.counterparty_contact_id;
+      const counterparty = users.find(u => u.id === counterpartyId);
+      if (counterparty) {
+        contraparteEl.value = counterparty.name;
+      }
+    }
+  }
+  
+  // Store selected template reference
+  selectedTemplate = template;
+  } finally {
+    // Hide loading indicator
+    const loadingEl = document.getElementById('templateLoadingSpinner');
+    if (loadingEl) loadingEl.classList.add('hidden');
+  }
+}
+
+/**
+ * Clear template selection and reset related fields
+ */
+function clearTemplateSelection() {
+  selectedTemplate = null;
+  
+  // Re-enable amount field if it was disabled
+  const valorEl = document.getElementById('valor');
+  if (valorEl) {
+    valorEl.disabled = false;
+    valorEl.style.backgroundColor = '';
+  }
 }
 
 /**
@@ -1084,6 +1364,15 @@ function onTipoChange() {
   const isPagoDeuda = tipo === 'DEBT_PAYMENT' || isLoan; // Both LOAN directions use pagador/tomador UI
   const isCompartido = tipo === 'SPLIT';
   const isIngreso = tipo === 'INGRESO';
+
+  // Clear template selection when type changes (might need different role inversion)
+  clearTemplateSelection();
+  
+  // Reset template dropdown to "Ninguno"
+  const templateEl = document.getElementById('recurringTemplate');
+  const templateEl2 = document.getElementById('recurringTemplate2');
+  if (templateEl) templateEl.value = '';
+  if (templateEl2) templateEl2.value = '';
 
   // Show/hide loan direction selector
   document.getElementById('loanDirectionWrap').classList.toggle('hidden', !isLoan);
@@ -1367,6 +1656,16 @@ function renderParticipants() {
   const editable = !document.getElementById('equitable').checked;
   const showAsValue = document.getElementById('showAsValue').checked;
   const totalValue = parseNumber(document.getElementById('valor').value) || 0;
+  
+  // Update hint text dynamically
+  const hintEl = document.getElementById('participantsHint');
+  if (hintEl) {
+    if (showAsValue) {
+      hintEl.textContent = `Si no es equitativo, puedes editar los valores. La suma debe ser ${formatNumber(totalValue)}.`;
+    } else {
+      hintEl.textContent = 'Si no es equitativo, puedes editar los porcentajes. La suma debe ser 100%.';
+    }
+  }
 
   // Adjust grid columns based on view mode
   participantsListEl.style.display = 'grid';
@@ -1451,19 +1750,21 @@ function renderParticipants() {
         }
       });
     } else {
-      // Show as percentage
-      pctInput.type = 'number';
+      // Show as percentage (rounded to 2 decimals)
+      pctInput.type = 'text';
       pctInput.inputMode = 'decimal';
-      pctInput.min = '0';
-      pctInput.max = '100';
-      pctInput.step = '0.01';
-      pctInput.value = String(p.pct ?? 0);
+      pctInput.value = (p.pct ?? 0).toFixed(2);
 
       pctInput.addEventListener('input', () => {
-        const v = Number(pctInput.value);
+        const v = parseFloat(pctInput.value);
         participants[idx].pct = Number.isFinite(v) ? v : 0;
         delete participants[idx].amount; // Clear amount when using percentages
         validatePctSum();
+      });
+      
+      pctInput.addEventListener('blur', () => {
+        const v = parseFloat(pctInput.value) || 0;
+        pctInput.value = v.toFixed(2);
       });
     }
 
@@ -1690,10 +1991,10 @@ function readForm() {
     currency: 'COP'
   };
 
-  // Add category (required for HOUSEHOLD, optional for DEBT_PAYMENT if payer is member)
+  // Add category_id (required for HOUSEHOLD, optional for DEBT_PAYMENT if payer is member)
   // NOT required for LOAN type
   if (categoria) {
-    payload.category = categoria;
+    payload.category_id = categoria; // categoria now contains the UUID
   }
 
   // Add payer (user_id or contact_id)
@@ -1881,7 +2182,7 @@ async function loadMovementForEdit(movementId) {
     
     if (descripcionEl) descripcionEl.value = movement.description || '';
     if (valorEl) valorEl.value = formatNumber(movement.amount);
-    if (categoriaEl) categoriaEl.value = movement.category_name || '';
+    if (categoriaEl) categoriaEl.value = movement.category_id || '';
     
     if (fechaEl && movement.movement_date) {
       // Extract date in YYYY-MM-DD format without timezone conversion
@@ -2432,7 +2733,7 @@ async function onSubmit(e) {
           updatePayload.participants = payload.participants;
         }
         
-        res = await fetch(`${API_URL}/movements/${currentEditMovement.id}`, {
+        res = await fetch(`${API_URL}/movements/${currentEditMovement.id}${scopeParam ? `?scope=${scopeParam}` : ''}`, {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json'

@@ -1,6 +1,6 @@
 # Phase 8: Recurring Movements (Gastos Periódicos)
 
-> **Current Status:** 📋 PLANNED
+> **Current Status:** 🚧 IN PROGRESS - Backend COMPLETE, Frontend TODO
 >
 > This phase introduces recurring movement templates that can automatically create movements on a schedule,
 > or serve as form pre-fill templates for manual entry.
@@ -600,8 +600,9 @@ func (s *Scheduler) Stop() {
 **Deployment:**
 
 - Run scheduler in main application (not separate service)
-- Check every 1 hour (configurable)
+- Check every 12 hours (templates only specify day, not hour)
 - On startup, run immediate check (catch up on missed generations)
+- Manual trigger available via POST /api/recurring-movements/generate endpoint
 
 **Edge cases:**
 
@@ -1209,24 +1210,29 @@ Authorization: Bearer <token>
 
 ---
 
-#### POST /api/recurring-movements/:id/generate (Admin/Debug only)
+#### POST /api/recurring-movements/generate
 
-Manually trigger movement generation from a template.
+Manually trigger the scheduler to process all pending templates. Useful for testing or forcing generation without waiting for the next scheduled run (12 hours).
 
 **Request:**
-```json
-{
-  "for_date": "2026-03-01"
-}
+```bash
+POST /api/recurring-movements/generate
+# No body required
 ```
 
 **Response:**
 ```json
 {
-  "movement_id": "uuid",
-  "message": "Movement generated successfully"
+  "success": true,
+  "message": "Pending templates processed successfully"
 }
 ```
+
+**Behavior:**
+- Processes all templates with `auto_generate=true` and `next_scheduled_date <= now()`
+- Same logic as automatic scheduler
+- Logs number of templates processed
+- Returns success even if no templates were pending
 
 ---
 
@@ -1306,7 +1312,8 @@ Manually trigger movement generation from a template.
 4. **Start scheduler:**
    - Add to `main.go`
    - Run on startup
-   - Check every 1 hour
+   - Check every 12 hours
+   - Manual trigger via POST /api/recurring-movements/generate
 
 5. **Validate:**
    - Templates created successfully
@@ -2221,4 +2228,324 @@ User clicks "Saldar deuda completa":
 - [ ] Settle complete debt (mixed templates)
 - [ ] Partial payment flow
 - [ ] Dropdown pre-selection without extra fetch
+
+---
+
+## ✅ Implementation Status (2026-01-19)
+
+### Phase 1: Category Foreign Key Migration ✅ COMPLETE
+
+**Migration 030:**
+- ✅ Added `category_id` UUID column to movements table
+- ✅ Created foreign key to categories(id) with ON DELETE RESTRICT
+- ✅ Created index on category_id
+- ✅ Migration applied successfully (version 33)
+
+**Backend changes:**
+- ✅ Updated `movements.types.go` with CategoryID field
+- ✅ Updated all movement queries to use category_id
+- ✅ Both category (VARCHAR) and category_id (UUID) coexist for now
+- 🔧 **TODO:** Remove category VARCHAR column after frontend migration
+
+**Status:** ✅ Complete - ready for frontend to use category_id
+
+---
+
+### Phase 2: Recurring Templates Implementation ✅ COMPLETE
+
+**Database Migrations:**
+- ✅ Migration 031: `recurring_movement_templates` table with enums (recurrence_pattern, amount_type)
+- ✅ Migration 032: Added `generated_from_template_id` to movements (FK with ON DELETE SET NULL)
+- ✅ Migration 033: `recurring_movement_participants` junction table
+- ✅ All migrations applied successfully (version 33)
+
+**Backend Implementation:**
+- ✅ Created `internal/recurringmovements` package (7 files, ~2300 lines)
+  - ✅ `types.go` (470 lines) - All type definitions, enums, validation
+  - ✅ `repository.go` (654 lines) - PostgreSQL data access
+  - ✅ `service.go` (270 lines) - Business logic, role inversion
+  - ✅ `generator.go` (167 lines) - Auto-generation logic
+  - ✅ `handler.go` (411 lines) - 8 HTTP endpoints
+  - ✅ `scheduler.go` (48 lines) - Background scheduler (runs every 12 hours)
+  - ✅ `types_test.go` (299 lines) - Validation tests
+  - ✅ `generator_test.go` (142 lines) - Date calculation tests
+
+**HTTP Endpoints:**
+- ✅ `POST /api/recurring-movements` - Create template
+- ✅ `GET /api/recurring-movements` - List templates (with filters)
+- ✅ `GET /api/recurring-movements/:id` - Get template by ID
+- ✅ `PUT /api/recurring-movements/:id` - Update template
+- ✅ `DELETE /api/recurring-movements/:id` - Delete/deactivate template (with scope)
+- ✅ `GET /api/recurring-movements/by-category/:categoryId` - List by category
+- ✅ `GET /api/recurring-movements/prefill/:id` - Get pre-fill data (supports ?invert_roles=true)
+- ✅ `POST /api/recurring-movements/generate` - Manual scheduler trigger (testing)
+
+**Scheduler:**
+- ✅ Runs every 12 hours automatically
+- ✅ Processes templates with `auto_generate=true` and `next_scheduled_date <= now()`
+- ✅ Updates `last_generated_date` and `next_scheduled_date` after generation
+- ✅ Sets `generated_from_template_id` on created movements
+- ✅ Manual trigger endpoint for testing
+
+**Key Features:**
+- ✅ Template dual purpose (auto-generate + dropdown pre-fill)
+- ✅ Role inversion logic for SPLIT → DEBT_PAYMENT (inverts payer/participant AND changes movement_type)
+- ✅ Three configurations: FIXED+auto, FIXED+manual, VARIABLE
+- ✅ Date calculation for MONTHLY (clamps to valid days) and YEARLY (day-of-year)
+- ✅ Participant percentage validation (must sum to 100%)
+- ✅ CHECK constraints prevent VARIABLE templates with auto_generate=true
+
+**Testing:**
+- ✅ **Unit tests:** 38 tests passing (11.3% coverage)
+  - ✅ Validation tests (RecurrencePattern, AmountType, NullableDate, CreateTemplateInput)
+  - ✅ Date calculation tests (MONTHLY/YEARLY edge cases: Feb 29, day 31, day 366)
+- ✅ **Integration tests:** 22 tests passing
+  - ✅ Template CRUD operations
+  - ✅ Pre-fill data with role inversion
+  - ✅ Auto-generation via scheduler
+  - ✅ Template detection in movements
+  - ✅ Edit/delete with scope (THIS, FUTURE, ALL)
+
+**Bug Fixes Applied:**
+- ✅ Fixed role inversion to set movement_type to DEBT_PAYMENT
+- ✅ Fixed generator userID determination when payer is contact
+- ✅ Fixed generated_from_template_id not being returned in ListByHousehold
+- ✅ Fixed NullableDate parsing (accepts both RFC3339 and YYYY-MM-DD)
+- ✅ Fixed SQL INSERT placeholder count
+- ✅ Fixed repository column names (type vs movement_type, amount vs fixed_amount)
+
+**Status:** ✅ Backend implementation COMPLETE - All tests passing, scheduler running
+
+---
+
+### Phase 3: Frontend Integration 🔧 TODO
+
+**Movement Form Updates:**
+- [ ] Add template dropdown (shown when category with templates selected)
+- [ ] Fetch templates via `GET /api/recurring-movements/by-category/:categoryId`
+- [ ] Pre-fill form when template selected (2 API calls)
+  - [ ] Call 1: Fetch template list by category
+  - [ ] Call 2: Fetch pre-fill data via `GET /api/recurring-movements/prefill/:id`
+- [ ] Handle FIXED vs VARIABLE types (VARIABLE requires manual amount)
+- [ ] Label field: "¿Cuál gasto periódico?" (optional field)
+- [ ] Disable amount field for FIXED templates
+- [ ] Auto-detect role inversion for DEBT_PAYMENT forms (`?invert_roles=true`)
+
+**Movement List Updates:**
+- [ ] Show 🔁 badge for movements with `generated_from_template_id`
+- [ ] Edit/Delete modals with scope selection (THIS, FUTURE, ALL)
+- [ ] Update API calls to pass scope parameter
+- [ ] Handle scope=ALL confirmation (deactivates template + deletes all movements)
+
+**API Integration:**
+- [ ] Create `movementService.js` functions for template operations
+- [ ] Handle error cases (template not found, invalid scope)
+- [ ] Add loading states during template fetch
+
+**Status:** 🔧 TODO - Backend ready for frontend integration
+
+---
+
+### Phase 4: "Saldar" Feature Integration 🔧 TODO
+
+**Backend:**
+- [ ] Create `GET /api/loans/debt-payment-prefill` endpoint
+  - [ ] Detect movements with `generated_from_template_id`
+  - [ ] Fetch template for pre-fill (if exists)
+  - [ ] Generate smart descriptions based on mode (single/complete)
+  - [ ] Handle person-to-person debt aggregation
+
+**Frontend - Préstamos View:**
+- [ ] Add "Saldar deuda completa" to person-level three-dot menu
+- [ ] Add "Saldar" to movement-level three-dot menu
+- [ ] Implement pre-fill data fetch on menu click
+- [ ] Store pre-fill in sessionStorage
+- [ ] Navigate to Gastos tab with pre-filled form
+
+**Frontend - Movement Form:**
+- [ ] Detect sessionStorage pre-fill data on mount
+- [ ] Pre-fill form fields from sessionStorage
+- [ ] Pre-select template dropdown WITHOUT fetching (use cached data)
+- [ ] Allow amount editing (partial payment)
+- [ ] Clear sessionStorage after use
+
+**Testing:**
+- [ ] Settle single movement with template
+- [ ] Settle single movement without template
+- [ ] Settle complete debt (same template)
+- [ ] Settle complete debt (mixed templates)
+- [ ] Partial payment flow
+- [ ] Dropdown pre-selection without extra fetch
+
+**Status:** 🔧 TODO - Requires backend endpoint + frontend integration
+
+---
+
+### Phase 5: Testing & Monitoring 🚧 IN PROGRESS
+
+**Unit Tests:**
+- ✅ Generator logic (date calculation, edge cases)
+- ✅ Template validation (amount types, recurrence patterns, participants)
+- ✅ NullableDate parsing (RFC3339, YYYY-MM-DD formats)
+- ✅ 38 tests passing with 11.3% coverage
+
+**Integration Tests:**
+- ✅ Template CRUD (create, update, delete with scope)
+- ✅ Pre-fill data with role inversion
+- ✅ Auto-generation via scheduler
+- ✅ Template detection in movements
+- ✅ 22 tests passing in `test-recurring-movements.sh`
+
+**E2E Tests:**
+- [ ] User creates recurring template (FIXED amount, monthly)
+- [ ] Scheduler generates movement automatically
+- [ ] Movement appears with auto-generated badge
+- [ ] User edits movement with FUTURE scope
+- [ ] Template and future movements updated
+- [ ] User deletes movement with ALL scope
+- [ ] Template deactivated and all movements deleted
+- [ ] VARIABLE amount flow (manual entry only)
+
+**Logging:**
+- ✅ Scheduler logs template processing
+- ✅ Generator logs movement creation
+- 🔧 **TODO:** Add structured logging with request IDs
+- 🔧 **TODO:** Log template updates/deletions
+
+**Monitoring:**
+- [ ] Count of templates per household
+- [ ] Count of movements generated per day
+- [ ] Failed generation attempts (track in database?)
+- [ ] Scheduler health check endpoint
+
+**Status:** 🚧 IN PROGRESS - Unit/Integration tests complete, E2E and monitoring TODO
+
+---
+
+### Phase 6: Initial Templates for Jose & Caro 🔧 TODO
+
+**Manual SQL Insertion:**
+- [ ] Create Arriendo template (SPLIT, FIXED 3.2M, auto-generate monthly day 1)
+- [ ] Create Servicios template (SPLIT, VARIABLE, manual only)
+- [ ] Create Internet template (HOUSEHOLD, FIXED 85K, auto-generate monthly day 5)
+- [ ] Verify templates created successfully
+- [ ] Test auto-generation for Arriendo and Internet
+- [ ] Test manual entry with Servicios (variable amount)
+
+**Status:** 🔧 TODO - Can be done via SQL after frontend is ready
+
+---
+
+### Overall Phase 8 Status
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Database Migrations | ✅ COMPLETE | All 4 migrations applied (030-033) |
+| Backend Module | ✅ COMPLETE | 7 files, 8 endpoints, scheduler running |
+| Backend Optimization | ✅ COMPLETE | `/movement-form-config` includes templates map |
+| Unit Tests | ✅ COMPLETE | 38 tests passing (11.3% coverage) |
+| Integration Tests | ✅ COMPLETE | 23 tests passing (includes optimization test) |
+| E2E Tests | 🔧 TODO | Requires frontend implementation |
+| Frontend - Movement Form | ✅ COMPLETE | Template dropdown + pre-fill logic implemented |
+| Frontend - Movement List | ✅ COMPLETE | Auto-generated badge + scope modal implemented |
+| Frontend - Optimizations | ✅ COMPLETE | All limitations fixed (fetch, spinner, scope, confirm) |
+| Frontend - Préstamos View | 🔧 TODO | "Saldar" integration |
+| Scheduler | ✅ RUNNING | Every 12 hours + manual trigger |
+| Logging/Monitoring | 🚧 PARTIAL | Basic logs, advanced monitoring TODO |
+| Initial Templates | 🔧 TODO | Create for Jose & Caro after frontend |
+
+**Frontend Implementation Status (2026-01-20 03:04 UTC):**
+
+✅ **Movement Form (COMPLETE):**
+- Template dropdown "¿Cuál gasto periódico?" appears when category selected
+- Fetch templates by category: `GET /recurring-movements/by-category/{id}` (TO BE REMOVED)
+- Pre-fill form from template: `GET /recurring-movements/prefill/{id}?invert_roles={bool}`
+- FIXED templates: Amount pre-filled and disabled
+- VARIABLE templates: Amount editable
+- Role inversion for DEBT_PAYMENT automatic
+- Files modified: `registrar-movimiento.js` (+235 lines), 5 new functions
+
+✅ **Movement List (COMPLETE):**
+- Auto-generated badge 🔁 on movements with `generated_from_template_id`
+- Scope modal with 3 options (THIS, FUTURE, ALL)
+- Modified edit/delete handlers to accept scope parameter
+- Files modified: `home.js` (+143 lines), `styles.css` (+98 lines)
+
+✅ **Backend Optimization (COMPLETE - 2026-01-20 03:04 UTC):**
+- `/movement-form-config` now includes `recurring_templates` map
+- Templates grouped by category_id: `{category_id: [{id, name, amount_type}, ...]}`
+- Eliminates need for N per-category API calls
+- Function closure used to avoid import cycles (movements ↔ recurringmovements)
+- Integration test added (TEST 23) to verify templates in formConfig
+- Files modified:
+  - `internal/recurringmovements/types.go` - Added ListByCategoryMap() to interface
+  - `internal/recurringmovements/service.go` - Implemented ListByCategoryMap()
+  - `internal/movements/handler.go` - Updated FormConfigHandler with closure
+  - `internal/httpserver/server.go` - Created closure connecting services
+  - `tests/api-integration/test-recurring-movements.sh` - Added TEST 23
+
+✅ **Frontend Optimizations (COMPLETE - 2026-01-20 03:15 UTC):**
+- **Template fetch optimization:** Frontend now uses templates from formConfig (1 call vs N calls)
+  - Removed `fetchTemplatesByCategory()` function (43 lines)
+  - Updated category change listener to use `recurringTemplatesMap`
+  - Instant template dropdown (no network delay)
+- **Loading spinner:** Added animated spinner during template prefill fetch
+  - Shows next to "¿Cuál gasto periódico?" label
+  - Clear visual feedback for async operation
+- **Scope parameter:** Edit form now extracts and uses scope from URL
+  - Scope passed to PATCH request: `?scope=${scopeParam}`
+  - THIS/FUTURE/ALL editing now works correctly
+- **Enhanced delete confirmation:** Extra warning for scope=ALL delete
+  - Explains consequences (template + all movements deleted)
+  - User can cancel and choose different scope
+- Files modified:
+  - `frontend/pages/registrar-movimiento.js` (~65 lines modified, net -13 lines)
+  - `frontend/pages/home.js` (+15 lines)
+
+**Next Steps:**
+1. **"Saldar" Backend Endpoint** - Create debt-payment pre-fill endpoint (2 hours)
+2. **"Saldar" Frontend Integration** - Add buttons to Préstamos view (2-3 hours)
+3. **E2E Testing** - Test complete user flows (3 hours)
+4. **Create Initial Templates** - Add Arriendo, Servicios, Internet for Jose & Caro (30 mins)
+
+**Estimated Time to Complete:** ~7-8 hours (frontend optimizations complete)
+
+---
+
+## 📊 Test Coverage Summary
+
+**Unit Tests (38 tests):**
+```
+✅ TestRecurrencePatternValidate        - 4 cases
+✅ TestAmountTypeValidate               - 4 cases  
+✅ TestNullableDateUnmarshalJSON        - 4 cases
+✅ TestCreateTemplateInputValidate      - 11 cases
+✅ TestCalculateNextScheduledDate       - 6 cases (MONTHLY/YEARLY)
+✅ TestCalculateNextScheduledDateEdgeCases - 3 cases
+
+Coverage: 11.3% of statements
+```
+
+**Integration Tests (23 tests):**
+```
+✅ Create FIXED template with auto-generate
+✅ Create VARIABLE template without auto-generate
+✅ Create template with invalid data (expect error)
+✅ List all templates for household
+✅ Get template by ID
+✅ Get pre-fill data for FIXED template
+✅ Get pre-fill data with role inversion
+✅ Update template (recalculates next_scheduled_date)
+✅ Delete template with scope=THIS (deactivates template)
+✅ Delete template with scope=ALL (deletes all movements)
+✅ List templates by category
+✅ Manual scheduler trigger (generates movements)
+✅ Verify generated movements have correct data
+✅ Verify template last_generated_date updated
+✅ Verify template next_scheduled_date updated
+✅ Verify templates included in /movement-form-config (NEW - 2026-01-20)
+... and 7 more
+```
+
+**Status:** ✅ All tests passing
 

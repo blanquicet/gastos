@@ -36,19 +36,22 @@ func (r *repository) Create(ctx context.Context, input *CreateMovementInput, hou
 			household_id, type, description, amount, category_id, movement_date, currency,
 			payer_user_id, payer_contact_id,
 			counterparty_user_id, counterparty_contact_id,
-			payment_method_id, receiver_account_id
+			payment_method_id, receiver_account_id,
+			generated_from_template_id
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 		RETURNING id, household_id, type, description, amount, category_id, movement_date,
 		          currency, payer_user_id, payer_contact_id,
 		          counterparty_user_id, counterparty_contact_id,
-		          payment_method_id, receiver_account_id, created_at, updated_at
+		          payment_method_id, receiver_account_id, 
+		          generated_from_template_id, created_at, updated_at
 	`,
 		householdID, input.Type, input.Description, input.Amount, input.CategoryID,
 		input.MovementDate, "COP", // Currency defaults to COP
 		input.PayerUserID, input.PayerContactID,
 		input.CounterpartyUserID, input.CounterpartyContactID,
 		input.PaymentMethodID, input.ReceiverAccountID,
+		input.GeneratedFromTemplateID,
 	).Scan(
 		&movement.ID,
 		&movement.HouseholdID,
@@ -64,6 +67,7 @@ func (r *repository) Create(ctx context.Context, input *CreateMovementInput, hou
 		&movement.CounterpartyContactID,
 		&movement.PaymentMethodID,
 		&movement.ReceiverAccountID,
+		&movement.GeneratedFromTemplateID,
 		&movement.CreatedAt,
 		&movement.UpdatedAt,
 	)
@@ -112,6 +116,7 @@ func (r *repository) GetByID(ctx context.Context, id string) (*Movement, error) 
 			m.payer_user_id, m.payer_contact_id,
 			m.counterparty_user_id, m.counterparty_contact_id,
 			m.payment_method_id, m.receiver_account_id,
+			m.generated_from_template_id,
 			m.created_at, m.updated_at,
 			-- Payer name (user or contact)
 			COALESCE(payer_user.name, payer_contact.name) as payer_name,
@@ -121,8 +126,12 @@ func (r *repository) GetByID(ctx context.Context, id string) (*Movement, error) 
 			pm.name as payment_method_name,
 			-- Receiver account name (if exists)
 			ra.name as receiver_account_name,
-			-- Category name via JOIN
-			c.name as category_name
+			-- Category info via JOIN
+			c.id as category_id,
+			c.name as category_name,
+			cg.id as category_group_id,
+			cg.name as category_group_name,
+			cg.icon as category_group_icon
 		FROM movements m
 		LEFT JOIN users payer_user ON m.payer_user_id = payer_user.id
 		LEFT JOIN contacts payer_contact ON m.payer_contact_id = payer_contact.id
@@ -131,6 +140,7 @@ func (r *repository) GetByID(ctx context.Context, id string) (*Movement, error) 
 		LEFT JOIN payment_methods pm ON m.payment_method_id = pm.id
 		LEFT JOIN accounts ra ON m.receiver_account_id = ra.id
 		LEFT JOIN categories c ON m.category_id = c.id
+		LEFT JOIN category_groups cg ON c.category_group_id = cg.id
 		WHERE m.id = $1
 	`
 
@@ -148,13 +158,18 @@ func (r *repository) GetByID(ctx context.Context, id string) (*Movement, error) 
 		&movement.CounterpartyContactID,
 		&movement.PaymentMethodID,
 		&movement.ReceiverAccountID,
+		&movement.GeneratedFromTemplateID,
 		&movement.CreatedAt,
 		&movement.UpdatedAt,
 		&movement.PayerName,
 		&movement.CounterpartyName,
 		&movement.PaymentMethodName,
 		&movement.ReceiverAccountName,
+		&movement.CategoryID,
 		&movement.CategoryName,
+		&movement.CategoryGroupID,
+		&movement.CategoryGroupName,
+		&movement.CategoryGroupIcon,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -248,6 +263,7 @@ func (r *repository) ListByHousehold(ctx context.Context, householdID string, fi
 			m.payer_user_id, m.payer_contact_id,
 			m.counterparty_user_id, m.counterparty_contact_id,
 			m.payment_method_id, m.receiver_account_id,
+			m.generated_from_template_id,
 			m.created_at, m.updated_at,
 			COALESCE(payer_user.name, payer_contact.name) as payer_name,
 			COALESCE(counterparty_user.name, counterparty_contact.name) as counterparty_name,
@@ -328,6 +344,7 @@ func (r *repository) ListByHousehold(ctx context.Context, householdID string, fi
 			&m.CounterpartyContactID,
 			&m.PaymentMethodID,
 			&m.ReceiverAccountID,
+			&m.GeneratedFromTemplateID,
 			&m.CreatedAt,
 			&m.UpdatedAt,
 			&m.PayerName,

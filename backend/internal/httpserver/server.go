@@ -24,6 +24,7 @@ import (
 	"github.com/blanquicet/gastos/backend/internal/movements"
 	"github.com/blanquicet/gastos/backend/internal/n8nclient"
 	"github.com/blanquicet/gastos/backend/internal/paymentmethods"
+	"github.com/blanquicet/gastos/backend/internal/recurringmovements"
 	"github.com/blanquicet/gastos/backend/internal/sessions"
 	"github.com/blanquicet/gastos/backend/internal/users"
 )
@@ -180,16 +181,6 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 	// Create category groups repository (needed by form config and budgets)
 	categoryGroupsRepo := categorygroups.NewRepository(pool)
 
-	// Create form config handler for movements
-	formConfigHandler := movements.NewFormConfigHandler(
-		authService,
-		householdRepo,
-		paymentMethodsRepo,
-		categoryGroupsRepo,
-		cfg.SessionCookieName,
-		logger,
-	)
-
 	// Create categories service and handler
 	categoriesRepo := categories.NewPostgresRepository(pool)
 	categoriesService := categories.NewService(categoriesRepo, householdRepo, auditService)
@@ -221,6 +212,62 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 	
 	// Create audit log handler
 	auditHandler := audit.NewHandler(auditService, logger)
+
+	// Create recurring movements service, handler, generator, and scheduler
+	recurringMovementsRepo := recurringmovements.NewRepository(pool)
+	recurringMovementsService := recurringmovements.NewService(recurringMovementsRepo, householdRepo, budgetsService, logger)
+	
+	// Create form config handler for movements (with templates closure to avoid import cycles)
+	getTemplatesByCategory := func(ctx context.Context, userID string) (map[string][]movements.TemplateBasicInfo, error) {
+		templatesMap, err := recurringMovementsService.ListByCategoryMap(ctx, userID)
+		if err != nil {
+			return nil, err
+		}
+		
+		// Convert to TemplateBasicInfo
+		result := make(map[string][]movements.TemplateBasicInfo)
+		for categoryID, templates := range templatesMap {
+			var infos []movements.TemplateBasicInfo
+			for _, t := range templates {
+				infos = append(infos, movements.TemplateBasicInfo{
+					ID:         t.ID,
+					Name:       t.Name,
+					CategoryID: t.CategoryID,
+				})
+			}
+			result[categoryID] = infos
+		}
+		
+		return result, nil
+	}
+	
+	formConfigHandler := movements.NewFormConfigHandler(
+		authService,
+		householdRepo,
+		paymentMethodsRepo,
+		categoryGroupsRepo,
+		getTemplatesByCategory,
+		cfg.SessionCookieName,
+		logger,
+	)
+	
+	// Create generator (needed by handler and scheduler)
+	generator := recurringmovements.NewGenerator(recurringMovementsRepo, movementsService, logger)
+	
+	// Create handler with generator for manual triggering
+	recurringMovementsHandler := recurringmovements.NewHandler(
+		recurringMovementsService,
+		generator,
+		authService,
+		cfg.SessionCookieName,
+		logger,
+	)
+	
+	// Create scheduler for auto-generating movements
+	scheduler := recurringmovements.NewScheduler(generator, logger)
+	
+	// Start scheduler in background
+	go scheduler.Start(ctx)
 
 	// Create rate limiters for auth endpoints (if enabled)
 	// Login/Register: 5 requests per minute per IP (strict to prevent brute force)
@@ -316,6 +363,16 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 	
 	// Movement form config endpoint
 	mux.HandleFunc("GET /movement-form-config", formConfigHandler.GetFormConfig)
+
+	// Recurring movements endpoints (order matters to avoid route conflicts)
+	mux.HandleFunc("POST /api/recurring-movements", recurringMovementsHandler.HandleCreate)
+	mux.HandleFunc("POST /api/recurring-movements/generate", recurringMovementsHandler.HandleGeneratePending)
+	mux.HandleFunc("GET /api/recurring-movements", recurringMovementsHandler.HandleList)
+	mux.HandleFunc("GET /api/recurring-movements/category/{category_id}", recurringMovementsHandler.HandleGetByCategory)
+	mux.HandleFunc("GET /api/recurring-movements/prefill/{id}", recurringMovementsHandler.HandleGetPreFillData)
+	mux.HandleFunc("GET /api/recurring-movements/{id}", recurringMovementsHandler.HandleGet)
+	mux.HandleFunc("PUT /api/recurring-movements/{id}", recurringMovementsHandler.HandleUpdate)
+	mux.HandleFunc("DELETE /api/recurring-movements/{id}", recurringMovementsHandler.HandleDelete)
 
 	// Categories endpoints
 	mux.HandleFunc("GET /categories", categoriesHandler.ListCategories)

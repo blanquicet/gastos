@@ -12,6 +12,7 @@ import { API_URL } from '../config.js';
 import router from '../router.js';
 import * as Navbar from '../components/navbar.js';
 import { showConfirmation, showSuccess, showError, showInputModal } from '../utils.js';
+import { MovementFormState, FormFieldController } from '../components/movement-form.js';
 
 let currentUser = null;
 let currentMonth = null; // YYYY-MM format
@@ -30,6 +31,7 @@ let isFilterOpen = false; // Track if filter dropdown is open
 let isLoansFilterOpen = false; // Track if loans filter dropdown is open
 let tabsNeedingReload = new Set(); // Tabs that need to reload when activated ('gastos', 'ingresos', 'prestamos', 'presupuesto', 'tarjetas')
 let budgetsData = null; // Presupuesto data
+let templatesData = {}; // Templates data grouped by category_id (initialize as empty object)
 let categoryGroupsData = null; // Category groups with categories (from /api/category-groups)
 let showChronological = false; // Track if showing chronological view (true) or grouped view (false)
 
@@ -469,6 +471,7 @@ function renderIncomeCategories() {
  * Render budgets for presupuesto tab
  */
 function renderBudgets() {
+  
   if (!budgetsData || !budgetsData.budgets) {
     return `
       <div class="empty-state">
@@ -510,25 +513,41 @@ function renderBudgets() {
   const renderBudgetItem = (budget, groupName) => {
     const hasBudget = budget.amount > 0;
     const simplifiedName = getSimplifiedCategoryName(budget.category_name || 'Sin nombre', groupName);
+    const safeCategoryId = budget.category_id.replace(/[^a-zA-Z0-9]/g, '-');
+    
+    // Get templates for this category (handle null/undefined templatesData)
+    const templates = (templatesData && templatesData[budget.category_id]) || [];
     
     return `
-      <div class="budget-category-item">
-        <div class="expense-category-info">
-          <div class="expense-category-name">${simplifiedName}</div>
-          <div class="expense-category-amount">
-            <span class="budget-amount-display" data-category-id="${budget.category_id}" data-budget-id="${hasBudget ? budget.id : ''}" data-amount="${hasBudget ? budget.amount : 0}">
+      <div class="expense-category-item">
+        <div class="expense-category-header" onclick="toggleBudgetCategoryDetails('${safeCategoryId}')">
+          <div class="expense-category-info">
+            <span class="expense-category-name">${simplifiedName}</span>
+            <span class="expense-category-amount">
               ${hasBudget ? formatCurrency(budget.amount) : '<span class="no-budget-text">Sin presupuesto</span>'}
             </span>
           </div>
+          <svg class="category-chevron" width="16" height="16" viewBox="0 0 20 20" fill="none">
+            <path d="M7.5 5L12.5 10L7.5 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
         </div>
-        <div class="entry-actions">
-          <button class="three-dots-btn" data-category-id="${budget.category_id}" data-budget-id="${hasBudget ? budget.id : ''}" data-category-name="${simplifiedName}" data-has-budget="${hasBudget}">⋮</button>
-          <div class="three-dots-menu" id="budget-menu-${budget.category_id}">
+        <div class="expense-category-details hidden" id="budget-category-details-${safeCategoryId}">
+          ${templates.length > 0 ? `
+            ${templates.map(template => renderTemplateItem(template)).join('')}
+          ` : `
+            <div class="empty-templates-message" style="text-align: center; color: #6c757d; padding: 16px; font-size: 14px;">
+              No hay gastos presupuestados
+            </div>
+          `}
+          <div class="budget-action-buttons">
             ${hasBudget ? `
-              <button class="menu-item" data-action="edit-budget" data-category-id="${budget.category_id}" data-budget-id="${budget.id}" data-amount="${budget.amount}" data-category-name="${simplifiedName}">Editar</button>
-              <button class="menu-item" data-action="delete-budget" data-budget-id="${budget.id}" data-category-name="${simplifiedName}">Eliminar</button>
+              <button class="budget-action-btn" data-action="edit-budget" data-category-id="${budget.category_id}" data-budget-id="${budget.id}" data-amount="${budget.amount}" data-category-name="${simplifiedName}">
+                Editar presupuesto total
+              </button>
             ` : `
-              <button class="menu-item" data-action="add-budget" data-category-id="${budget.category_id}" data-category-name="${simplifiedName}">Agregar</button>
+              <button class="budget-action-btn" data-action="add-budget" data-category-id="${budget.category_id}" data-category-name="${simplifiedName}">
+                <span style="font-size: 18px; margin-right: 8px;">+</span> Agregar presupuesto total
+              </button>
             `}
           </div>
         </div>
@@ -599,8 +618,72 @@ function renderBudgets() {
       ${groupsHtml}
       ${ungroupedHtml}
     </div>
+    
+    <!-- Floating add button -->
+    <div class="floating-actions">
+      <button id="add-template-btn" class="btn-add-floating" title="Presupuestar nuevo gasto">+</button>
+    </div>
   `;
 }
+
+/**
+ * Render individual template item (reuses movement-detail-entry CSS)
+ */
+function renderTemplateItem(template) {
+  const amountDisplay = formatCurrency(template.amount);
+  
+  const scheduleDisplay = template.auto_generate
+    ? `Cada día ${template.day_of_month}`
+    : 'Manual';
+  
+  return `
+    <div class="movement-detail-entry" data-template-id="${template.id}">
+      <div class="entry-info">
+        <span class="entry-description">${template.name}</span>
+        <span class="entry-amount">${amountDisplay}</span>
+        <div class="entry-date">${scheduleDisplay}</div>
+      </div>
+      <div class="entry-actions">
+        ${template.movement_type === 'SPLIT' 
+          ? `<span class="entry-split-badge">Compartido</span>` 
+          : template.payment_method_name 
+            ? `<span class="entry-payment-badge">${template.payment_method_name}</span>` 
+            : ''
+        }
+        <button class="three-dots-btn" data-template-id="${template.id}">⋮</button>
+        <div class="three-dots-menu" id="template-menu-${template.id}">
+          <button class="menu-item" data-action="edit-template" data-template-id="${template.id}">
+            Editar
+          </button>
+          <button class="menu-item menu-item-danger" data-action="delete-template" data-template-id="${template.id}">
+            Eliminar
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Toggle budget category details visibility
+ */
+function toggleBudgetCategoryDetails(categoryId) {
+  const details = document.getElementById(`budget-category-details-${categoryId}`);
+  if (!details) return;
+  
+  const header = details.previousElementSibling; // Header is now directly before details
+  const chevron = header?.querySelector('.category-chevron');
+  
+  details.classList.toggle('hidden');
+  if (chevron) {
+    chevron.style.transform = details.classList.contains('hidden') 
+      ? 'rotate(0deg)' 
+      : 'rotate(90deg)';
+  }
+}
+
+// Make function globally accessible for onclick handlers
+window.toggleBudgetCategoryDetails = toggleBudgetCategoryDetails;
 
 /**
  * Render loans filter dropdown
@@ -1138,6 +1221,10 @@ async function loadHouseholdMembers() {
     }
 
     const data = await response.json();
+    
+    // Cache form config globally for template modal
+    window.formConfigCache = data;
+    
     // Filter only members (not contacts)
     householdMembers = data.users.filter(u => u.type === 'member');
   } catch (error) {
@@ -1319,7 +1406,7 @@ async function loadMovementsData() {
       filteredMovements = [];
     } else if (selectedCategories.length > 0) {
       filteredMovements = filteredMovements.filter(movement => {
-        const isIncluded = selectedCategories.includes(movement.category);
+        const isIncluded = selectedCategories.includes(movement.category_id);
         return isIncluded;
       });
     }
@@ -1339,9 +1426,8 @@ async function loadMovementsData() {
     // Recalculate by_category totals
     const byCategory = {};
     filteredMovements.forEach(movement => {
-      if (movement.category) {
-        byCategory[movement.category] = (byCategory[movement.category] || 0) + movement.amount;
-      }
+      const categoryName = movement.category_name || 'Sin categoría';
+      byCategory[categoryName] = (byCategory[categoryName] || 0) + movement.amount;
     });
     
     movementsData = {
@@ -1388,25 +1474,75 @@ async function loadLoansData() {
  */
 async function loadBudgetsData() {
   try {
-    const response = await fetch(`${API_URL}/budgets/${currentMonth}`, {
-      credentials: 'include'
-    });
+    // Load budgets and templates in parallel
+    const [budgetsResponse, templatesResponse] = await Promise.all([
+      fetch(`${API_URL}/budgets/${currentMonth}`, {
+        credentials: 'include'
+      }),
+      fetch(`${API_URL}/api/recurring-movements`, {
+        credentials: 'include'
+      })
+    ]);
 
-    if (!response.ok) {
-      if (response.status === 404) {
+    // Handle budgets response
+    if (!budgetsResponse.ok) {
+      if (budgetsResponse.status === 404) {
         // No budgets for this month yet
         budgetsData = { month: currentMonth, budgets: [], totals: { total_budget: 0, total_spent: 0, percentage: 0 } };
-        return;
+      } else {
+        console.error('Error loading budgets data');
+        budgetsData = null;
       }
-      console.error('Error loading budgets data');
-      budgetsData = null;
-      return;
+    } else {
+      budgetsData = await budgetsResponse.json();
     }
 
-    budgetsData = await response.json();
+    // Handle templates response
+    if (!templatesResponse.ok) {
+      console.error('Error loading recurring movements');
+      templatesData = {};
+    } else {
+      try {
+        const templatesArray = await templatesResponse.json(); // Direct array, not wrapped
+        
+        // Group templates by category_id
+        templatesData = {};
+        if (Array.isArray(templatesArray)) {
+          templatesArray.forEach(t => {
+            if (!templatesData[t.category_id]) {
+              templatesData[t.category_id] = [];
+            }
+            templatesData[t.category_id].push(t);
+          });
+        }
+        
+        // Sort templates within each category:
+      // 1. Periodic (auto_generate=true) first
+      // 2. Manual (auto_generate=false) second
+      // 3. Within each group: by amount (highest to lowest, Variable=0)
+      Object.keys(templatesData).forEach(categoryId => {
+        templatesData[categoryId].sort((a, b) => {
+          // First sort by auto_generate (periodic first)
+          if (a.auto_generate !== b.auto_generate) {
+            return a.auto_generate ? -1 : 1;
+          }
+          
+          // Then sort by amount (highest first)
+          const amountA = a.amount || 0;
+          const amountB = b.amount || 0;
+          return amountB - amountA;
+        });
+      });
+      
+      } catch (jsonError) {
+        console.error('Error parsing recurring movements response:', jsonError);
+        templatesData = {};
+      }
+    }
   } catch (error) {
     console.error('Error loading budgets data:', error);
     budgetsData = null;
+    templatesData = {};
   }
 }
 
@@ -1596,7 +1732,7 @@ function renderMovementsFilterDropdown() {
         </div>
         
         ${categoryGroupsData.map(group => {
-          const allGroupChecked = showAllCategories || group.categories.every(c => selectedCategories.includes(c.id));
+          const allGroupChecked = showAllCategories || (selectedCategories && group.categories.every(c => selectedCategories.includes(c.id)));
           
           return `
             <div class="filter-category">
@@ -1611,7 +1747,7 @@ function renderMovementsFilterDropdown() {
               </label>
               <div class="filter-options filter-sub-options collapsed" data-category-content="${group.name}">
                 ${group.categories.map(category => {
-                  const isChecked = showAllCategories || selectedCategories.includes(category.id);
+                  const isChecked = showAllCategories || (selectedCategories && selectedCategories.includes(category.id));
                   return `
                     <label class="filter-checkbox-label">
                       <input type="checkbox" class="filter-checkbox" 
@@ -1639,7 +1775,7 @@ function renderMovementsFilterDropdown() {
         </div>
         <div class="filter-options">
           ${uniquePaymentMethods.map(pm => {
-            const isChecked = showAllPaymentMethods || selectedPaymentMethods.includes(pm.id);
+            const isChecked = showAllPaymentMethods || (selectedPaymentMethods && selectedPaymentMethods.includes(pm.id));
             return `
               <label class="filter-checkbox-label">
                 <input type="checkbox" class="filter-checkbox" 
@@ -1959,6 +2095,10 @@ function renderChronologicalMovements() {
           <div class="movement-date">${formatDate(movement.movement_date)}</div>
         </div>
         <div class="movement-right-actions">
+          ${movement.generated_from_template_id 
+            ? `<span class="entry-autogenerated-badge" title="Generado automáticamente">🔁</span>` 
+            : ''
+          }
           ${movement.is_split 
             ? `<span class="entry-split-badge">Compartido</span>` 
             : movement.payment_method_name 
@@ -1967,8 +2107,8 @@ function renderChronologicalMovements() {
           }
           <button class="three-dots-btn" data-movement-id="${movement.id}">⋮</button>
           <div class="three-dots-menu" id="movement-menu-${movement.id}">
-            <button class="menu-item" data-action="edit" data-id="${movement.id}">Editar</button>
-            <button class="menu-item" data-action="delete" data-id="${movement.id}">Eliminar</button>
+            <button class="menu-item" data-action="edit" data-id="${movement.id}" data-has-template="${movement.generated_from_template_id ? 'true' : 'false'}">Editar</button>
+            <button class="menu-item" data-action="delete" data-id="${movement.id}" data-has-template="${movement.generated_from_template_id ? 'true' : 'false'}">Eliminar</button>
           </div>
         </div>
       </div>
@@ -2009,6 +2149,7 @@ function refreshDisplay() {
   const container = document.getElementById('categories-container');
   const loansContainer = document.getElementById('loans-container');
   const dashboardContent = document.querySelector('.dashboard-content');
+  
   
   // For presupuesto tab, we need to re-render the entire dashboard content
   if (activeTab === 'presupuesto') {
@@ -2136,7 +2277,7 @@ async function handleEditMovement(movementId) {
 /**
  * Handle delete movement
  */
-async function handleDeleteMovement(movementId) {
+async function handleDeleteMovement(movementId, scope = null) {
   const confirmed = await showConfirmation(
     '¿Eliminar gasto?',
     '¿Estás seguro de que quieres eliminar este gasto? Esta acción no se puede deshacer.'
@@ -2145,7 +2286,11 @@ async function handleDeleteMovement(movementId) {
   if (!confirmed) return;
 
   try {
-    const response = await fetch(`${API_URL}/movements/${movementId}`, {
+    const url = scope 
+      ? `${API_URL}/movements/${movementId}?scope=${scope}`
+      : `${API_URL}/movements/${movementId}`;
+      
+    const response = await fetch(url, {
       method: 'DELETE',
       credentials: 'include'
     });
@@ -2165,6 +2310,109 @@ async function handleDeleteMovement(movementId) {
     console.error('Error deleting movement:', error);
     showError('Error al eliminar', error.message || 'Error al eliminar el movimiento');
   }
+}
+
+/**
+ * Show scope modal for auto-generated movements
+ */
+function showScopeModal(action, movementId) {
+  const actionText = action === 'edit' ? 'editar' : 'eliminar';
+  const actionTextCap = action === 'edit' ? 'Editar' : 'Eliminar';
+  
+  const modalHtml = `
+    <div class="modal-overlay" id="scope-modal-overlay">
+      <div class="modal-content scope-modal">
+        <h3 style="margin: 0 0 16px 0; font-size: 18px; font-weight: 600;">
+          ${actionTextCap} Movimiento Auto-generado
+        </h3>
+        <p style="margin: 0 0 20px 0; font-size: 14px; color: #6b7280; line-height: 1.5;">
+          Este movimiento fue generado automáticamente desde un template. ¿Qué movimientos quieres ${actionText}?
+        </p>
+        
+        <div class="scope-options">
+          <label class="scope-option">
+            <input type="radio" name="scope" value="THIS" checked />
+            <div class="scope-option-content">
+              <strong>Solo este movimiento</strong>
+              <span>No afecta el template ni otros movimientos</span>
+            </div>
+          </label>
+          
+          <label class="scope-option">
+            <input type="radio" name="scope" value="FUTURE" />
+            <div class="scope-option-content">
+              <strong>Este y futuros movimientos</strong>
+              <span>Actualiza el template y todos los movimientos futuros</span>
+            </div>
+          </label>
+          
+          <label class="scope-option ${action === 'delete' ? 'scope-option-danger' : ''}">
+            <input type="radio" name="scope" value="ALL" />
+            <div class="scope-option-content">
+              <strong>Todos los movimientos</strong>
+              <span>${action === 'delete' ? 'Desactiva el template y elimina TODOS los movimientos' : 'Actualiza el template y TODOS los movimientos (pasados y futuros)'}</span>
+            </div>
+          </label>
+        </div>
+        
+        <div class="modal-actions" style="display: flex; gap: 12px; margin-top: 24px;">
+          <button id="scope-cancel-btn" class="btn-secondary" style="flex: 1;">
+            Cancelar
+          </button>
+          <button id="scope-confirm-btn" class="btn-primary" style="flex: 1;">
+            Continuar
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  // Insert modal into DOM
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+  
+  // Setup event listeners
+  const overlay = document.getElementById('scope-modal-overlay');
+  const cancelBtn = document.getElementById('scope-cancel-btn');
+  const confirmBtn = document.getElementById('scope-confirm-btn');
+  
+  const closeModal = () => {
+    overlay.remove();
+  };
+  
+  cancelBtn.addEventListener('click', closeModal);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closeModal();
+  });
+  
+  confirmBtn.addEventListener('click', async () => {
+    const selectedScope = document.querySelector('input[name="scope"]:checked').value;
+    
+    // Extra confirmation for scope=ALL delete
+    if (action === 'delete' && selectedScope === 'ALL') {
+      const confirmed = confirm(
+        '⚠️ ADVERTENCIA: Estás a punto de eliminar TODAS las instancias de este gasto recurrente.\n\n' +
+        'Esto incluirá:\n' +
+        '• El template original\n' +
+        '• Todos los movimientos pasados generados automáticamente\n' +
+        '• Todos los movimientos futuros (no se crearán más)\n\n' +
+        '¿Estás completamente seguro de que deseas continuar?'
+      );
+      
+      if (!confirmed) {
+        return; // Don't close modal, user can choose different scope
+      }
+    }
+    
+    closeModal();
+    
+    if (action === 'edit') {
+      // For edit, navigate to edit page with scope parameter
+      router.navigate(`/registrar-movimiento?tipo=GASTO&edit=${movementId}&scope=${selectedScope}`);
+    } else {
+      // For delete, call delete with scope
+      await handleDeleteMovement(movementId, selectedScope);
+    }
+  });
 }
 
 
@@ -2333,14 +2581,25 @@ function setupCategoryListeners() {
       e.stopPropagation();
       const action = e.currentTarget.dataset.action;
       const id = e.currentTarget.dataset.id;
+      const hasTemplate = e.currentTarget.dataset.hasTemplate === 'true';
 
       // Close menu
       document.querySelectorAll('.three-dots-menu').forEach(m => m.style.display = 'none');
 
-      if (action === 'edit') {
-        await handleEditMovement(id);
-      } else if (action === 'delete') {
-        await handleDeleteMovement(id);
+      if (hasTemplate) {
+        // Show scope modal for auto-generated movements
+        if (action === 'edit') {
+          showScopeModal('edit', id);
+        } else if (action === 'delete') {
+          showScopeModal('delete', id);
+        }
+      } else {
+        // No template - proceed directly
+        if (action === 'edit') {
+          await handleEditMovement(id);
+        } else if (action === 'delete') {
+          await handleDeleteMovement(id);
+        }
       }
     });
   });
@@ -2440,7 +2699,60 @@ function setupBudgetListeners() {
     });
   });
   
-  // Menu action buttons for budgets
+  // Three-dots menu toggles for templates
+  document.querySelectorAll('.three-dots-btn[data-template-id]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const templateId = e.currentTarget.dataset.templateId;
+      const menu = document.getElementById(`template-menu-${templateId}`);
+      const isOpen = menu && menu.style.display === 'block';
+      
+      // Close all menus
+      document.querySelectorAll('.three-dots-menu').forEach(m => {
+        m.style.display = 'none';
+        m.classList.remove('menu-above');
+      });
+      
+      // Toggle this menu
+      if (!isOpen && menu) {
+        // Check if menu would overflow bottom of viewport
+        const btnRect = btn.getBoundingClientRect();
+        const menuHeight = 80;
+        const spaceBelow = window.innerHeight - btnRect.bottom;
+        
+        if (spaceBelow < menuHeight) {
+          menu.classList.add('menu-above');
+        }
+        
+        menu.style.display = 'block';
+      }
+    });
+  });
+  
+  // Budget action buttons (new Proposal 1 buttons in expanded area)
+  document.querySelectorAll('.budget-action-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const action = btn.dataset.action;
+      
+      if (action === 'add-budget') {
+        await handleAddBudget(btn.dataset.categoryId, btn.dataset.categoryName);
+      } else if (action === 'edit-budget') {
+        await handleEditBudget(
+          btn.dataset.categoryId,
+          btn.dataset.budgetId,
+          btn.dataset.amount,
+          btn.dataset.categoryName
+        );
+      } else if (action === 'add-template') {
+        await handleAddTemplate(btn.dataset.categoryId, btn.dataset.categoryName);
+      }
+    });
+  });
+  
+  // Menu action buttons for budgets (legacy - keeping for template three-dots menus)
   document.querySelectorAll('.three-dots-menu .menu-item[data-action^="add-budget"], .three-dots-menu .menu-item[data-action^="edit-budget"], .three-dots-menu .menu-item[data-action^="delete-budget"]').forEach(item => {
     item.addEventListener('click', async (e) => {
       e.preventDefault();
@@ -2461,6 +2773,45 @@ function setupBudgetListeners() {
         );
       } else if (action === 'delete-budget') {
         await handleDeleteBudget(item.dataset.budgetId, item.dataset.categoryName);
+      }
+    });
+  });
+  
+  // Menu action buttons for templates
+  document.querySelectorAll('.three-dots-menu .menu-item[data-action^="edit-template"], .three-dots-menu .menu-item[data-action^="delete-template"]').forEach(item => {
+    item.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const action = item.dataset.action;
+      const templateId = item.dataset.templateId;
+      
+      // Close menu
+      item.closest('.three-dots-menu').style.display = 'none';
+      
+      if (action === 'edit-template') {
+        alert('Editar template: ' + templateId + ' (por implementar)');
+        // TODO: Implement edit template
+      } else if (action === 'delete-template') {
+        const confirmed = confirm('¿Estás seguro de eliminar este gasto?');
+        if (confirmed) {
+          try {
+            const response = await fetch(`${API_URL}/api/recurring-movements/${templateId}`, {
+              method: 'DELETE',
+              credentials: 'include'
+            });
+            
+            if (!response.ok) {
+              throw new Error('Error al eliminar el gasto');
+            }
+            
+            showSuccess('Gasto Eliminado', 'El gasto ha sido eliminado exitosamente');
+            await loadBudgetsData();
+            refreshDisplay();
+          } catch (error) {
+            console.error('Error deleting template:', error);
+            showError('Error', error.message || 'No se pudo eliminar el gasto');
+          }
+        }
       }
     });
   });
@@ -2501,6 +2852,14 @@ function setupBudgetListeners() {
   if (manageCategoriesBtn) {
     manageCategoriesBtn.addEventListener('click', () => {
       router.navigate('/hogar');
+    });
+  }
+  
+  // Floating add button
+  const addTemplateBtn = document.getElementById('add-template-btn');
+  if (addTemplateBtn) {
+    addTemplateBtn.addEventListener('click', () => {
+      handleAddTemplate(); // No category pre-selected
     });
   }
 }
@@ -2595,8 +2954,859 @@ async function handleDeleteBudget(budgetId, categoryName) {
 }
 
 /**
- * Setup loans view listeners (for prestamos tab)
+ * Handle adding a template
  */
+async function handleAddTemplate(categoryId = null, categoryName = null) {
+  showTemplateModal(categoryId, categoryName, null);
+}
+
+/**
+ * Show template creation/edit modal
+ * Uses MovementFormState from movement-form.js
+ */
+function showTemplateModal(categoryId, categoryName, existingTemplate = null) {
+  const isEdit = !!existingTemplate;
+  const title = isEdit ? 'Editar gasto' : 'Presupuestar nuevo gasto';
+  
+  // Get form config data from global state
+  const users = window.formConfigCache?.users || [];
+  const paymentMethods = window.formConfigCache?.payment_methods || [];
+  const categoryGroups = window.formConfigCache?.category_groups || [];
+  
+  // Initialize form state
+  const formState = new MovementFormState({
+    users,
+    paymentMethods,
+    categoryGroups,
+    currentUser: currentUser
+  });
+  
+  // Helper functions (copied from registrar-movimiento.js)
+  function formatNumber(num) {
+    const value = Number(num);
+    if (!Number.isFinite(value)) return '0';
+    return value.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  
+  function parseNumber(str) {
+    const cleaned = String(str).replace(/\./g, '').replace(/,/g, '.');
+    const num = Number(cleaned);
+    return Number.isFinite(num) ? num : 0;
+  }
+  
+  function toEditableNumber(num) {
+    const value = Number(num);
+    if (!Number.isFinite(value)) return '';
+    return String(value).replace('.', ',');
+  }
+  
+  function setStatus(msg, kind) {
+    const statusEl = document.getElementById('template-status');
+    if (!statusEl) return;
+    statusEl.className = `status ${kind || ''}`.trim();
+    statusEl.textContent = msg || '';
+  }
+  
+  const modalHtml = `
+    <div class="modal-overlay" id="template-modal-overlay">
+      <div class="modal-content" style="max-width: 600px; max-height: 90vh; overflow-y: auto;">
+        <h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 600;">
+          ${title}
+        </h3>
+        
+        <form id="template-form" style="display: flex; flex-direction: column; gap: 16px;">
+          <!-- Categoría -->
+          <label class="field">
+            <span>Categoría *</span>
+            <select id="template-category" required>
+              <option value="" selected disabled>Seleccionar categoría</option>
+            </select>
+          </label>
+          
+          <!-- Nombre -->
+          <label class="field">
+            <span>Nombre *</span>
+            <input type="text" id="template-name" placeholder="ej. Arriendo, Internet, Netflix" required />
+            <small style="color: #6b7280; font-size: 12px; margin-top: 4px; display: block;">
+              Este nombre aparecerá en el dropdown cuando registres movimientos
+            </small>
+          </label>
+          
+          <!-- Descripción (opcional) -->
+          <label class="field">
+            <span>Descripción (opcional)</span>
+            <input type="text" id="template-description" placeholder="ej. Apartamento en Aviva" />
+          </label>
+          
+          <!-- Monto total (always required) -->
+          <label class="field">
+            <span>Monto total *</span>
+            <input type="text" id="template-amount" inputmode="decimal" placeholder="0" required />
+          </label>
+          
+          <!-- Auto-generar -->
+          <label class="field" style="display: flex; align-items: center; gap: 12px; cursor: pointer;">
+            <input type="checkbox" id="template-auto-generate" style="width: auto; cursor: pointer;" />
+            <div style="flex: 1;">
+              <strong style="display: block; font-size: 14px;">Generar automáticamente cada mes</strong>
+              <small style="color: #6b7280; font-size: 12px; display: block;">
+                El sistema creará el movimiento automáticamente en la fecha configurada
+              </small>
+            </div>
+          </label>
+          
+          <!-- Día del mes (solo si auto-generate) -->
+          <label class="field hidden" id="template-day-field">
+            <span>Día del mes *</span>
+            <input type="number" id="template-day" placeholder="Ej: 15" min="1" max="31" />
+            <small style="color: #6b7280; font-size: 12px; margin-top: 4px; display: block;">
+              Si el día no existe en el mes (ej: 31 en febrero), se usará el último día disponible
+            </small>
+          </label>
+          
+          <!-- Tipo de movimiento -->
+          <label class="field">
+            <span>Tipo de movimiento *</span>
+            <select id="template-movement-type" required>
+              <option value="">Selecciona...</option>
+              <option value="HOUSEHOLD">Gasto del hogar</option>
+              <option value="SPLIT">Gasto compartido</option>
+              <option value="DEBT_PAYMENT">Préstamo</option>
+            </select>
+          </label>
+          
+          <!-- Loan direction selector (Hacer/Pagar préstamo) -->
+          <div class="field hidden" id="template-loan-direction-wrap">
+            <div class="loan-direction-selector">
+              <button type="button" class="loan-direction-btn active" data-direction="LEND">
+                Hacer un préstamo
+              </button>
+              <button type="button" class="loan-direction-btn" data-direction="REPAY">
+                Pagar un préstamo
+              </button>
+            </div>
+            <input type="hidden" id="template-loan-direction" value="LEND" />
+          </div>
+          
+          <!-- Pagador (solo para SPLIT) -->
+          <label class="field hidden" id="template-payer-wrap">
+            <span>¿Quién paga? *</span>
+            <select id="template-payer">
+              <option value="">Selecciona...</option>
+              ${users.map(u => `<option value="${u.id}">${u.name}</option>`).join('')}
+            </select>
+          </label>
+          
+          <!-- Método de pago (para SPLIT, justo después del pagador) -->
+          <label class="field hidden" id="template-payment-method-wrap-split">
+            <span>Método de pago *</span>
+            <select id="template-payment-method">
+              <option value="">Selecciona...</option>
+              ${paymentMethods.map(pm => `<option value="${pm.id}">${pm.name}</option>`).join('')}
+            </select>
+          </label>
+          
+          <!-- Participantes (solo SPLIT) -->
+          <div id="template-participants-wrap" class="hidden" style="border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; background: #f9fafb;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+              <h3 style="margin: 0; font-size: 16px; font-weight: 600;">Participantes</h3>
+              <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 14px; white-space: nowrap;">
+                  <input type="checkbox" id="template-equitable" checked style="cursor: pointer; width: auto;" />
+                  <span>Dividir equitativamente</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 14px; white-space: nowrap;">
+                  <input type="checkbox" id="template-show-as-value" style="cursor: pointer; width: auto;" />
+                  <span>Mostrar como valor</span>
+                </label>
+              </div>
+            </div>
+            <div id="template-participants-list" style="margin-bottom: 12px;"></div>
+            <button type="button" id="template-add-participant-btn" class="secondary" style="width: 100%; padding: 10px; font-size: 14px;">
+              Agregar participante
+            </button>
+            <p id="template-participants-hint" style="margin: 12px 0 0 0; font-size: 13px; color: #6b7280; line-height: 1.5;">
+              Si no es equitativo, puedes editar los porcentajes. La suma debe ser 100%.
+            </p>
+          </div>
+          
+          <!-- Payer/Receiver row (para DEBT_PAYMENT) -->
+          <div class="hidden" id="template-debt-payment-wrap" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <label class="field">
+              <span id="template-payer-label">¿Quién pagó?</span>
+              <select id="template-debt-payer">
+                <option value="">Selecciona...</option>
+                ${users.map(u => `<option value="${u.id}">${u.name}</option>`).join('')}
+              </select>
+            </label>
+            <label class="field">
+              <span id="template-receiver-label">¿Quién recibió?</span>
+              <select id="template-debt-receiver">
+                <option value="">Selecciona...</option>
+                ${users.map(u => `<option value="${u.id}">${u.name}</option>`).join('')}
+              </select>
+            </label>
+          </div>
+          
+          <!-- Método de pago (para DEBT_PAYMENT/HOUSEHOLD) -->
+          <label class="field hidden" id="template-payment-method-wrap-other">
+            <span>Método de pago *</span>
+            <select id="template-payment-method-other">
+              <option value="">Selecciona...</option>
+              ${paymentMethods.map(pm => `<option value="${pm.id}">${pm.name}</option>`).join('')}
+            </select>
+          </label>
+          
+          <div class="modal-actions" style="display: flex; gap: 12px; margin-top: 8px;">
+            <button type="button" id="template-cancel-btn" class="btn-secondary" style="flex: 1;">
+              Cancelar
+            </button>
+            <button type="submit" class="btn-primary" style="flex: 1;">
+              ${isEdit ? 'Guardar' : 'Crear'}
+            </button>
+          </div>
+          <p id="template-status" class="status" role="status" aria-live="polite" style="margin-top: 12px;"></p>
+        </form>
+      </div>
+    </div>
+  `;
+  
+  // Insert modal into DOM
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+  
+  // Get elements
+  const overlay = document.getElementById('template-modal-overlay');
+  const form = document.getElementById('template-form');
+  const cancelBtn = document.getElementById('template-cancel-btn');
+  const categorySelect = document.getElementById('template-category');
+  const autoGenerateCheckbox = document.getElementById('template-auto-generate');
+  const dayField = document.getElementById('template-day-field');
+  const movementTypeSelect = document.getElementById('template-movement-type');
+  const loanDirectionWrap = document.getElementById('template-loan-direction-wrap');
+  const loanDirectionBtns = document.querySelectorAll('.loan-direction-btn');
+  const loanDirectionInput = document.getElementById('template-loan-direction');
+  const payerWrap = document.getElementById('template-payer-wrap');
+  const payerSelect = document.getElementById('template-payer');
+  const participantsWrap = document.getElementById('template-participants-wrap');
+  const equitableCheckbox = document.getElementById('template-equitable');
+  const addParticipantBtn = document.getElementById('template-add-participant-btn');
+  const debtPaymentWrap = document.getElementById('template-debt-payment-wrap');
+  const debtPayerSelect = document.getElementById('template-debt-payer');
+  const debtReceiverSelect = document.getElementById('template-debt-receiver');
+  const paymentMethodWrapSplit = document.getElementById('template-payment-method-wrap-split');
+  const paymentMethodWrapOther = document.getElementById('template-payment-method-wrap-other');
+  const paymentMethodSelect = document.getElementById('template-payment-method');
+  const paymentMethodSelectOther = document.getElementById('template-payment-method-other');
+  const payerLabel = document.getElementById('template-payer-label');
+  const receiverLabel = document.getElementById('template-receiver-label');
+  const showAsValueCheckbox = document.getElementById('template-show-as-value');
+  const amountInput = document.getElementById('template-amount');
+  
+  // Populate category dropdown with optgroups
+  if (categoryGroups && categoryGroups.length > 0) {
+    categoryGroups.forEach(group => {
+      const optgroup = document.createElement('optgroup');
+      optgroup.label = group.name.toUpperCase();
+      
+      group.categories.forEach(cat => {
+        const opt = document.createElement('option');
+        opt.value = cat.id;
+        opt.textContent = cat.name.replace(new RegExp(`^${group.name} - `, 'i'), '');
+        if (categoryId && cat.id === categoryId) {
+          opt.selected = true;
+        }
+        optgroup.appendChild(opt);
+      });
+      
+      categorySelect.appendChild(optgroup);
+    });
+  }
+  
+  // Participant rendering functions (integrated UI like registrar-movimiento)
+  function renderTemplateParticipants() {
+    const container = document.getElementById('template-participants-list');
+    if (!container) return;
+    
+    const isEquitable = equitableCheckbox && equitableCheckbox.checked;
+    const showAsValue = showAsValueCheckbox && showAsValueCheckbox.checked;
+    const totalValue = amountInput 
+      ? parseNumber(amountInput.value) || 0
+      : 0;
+    
+    // Update hint text dynamically
+    const hintEl = document.getElementById('template-participants-hint');
+    if (hintEl) {
+      if (showAsValue) {
+        hintEl.textContent = `Si no es equitativo, puedes editar los valores. La suma debe ser ${formatNumber(totalValue)}.`;
+      } else {
+        hintEl.textContent = 'Si no es equitativo, puedes editar los porcentajes. La suma debe ser 100%.';
+      }
+    }
+    
+    if (formState.participants.length === 0) {
+      container.innerHTML = '<p style="color: #6b7280; font-size: 14px; text-align: center; padding: 16px;">No hay participantes agregados</p>';
+      return;
+    }
+    
+    container.style.display = 'flex';
+    container.style.flexDirection = 'column';
+    container.style.gap = '8px';
+    container.innerHTML = '';
+    
+    // Adjust grid columns based on view mode (responsive)
+    const gridColumns = showAsValue ? 'minmax(80px, 1fr) minmax(100px, 140px) 40px' : '1fr 120px 40px';
+    
+    formState.participants.forEach((p, idx) => {
+      const row = document.createElement('div');
+      row.style.cssText = `display: grid; grid-template-columns: ${gridColumns}; gap: 10px; align-items: center;`;
+      
+      // Name dropdown
+      const nameSelect = document.createElement('select');
+      nameSelect.style.cssText = 'padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 14px; background: white;';
+      
+      users.forEach(u => {
+        const opt = document.createElement('option');
+        opt.value = u.id;
+        opt.textContent = u.name;
+        if (u.id === p.user_id) opt.selected = true;
+        nameSelect.appendChild(opt);
+      });
+      
+      nameSelect.addEventListener('change', (e) => {
+        const oldPercentage = formState.participants[idx].percentage;
+        formState.participants[idx].user_id = e.target.value;
+        formState.participants[idx].name = formState.usersMap[e.target.value].name;
+        formState.participants[idx].percentage = oldPercentage;
+        
+        // Remove duplicates
+        const seen = new Set();
+        formState.participants = formState.participants.filter(p => {
+          if (seen.has(p.user_id)) return false;
+          seen.add(p.user_id);
+          return true;
+        });
+        
+        renderTemplateParticipants();
+      });
+      
+      // Value/Percentage input wrapper
+      const pctWrapper = document.createElement('div');
+      pctWrapper.style.display = 'flex';
+      pctWrapper.style.alignItems = 'center';
+      pctWrapper.style.border = '1px solid #e5e7eb';
+      pctWrapper.style.borderRadius = '12px';
+      pctWrapper.style.padding = '0';
+      pctWrapper.style.backgroundColor = 'white';
+      pctWrapper.style.maxWidth = '100%';
+      pctWrapper.style.boxSizing = 'border-box';
+      
+      const pctInput = document.createElement('input');
+      pctInput.disabled = isEquitable;
+      pctInput.style.border = 'none';
+      pctInput.style.outline = 'none';
+      pctInput.style.flex = '1';
+      pctInput.style.backgroundColor = 'transparent';
+      pctInput.style.textAlign = 'right';
+      pctInput.style.minWidth = '0';
+      
+      const label = document.createElement('span');
+      label.style.color = '#9ca3af';
+      label.style.userSelect = 'none';
+      label.style.fontSize = '14px';
+      label.style.flexShrink = '0';
+      label.style.fontWeight = '500';
+      
+      if (showAsValue) {
+        // Show as COP value (even if totalValue is 0)
+        pctInput.type = 'text';
+        pctInput.inputMode = 'decimal';
+        const value = totalValue > 0 ? ((p.percentage / 100) * totalValue) : 0;
+        pctInput.value = formatNumber(value);
+        pctInput.style.fontSize = '13px';
+        pctInput.style.padding = '12px 14px 12px 2px';
+        
+        // Add COP prefix (left side)
+        label.textContent = 'COP';
+        label.style.paddingLeft = '14px';
+        label.style.paddingRight = '4px';
+        pctWrapper.appendChild(label);
+        pctWrapper.appendChild(pctInput);
+        
+        pctInput.addEventListener('input', (e) => {
+          const v = parseNumber(e.target.value);
+          if (Number.isFinite(v) && totalValue > 0) {
+            formState.participants[idx].percentage = (v / totalValue) * 100;
+          } else {
+            formState.participants[idx].percentage = 0;
+          }
+          validatePctSum();
+        });
+        
+        pctInput.addEventListener('blur', () => {
+          const v = parseNumber(pctInput.value);
+          pctInput.value = formatNumber(v);
+        });
+        
+        pctInput.addEventListener('focus', () => {
+          const v = parseNumber(pctInput.value);
+          if (v === 0) {
+            pctInput.value = '';
+          } else {
+            pctInput.value = toEditableNumber(v);
+          }
+        });
+      } else {
+        // Show as percentage (rounded to 2 decimals)
+        pctInput.type = 'text';
+        pctInput.inputMode = 'decimal';
+        pctInput.value = (p.percentage || 0).toFixed(2);
+        pctInput.placeholder = '0.00';
+        pctInput.style.fontSize = '14px';
+        pctInput.style.padding = '12px 2px 12px 14px';
+        
+        pctInput.addEventListener('input', (e) => {
+          const value = parseFloat(e.target.value) || 0;
+          formState.participants[idx].percentage = value;
+          validatePctSum();
+        });
+        
+        pctInput.addEventListener('blur', () => {
+          const value = parseFloat(pctInput.value) || 0;
+          pctInput.value = value.toFixed(2);
+        });
+        
+        // Add % suffix (right side)
+        label.textContent = '%';
+        label.style.paddingRight = '14px';
+        label.style.paddingLeft = '4px';
+        pctWrapper.appendChild(pctInput);
+        pctWrapper.appendChild(label);
+      }
+      
+      // Remove button
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.textContent = '×';
+      removeBtn.style.cssText = 'width: 36px; height: 36px; padding: 0; background: white; color: #6b7280; border: 1px solid #e5e7eb; border-radius: 6px; cursor: pointer; font-size: 20px; font-weight: normal; line-height: 1; display: flex; align-items: center; justify-content: center;';
+      removeBtn.addEventListener('mouseenter', () => {
+        removeBtn.style.background = '#fee2e2';
+        removeBtn.style.color = '#991b1b';
+        removeBtn.style.borderColor = '#fecaca';
+      });
+      removeBtn.addEventListener('mouseleave', () => {
+        removeBtn.style.background = 'white';
+        removeBtn.style.color = '#6b7280';
+        removeBtn.style.borderColor = '#e5e7eb';
+      });
+      
+      removeBtn.addEventListener('click', () => {
+        formState.participants.splice(idx, 1);
+        if (isEquitable) computeEquitable();
+        else renderTemplateParticipants();
+        validatePctSum();
+      });
+      
+      row.appendChild(nameSelect);
+      row.appendChild(pctWrapper);
+      row.appendChild(removeBtn);
+      container.appendChild(row);
+    });
+    
+    validatePctSum();
+  }
+  function computeEquitable() {
+    if (formState.participants.length === 0) return;
+    formState.computeEquitable();
+    renderTemplateParticipants();
+  }
+  
+  // Validate percentage sum (copied from registrar-movimiento.js)
+  function validatePctSum() {
+    if (equitableCheckbox && equitableCheckbox.checked) {
+      setStatus('', '');
+      return true;
+    }
+    
+    const sum = formState.getTotalPercentage();
+    const ok = Math.abs(sum - 100) < 0.01;
+    
+    if (!ok) {
+      const showAsValue = showAsValueCheckbox && showAsValueCheckbox.checked;
+      const totalValue = amountInput 
+        ? parseNumber(amountInput.value) || 0 
+        : 0;
+      
+      if (showAsValue && totalValue > 0) {
+        // Modo valor: mostrar solo valores en COP
+        const expectedCOP = formatNumber(totalValue);
+        const currentCOP = formatNumber((sum / 100) * totalValue);
+        const diffCOP = formatNumber(totalValue - (sum / 100) * totalValue);
+        const action = sum < 100 ? 'Faltan' : 'Sobran';
+        setStatus(`La suma debe ser ${expectedCOP}. Actualmente: ${currentCOP} (${action} ${diffCOP}).`, 'err');
+      } else {
+        // Modo porcentaje: mostrar solo porcentajes
+        const diff = Math.abs(100 - sum).toFixed(2);
+        const action = sum < 100 ? 'Faltan' : 'Sobran';
+        setStatus(`La suma de porcentajes debe ser 100%. Actualmente: ${sum.toFixed(2)}% (${action} ${diff}%).`, 'err');
+      }
+    } else {
+      setStatus('', '');
+    }
+    return ok;
+  }
+  
+  // Equitable checkbox listener
+  if (equitableCheckbox) {
+    equitableCheckbox.addEventListener('change', (e) => {
+      if (e.target.checked) {
+        computeEquitable();
+      } else {
+        renderTemplateParticipants();
+      }
+      validatePctSum();
+    });
+  }
+  
+  // Show as value checkbox listener
+  if (showAsValueCheckbox) {
+    showAsValueCheckbox.addEventListener('change', () => {
+      renderTemplateParticipants();
+      validatePctSum();
+    });
+  }
+  
+  // Close modal function
+  const closeModal = () => {
+    overlay.remove();
+  };
+  
+  // Amount input formatting (Colombian format with blur/focus)
+  if (amountInput) {
+    amountInput.addEventListener('blur', (e) => {
+      const rawValue = parseNumber(e.target.value);
+      e.target.value = formatNumber(rawValue);
+    });
+    
+    amountInput.addEventListener('focus', (e) => {
+      const rawValue = parseNumber(e.target.value);
+      if (rawValue === 0) {
+        e.target.value = '';
+      } else {
+        e.target.value = String(rawValue);
+      }
+    });
+    
+    // Amount input listener (for showAsValue mode)
+    amountInput.addEventListener('input', () => {
+      if (showAsValueCheckbox && showAsValueCheckbox.checked && formState.participants.length > 0) {
+        renderTemplateParticipants();
+      }
+    });
+  }
+  
+  // Toggle day field based on auto-generate
+  autoGenerateCheckbox.addEventListener('change', (e) => {
+    dayField.classList.toggle('hidden', !e.target.checked);
+    document.getElementById('template-day').required = e.target.checked;
+  });
+  
+  // Handle loan direction buttons
+  loanDirectionBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      loanDirectionBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const direction = btn.dataset.direction;
+      loanDirectionInput.value = direction;
+      updateLoanLabels(direction);
+    });
+  });
+  
+  // Update loan labels
+  function updateLoanLabels(direction) {
+    if (direction === 'LEND') {
+      payerLabel.textContent = '¿Quién prestó?';
+      receiverLabel.textContent = '¿Quién recibió?';
+    } else {
+      payerLabel.textContent = '¿Quién pagó?';
+      receiverLabel.textContent = '¿Quién recibió?';
+    }
+  }
+  
+  // Handle movement type change
+  movementTypeSelect.addEventListener('change', (e) => {
+    const type = e.target.value;
+    
+    // Reset all conditional sections
+    loanDirectionWrap.classList.add('hidden');
+    payerWrap.classList.add('hidden');
+    participantsWrap.classList.add('hidden');
+    debtPaymentWrap.classList.add('hidden');
+    paymentMethodWrapSplit.classList.add('hidden');
+    paymentMethodWrapOther.classList.add('hidden');
+    paymentMethodSelect.required = false;
+    paymentMethodSelectOther.required = false;
+    
+    if (!type) return;
+    
+    if (type === 'HOUSEHOLD') {
+      // Gasto del hogar: solo método de pago
+      paymentMethodWrapOther.classList.remove('hidden');
+      paymentMethodSelectOther.required = true;
+      // Update payment methods for current user
+      if (currentUser) {
+        updatePaymentMethods(currentUser.id, paymentMethodSelectOther);
+      }
+    } else if (type === 'SPLIT') {
+      // Gasto compartido: pagador + participantes (payment method appears after payer selection)
+      payerWrap.classList.remove('hidden');
+      participantsWrap.classList.remove('hidden');
+    } else if (type === 'DEBT_PAYMENT') {
+      // Préstamo: dirección + pagador/receptor
+      // Payment method hidden by default, shown only if payer is household member
+      loanDirectionWrap.classList.remove('hidden');
+      debtPaymentWrap.classList.remove('hidden');
+      paymentMethodWrapOther.classList.add('hidden'); // Hidden by default
+      paymentMethodSelectOther.required = false;
+      updateLoanLabels(loanDirectionInput.value);
+    }
+  });
+  
+  // Handle payer change for SPLIT (update payment methods)
+  payerSelect.addEventListener('change', (e) => {
+    const payerId = e.target.value;
+    if (!payerId) {
+      paymentMethodWrapSplit.classList.add('hidden');
+      paymentMethodSelect.required = false;
+      return;
+    }
+    
+    const user = formState.usersMap[payerId];
+    if (user && user.type === 'member') {
+      // Only show payment method for household members
+      paymentMethodWrapSplit.classList.remove('hidden');
+      paymentMethodSelect.required = true;
+      updatePaymentMethods(payerId, paymentMethodSelect);
+    } else {
+      paymentMethodWrapSplit.classList.add('hidden');
+      paymentMethodSelect.required = false;
+    }
+  });
+  
+  // Handle debt payer change (update payment methods)
+  debtPayerSelect.addEventListener('change', (e) => {
+    const payerId = e.target.value;
+    if (payerId) {
+      const user = formState.usersMap[payerId];
+      const isMember = user && user.type === 'member';
+      
+      if (isMember) {
+        updatePaymentMethods(payerId, paymentMethodSelectOther);
+        paymentMethodWrapOther.classList.remove('hidden');
+        paymentMethodSelectOther.required = true;
+      } else {
+        // Hide payment method for contacts
+        paymentMethodWrapOther.classList.add('hidden');
+        paymentMethodSelectOther.required = false;
+        paymentMethodSelectOther.value = '';
+      }
+    }
+  });
+  
+  // Update payment methods for specific payer
+  function updatePaymentMethods(payerId, selectElement) {
+    const methods = formState.getPaymentMethodsForPayer(payerId);
+    const currentValue = selectElement.value;
+    
+    selectElement.innerHTML = '<option value="">Selecciona...</option>';
+    methods.forEach(pm => {
+      const option = document.createElement('option');
+      option.value = pm.id;
+      option.textContent = pm.name;
+      selectElement.appendChild(option);
+    });
+    
+    // Restore if still valid
+    if (currentValue && methods.find(pm => pm.id === currentValue)) {
+      selectElement.value = currentValue;
+    }
+  }
+  
+  // Add participant button
+  addParticipantBtn.addEventListener('click', () => {
+    // Find first user not already in participants
+    const usedIds = new Set(formState.participants.map(p => p.user_id));
+    const availableUser = users.find(u => !usedIds.has(u.id));
+    
+    if (!availableUser) {
+      showError('Error', 'Todos los usuarios ya están agregados como participantes');
+      return;
+    }
+    
+    formState.addParticipant(availableUser.id, 0);
+    if (equitableCheckbox && equitableCheckbox.checked) {
+      computeEquitable();
+    }
+    renderTemplateParticipants();
+  });
+  
+  // Handle form submission
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const movementType = movementTypeSelect.value;
+    
+    // Validate participants for SPLIT
+    if (movementType === 'SPLIT') {
+      const validation = formState.validateParticipants();
+      if (!validation.valid) {
+        showError('Error', validation.error);
+        return;
+      }
+    }
+    
+    // Gather form data
+    const formData = {
+      name: document.getElementById('template-name').value,
+      description: document.getElementById('template-description').value || null,
+      category_id: categorySelect.value,
+      amount: parseNumber(document.getElementById('template-amount').value),
+      auto_generate: autoGenerateCheckbox.checked,
+      movement_type: movementType,
+    };
+        
+    // Add recurrence fields if auto-generate is enabled
+    if (autoGenerateCheckbox.checked) {
+      formData.recurrence_pattern = 'MONTHLY';
+      formData.day_of_month = parseInt(document.getElementById('template-day').value);
+      formData.start_date = new Date().toISOString().split('T')[0]; // Today's date in YYYY-MM-DD format
+    }
+    
+    // Add type-specific fields
+    if (movementType === 'HOUSEHOLD') {
+      formData.payer_user_id = currentUser.id;
+      formData.payment_method_id = paymentMethodSelectOther.value || null;
+    } else if (movementType === 'SPLIT') {
+      // Handle payer (can be user or contact)
+      const payerId = payerSelect.value;
+      const payer = users.find(u => u.id === payerId);
+      if (payer) {
+        if (payer.type === 'member') {
+          formData.payer_user_id = payer.id;
+        } else if (payer.type === 'contact') {
+          formData.payer_contact_id = payer.id;
+        }
+      }
+      
+      formData.payment_method_id = paymentMethodSelect.value || null;
+      formData.participants = formState.participants.map(p => {
+        // Find the user/contact info to determine type
+        const user = users.find(u => u.id === p.user_id);
+        const participant = {
+          percentage: p.percentage / 100  // Convert from 0-100 to 0-1 scale
+        };
+        
+        // Set either participant_user_id or participant_contact_id based on type
+        if (user) {
+          if (user.type === 'member') {
+            participant.participant_user_id = user.id;
+          } else if (user.type === 'contact') {
+            participant.participant_contact_id = user.id;
+          }
+        }
+        
+        return participant;
+      });
+    } else if (movementType === 'DEBT_PAYMENT') {
+      // Handle payer (can be user or contact)
+      const payerId = debtPayerSelect.value;
+      const payer = users.find(u => u.id === payerId);
+      if (payer) {
+        if (payer.type === 'member') {
+          formData.payer_user_id = payer.id;
+        } else if (payer.type === 'contact') {
+          formData.payer_contact_id = payer.id;
+        }
+      }
+      
+      // Handle counterparty (can be user or contact)
+      const counterpartyId = debtReceiverSelect.value;
+      const counterparty = users.find(u => u.id === counterpartyId);
+      if (counterparty) {
+        if (counterparty.type === 'member') {
+          formData.counterparty_user_id = counterparty.id;
+        } else if (counterparty.type === 'contact') {
+          formData.counterparty_contact_id = counterparty.id;
+        }
+      }
+      
+      formData.payment_method_id = paymentMethodSelectOther.value || null;
+    }
+    
+    // Create template via API
+    try {
+      const response = await fetch(`${API_URL}/api/recurring-movements`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(formData)
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        
+        // Handle specific errors
+        if (errorText.includes('duplicate key') || errorText.includes('already exists')) {
+          throw new Error('Ya existe un gasto con ese nombre. Por favor usa un nombre diferente.');
+        }
+        
+        throw new Error(errorText || 'Error al crear el gasto');
+      }
+      
+      const template = await response.json();
+      
+      // Get old budget amount before reload
+      const categoryId = categorySelect.value;
+      const oldBudget = budgetsData?.budgets?.find(b => b.category_id === categoryId);
+      const oldAmount = oldBudget?.amount || 0;
+      
+      closeModal();
+      
+      // Reload budgets data to refresh templates
+      try {
+        await loadBudgetsData();
+        
+        // Get new budget amount after reload
+        const newBudget = budgetsData?.budgets?.find(b => b.category_id === categoryId);
+        const newAmount = newBudget?.amount || 0;
+        
+        // Show success message with budget change info
+        if (newAmount !== oldAmount) {
+          const categoryName = newBudget?.category_name || 'esta categoría';
+          showSuccess(
+            'Gasto Creado', 
+            `El gasto <strong>${template.name}</strong> ha sido creado.<br><br>` +
+            `Nuevo presupuesto de <strong>${categoryName}</strong>: ${formatCurrency(oldAmount)} → ${formatCurrency(newAmount)}`
+          );
+        } else {
+          showSuccess('Gasto Creado', `El gasto <strong>${template.name}</strong> ha sido creado exitosamente`);
+        }
+      } catch (err) {
+        console.error('Error reloading budgets data:', err);
+        showSuccess('Gasto Creado', `El gasto <strong>${template.name}</strong> ha sido creado exitosamente`);
+      }
+      refreshDisplay();
+      
+    } catch (error) {
+      console.error('Error creating template:', error);
+      showError('Error', error.message || 'No se pudo crear el gasto');
+    }
+  });
+  
+  // Cancel button
+  cancelBtn.addEventListener('click', closeModal);
+  
+  // Initialize form state (no need to trigger anything now)
+}
 function setupLoansListeners() {
   // Debt pair card click to expand/collapse (Level 1 → Level 2)
   const loanCards = document.querySelectorAll('.expense-group-card[data-debtor-id]');
@@ -2938,13 +4148,13 @@ function setupFilterListeners() {
  * Setup filter listeners for movements (gastos tab)
  */
 function setupMovementsFilterListeners() {
-  // Get all unique categories from loaded data
-  const allCategories = movementsData?.movements 
-    ? [...new Set(movementsData.movements.map(m => m.category).filter(Boolean))]
+  // Get all unique categories from ORIGINAL (unfiltered) data
+  const allCategories = originalMovementsData?.movements 
+    ? [...new Set(originalMovementsData.movements.map(m => m.category_id).filter(Boolean))]
     : [];
   
-  const allPaymentMethods = movementsData?.movements
-    ? [...new Set(movementsData.movements
+  const allPaymentMethods = originalMovementsData?.movements
+    ? [...new Set(originalMovementsData.movements
         .filter(m => m.payment_method_id)
         .map(m => m.payment_method_id))]
     : [];
@@ -3507,6 +4717,9 @@ export async function setup() {
 
   // Load household members for filter
   await loadHouseholdMembers();
+  
+  // Load category groups (needed for filters)
+  await loadCategoryGroups();
 
   // Load data based on active tab (gastos by default)
   if (activeTab === 'gastos') {
@@ -3597,7 +4810,7 @@ export async function setup() {
       const needsLoad = (activeTab === 'gastos' && !movementsData) ||
                         (activeTab === 'ingresos' && !incomeData) ||
                         (activeTab === 'prestamos' && !loansData) ||
-                        (activeTab === 'presupuesto' && !budgetsData);
+                        (activeTab === 'presupuesto' && (!budgetsData || Object.keys(templatesData).length === 0));
       
       if (needsLoad) {
         // Show loading state immediately

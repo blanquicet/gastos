@@ -81,6 +81,9 @@ type Movement struct {
 	// Participants (only for SPLIT)
 	Participants []Participant `json:"participants,omitempty"`
 	
+	// Recurring template reference (if auto-generated)
+	GeneratedFromTemplateID *string `json:"generated_from_template_id,omitempty"`
+	
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -123,6 +126,9 @@ type CreateMovementInput struct {
 	
 	// Participants (required only for SPLIT)
 	Participants []ParticipantInput `json:"participants,omitempty"`
+	
+	// Generated from template (internal use only, not from API input)
+	GeneratedFromTemplateID *string `json:"generated_from_template_id,omitempty"`
 }
 
 // ParticipantInput represents input for a participant
@@ -168,8 +174,8 @@ func (i *CreateMovementInput) Validate() error {
 	// Type-specific validations
 	switch i.Type {
 	case TypeHousehold:
-		// Category required
-		if i.Category == nil || *i.Category == "" {
+		// Category required (either legacy category name OR new category_id)
+		if (i.Category == nil || *i.Category == "") && (i.CategoryID == nil || *i.CategoryID == "") {
 			return ErrCategoryRequired
 		}
 		// Payment method required

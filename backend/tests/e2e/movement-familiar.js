@@ -216,6 +216,9 @@ async function testMovementFamiliar() {
     // ==================================================================
     console.log('📝 Step 5: Creating HOUSEHOLD movement...');
     
+    // Log any console errors before submitting
+    consoleErrors.length = 0;
+    
     // Select HOUSEHOLD type
     await page.locator('button[data-tipo="HOUSEHOLD"]').click();
     await page.waitForTimeout(500);
@@ -225,6 +228,12 @@ async function testMovementFamiliar() {
     await page.locator('#valor').fill('4.131,94');
     await page.selectOption('#categoria', 'Mercado');
     await page.selectOption('#metodo', 'Tarjeta Test');
+    
+    // Check for errors before submit
+    if (consoleErrors.length > 0) {
+      console.error('❌ Console errors before submit:', consoleErrors);
+      throw new Error('JavaScript errors in form');
+    }
     
     // Submit form and confirm success modal
     await submitFormAndConfirm(page);
