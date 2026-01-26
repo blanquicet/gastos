@@ -2768,9 +2768,21 @@ function setupBudgetListeners() {
       item.closest('.three-dots-menu').style.display = 'none';
       
       if (action === 'edit-template') {
+        // TODO: Implement edit template functionality
+        // - Load template data via GET /api/recurring-movements/:id
+        // - Populate showTemplateModal with existing template data
+        // - Use PUT /api/recurring-movements/:id for updates
+        // - Handle participants loading for SPLIT templates
+        // - Reload templates after successful update
+        // - Update budget total if template amount changed
         alert('Editar template: ' + templateId + ' (por implementar)');
-        // TODO: Implement edit template
+        
       } else if (action === 'delete-template') {
+        // TODO: Implement delete with scope modal (like movements)
+        // - Show scope modal with options: THIS (delete template only), FUTURE (deactivate), ALL (delete all)
+        // - Use DELETE /api/recurring-movements/:id?scope={scope}
+        // - Visual warning for scope=ALL (red background)
+        // - Update budget total after deletion
         const confirmed = confirm('¿Estás seguro de eliminar este gasto?');
         if (confirmed) {
           try {
@@ -2847,6 +2859,10 @@ function setupBudgetListeners() {
  * Handle adding a budget
  */
 async function handleAddBudget(categoryId, categoryName) {
+  // TODO: Add validation - check if category has templates
+  // If templates exist, budget must be >= SUM(templates)
+  // Show error: "El presupuesto no puede ser menor que la suma de gastos presupuestados ($ X)"
+  
   const amount = await showInputModal(
     'Agregar presupuesto',
     `Ingrese el presupuesto para <strong>${categoryName}</strong>:`,
@@ -2866,6 +2882,16 @@ async function handleAddBudget(categoryId, categoryName) {
     return; // Don't create budget with 0
   }
   
+  // TODO: Before saving, validate against templates sum
+  // Get templates for this category
+  // const templates = templatesData[categoryId] || [];
+  // const templatesSum = templates.reduce((sum, t) => sum + t.amount, 0);
+  // if (parsedAmount < templatesSum) {
+  //   showError('Presupuesto insuficiente', 
+  //     `El presupuesto no puede ser menor que la suma de gastos presupuestados (${formatCurrency(templatesSum)})`);
+  //   return;
+  // }
+  
   const result = await setBudget(categoryId, currentMonth, parsedAmount);
   if (result) {
     showSuccess('Presupuesto creado', `El presupuesto para <strong>${categoryName}</strong> ha sido creado con ${formatCurrency(parsedAmount)}`);
@@ -2878,6 +2904,9 @@ async function handleAddBudget(categoryId, categoryName) {
  * Handle editing a budget
  */
 async function handleEditBudget(categoryId, budgetId, currentAmount, categoryName) {
+  // TODO: Add validation - check if category has templates
+  // If templates exist, new budget must be >= SUM(templates)
+  
   const amount = await showInputModal(
     'Editar presupuesto',
     `Editar presupuesto para <strong>${categoryName}</strong>:`,
@@ -2892,6 +2921,16 @@ async function handleEditBudget(categoryId, budgetId, currentAmount, categoryNam
     showError('Monto inválido', 'Por favor ingresa un número válido mayor o igual a 0');
     return;
   }
+  
+  // TODO: Before saving, validate against templates sum
+  // Get templates for this category
+  // const templates = templatesData[categoryId] || [];
+  // const templatesSum = templates.reduce((sum, t) => sum + t.amount, 0);
+  // if (parsedAmount > 0 && parsedAmount < templatesSum) {
+  //   showError('Presupuesto insuficiente', 
+  //     `El presupuesto no puede ser menor que la suma de gastos presupuestados (${formatCurrency(templatesSum)})`);
+  //   return;
+  // }
   
   // If amount is 0, delete the budget
   if (parsedAmount === 0) {
