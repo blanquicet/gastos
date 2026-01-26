@@ -161,6 +161,33 @@ export function showInputModal(title, label, defaultValue = '', inputType = 'tex
 }
 
 /**
+ * Get simplified category name by removing group prefix
+ * @param {string} category - Full category name (e.g., "Casa - Gastos fijos")
+ * @param {string} groupName - Group name (e.g., "Casa")
+ * @returns {string} - Simplified name (e.g., "Gastos fijos")
+ */
+export function getSimplifiedCategoryName(category, groupName) {
+  // Try removing "GroupName - " prefix first (e.g., "Casa - Gastos fijos" -> "Gastos fijos")
+  const prefixWithDash = `${groupName} - `;
+  if (category.startsWith(prefixWithDash)) {
+    const simplified = category.substring(prefixWithDash.length);
+    // Capitalize first letter
+    return simplified.length > 0 ? simplified.charAt(0).toUpperCase() + simplified.slice(1) : simplified;
+  }
+  
+  // Try removing "GroupName " prefix (e.g., "Inversiones Jose" -> "Jose")
+  const prefixWithSpace = `${groupName} `;
+  if (category.startsWith(prefixWithSpace)) {
+    const simplified = category.substring(prefixWithSpace.length);
+    // Capitalize first letter
+    return simplified.length > 0 ? simplified.charAt(0).toUpperCase() + simplified.slice(1) : simplified;
+  }
+  
+  // Capitalize first letter of the original category
+  return category.length > 0 ? category.charAt(0).toUpperCase() + category.slice(1) : category;
+}
+
+/**
  * Show a success modal
  * @param {string} title - Modal title
  * @param {string} message - Modal message

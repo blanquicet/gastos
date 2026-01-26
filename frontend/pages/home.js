@@ -11,7 +11,7 @@
 import { API_URL } from '../config.js';
 import router from '../router.js';
 import * as Navbar from '../components/navbar.js';
-import { showConfirmation, showSuccess, showError, showInputModal } from '../utils.js';
+import { showConfirmation, showSuccess, showError, showInputModal, getSimplifiedCategoryName } from '../utils.js';
 import { MovementFormState, FormFieldController } from '../components/movement-form.js';
 
 let currentUser = null;
@@ -1800,27 +1800,6 @@ function renderMovementsFilterDropdown() {
 /**
  * Strip group prefix from category name for display
  */
-function getSimplifiedCategoryName(category, groupName) {
-  // Try removing "GroupName - " prefix first (e.g., "Casa - Gastos fijos" -> "Gastos fijos")
-  const prefixWithDash = `${groupName} - `;
-  if (category.startsWith(prefixWithDash)) {
-    const simplified = category.substring(prefixWithDash.length);
-    // Capitalize first letter
-    return simplified.length > 0 ? simplified.charAt(0).toUpperCase() + simplified.slice(1) : simplified;
-  }
-  
-  // Try removing "GroupName " prefix (e.g., "Inversiones Jose" -> "Jose")
-  const prefixWithSpace = `${groupName} `;
-  if (category.startsWith(prefixWithSpace)) {
-    const simplified = category.substring(prefixWithSpace.length);
-    // Capitalize first letter
-    return simplified.length > 0 ? simplified.charAt(0).toUpperCase() + simplified.slice(1) : simplified;
-  }
-  
-  // Capitalize first letter of the original category
-  return category.length > 0 ? category.charAt(0).toUpperCase() + category.slice(1) : category;
-}
-
 /**
  * Render movement categories (gastos) grouped by category groups
  */
@@ -3211,7 +3190,7 @@ function showTemplateModal(categoryId, categoryName, existingTemplate = null) {
       group.categories.forEach(cat => {
         const opt = document.createElement('option');
         opt.value = cat.id;
-        opt.textContent = cat.name.replace(new RegExp(`^${group.name} - `, 'i'), '');
+        opt.textContent = getSimplifiedCategoryName(cat.name, group.name);
         if (categoryId && cat.id === categoryId) {
           opt.selected = true;
         }
