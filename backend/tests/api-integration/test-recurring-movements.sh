@@ -133,7 +133,7 @@ echo -e "${BLUE}═════════════════════�
 # CREATE TEMPLATES
 # ───────────────────────────────────────────────────────────
 
-run_test "Create FIXED template with auto-generate (monthly rent)"
+run_test "Create template with auto-generate (monthly rent)"
 TEMPLATE_FIXED_AUTO=$(api_call $CURL_FLAGS -X POST $BASE_URL/api/recurring-movements \
   -H "Content-Type: application/json" \
   -b $COOKIES_FILE \
@@ -142,8 +142,7 @@ TEMPLATE_FIXED_AUTO=$(api_call $CURL_FLAGS -X POST $BASE_URL/api/recurring-movem
     \"description\": \"Rent payment\",
     \"movement_type\": \"SPLIT\",
     \"category_id\": \"$CATEGORY_ID\",
-    \"amount_type\": \"FIXED\",
-    \"fixed_amount\": 3200000,
+    \"amount\": 3200000,
     \"auto_generate\": true,
     \"payer_contact_id\": \"$CONTACT_ID\",
     \"participants\": [{
@@ -157,10 +156,10 @@ TEMPLATE_FIXED_AUTO=$(api_call $CURL_FLAGS -X POST $BASE_URL/api/recurring-movem
 TEMPLATE_FIXED_AUTO_ID=$(echo "$TEMPLATE_FIXED_AUTO" | jq -r '.id')
 echo "$TEMPLATE_FIXED_AUTO" | jq -e '.name == "Arriendo"' > /dev/null
 echo "$TEMPLATE_FIXED_AUTO" | jq -e '.auto_generate == true' > /dev/null
-echo "$TEMPLATE_FIXED_AUTO" | jq -e '.amount_type == "FIXED"' > /dev/null
-echo -e "${GREEN}✓ FIXED auto-generate template created (ID: $TEMPLATE_FIXED_AUTO_ID)${NC}\n"
+echo "$TEMPLATE_FIXED_AUTO" | jq -e '.amount == 3200000' > /dev/null
+echo -e "${GREEN}✓ Auto-generate template created (ID: $TEMPLATE_FIXED_AUTO_ID)${NC}\n"
 
-run_test "Create FIXED template without auto-generate (manual only)"
+run_test "Create template without auto-generate (manual only)"
 TEMPLATE_FIXED_MANUAL=$(api_call $CURL_FLAGS -X POST $BASE_URL/api/recurring-movements \
   -H "Content-Type: application/json" \
   -b $COOKIES_FILE \
@@ -169,17 +168,16 @@ TEMPLATE_FIXED_MANUAL=$(api_call $CURL_FLAGS -X POST $BASE_URL/api/recurring-mov
     \"description\": \"Dinner at favorite restaurant\",
     \"movement_type\": \"HOUSEHOLD\",
     \"category_id\": \"$CATEGORY_ID\",
-    \"amount_type\": \"FIXED\",
-    \"fixed_amount\": 150000,
+    \"amount\": 150000,
     \"auto_generate\": false,
     \"payer_user_id\": \"$USER_ID\"
   }")
 TEMPLATE_FIXED_MANUAL_ID=$(echo "$TEMPLATE_FIXED_MANUAL" | jq -r '.id')
 echo "$TEMPLATE_FIXED_MANUAL" | jq -e '.name == "Restaurante favorito"' > /dev/null
 echo "$TEMPLATE_FIXED_MANUAL" | jq -e '.auto_generate == false' > /dev/null
-echo -e "${GREEN}✓ FIXED manual template created (ID: $TEMPLATE_FIXED_MANUAL_ID)${NC}\n"
+echo -e "${GREEN}✓ Manual template created (ID: $TEMPLATE_FIXED_MANUAL_ID)${NC}\n"
 
-run_test "Create VARIABLE template (user enters amount)"
+run_test "Create template with estimated amount (user can adjust)"
 TEMPLATE_VARIABLE=$(api_call $CURL_FLAGS -X POST $BASE_URL/api/recurring-movements \
   -H "Content-Type: application/json" \
   -b $COOKIES_FILE \
@@ -188,20 +186,19 @@ TEMPLATE_VARIABLE=$(api_call $CURL_FLAGS -X POST $BASE_URL/api/recurring-movemen
     \"description\": \"Variable electricity bill\",
     \"movement_type\": \"HOUSEHOLD\",
     \"category_id\": \"$CATEGORY_ID\",
-    \"amount_type\": \"VARIABLE\",
+    \"amount\": 200000,
     \"auto_generate\": false,
     \"payer_user_id\": \"$USER_ID\"
   }")
 TEMPLATE_VARIABLE_ID=$(echo "$TEMPLATE_VARIABLE" | jq -r '.id')
-echo "$TEMPLATE_VARIABLE" | jq -e '.amount_type == "VARIABLE"' > /dev/null
-echo "$TEMPLATE_VARIABLE" | jq -e '.fixed_amount == null' > /dev/null
-echo -e "${GREEN}✓ VARIABLE template created (ID: $TEMPLATE_VARIABLE_ID)${NC}\n"
+echo "$TEMPLATE_VARIABLE" | jq -e '.amount == 200000' > /dev/null
+echo -e "${GREEN}✓ Template with estimated amount created (ID: $TEMPLATE_VARIABLE_ID)${NC}\n"
 
 # ───────────────────────────────────────────────────────────
 # VALIDATION TESTS
 # ───────────────────────────────────────────────────────────
 
-run_test "Reject VARIABLE template with auto_generate=true"
+run_test "Reject template with auto_generate=true but no recurrence"
 INVALID_RESPONSE=$(curl $CURL_FLAGS -w "\n%{http_code}" -X POST $BASE_URL/api/recurring-movements \
   -H "Content-Type: application/json" \
   -b $COOKIES_FILE \
@@ -209,18 +206,15 @@ INVALID_RESPONSE=$(curl $CURL_FLAGS -w "\n%{http_code}" -X POST $BASE_URL/api/re
     \"name\": \"Invalid Template\",
     \"movement_type\": \"HOUSEHOLD\",
     \"category_id\": \"$CATEGORY_ID\",
-    \"amount_type\": \"VARIABLE\",
+    \"amount\": 100000,
     \"auto_generate\": true,
-    \"payer_user_id\": \"$USER_ID\",
-    \"recurrence_pattern\": \"MONTHLY\",
-    \"day_of_month\": 1,
-    \"start_date\": \"2026-01-01\"
+    \"payer_user_id\": \"$USER_ID\"
   }")
 HTTP_CODE=$(echo "$INVALID_RESPONSE" | tail -n1)
 [ "$HTTP_CODE" == "400" ]
-echo -e "${GREEN}✓ Correctly rejected VARIABLE with auto_generate=true (HTTP 400)${NC}\n"
+echo -e "${GREEN}✓ Correctly rejected auto_generate without recurrence (HTTP 400)${NC}\n"
 
-run_test "Reject FIXED template without amount"
+run_test "Reject template without amount"
 INVALID_RESPONSE2=$(curl $CURL_FLAGS -w "\n%{http_code}" -X POST $BASE_URL/api/recurring-movements \
   -H "Content-Type: application/json" \
   -b $COOKIES_FILE \
@@ -228,12 +222,11 @@ INVALID_RESPONSE2=$(curl $CURL_FLAGS -w "\n%{http_code}" -X POST $BASE_URL/api/r
     \"name\": \"Invalid Template 2\",
     \"movement_type\": \"HOUSEHOLD\",
     \"category_id\": \"$CATEGORY_ID\",
-    \"amount_type\": \"FIXED\",
     \"payer_user_id\": \"$USER_ID\"
   }")
 HTTP_CODE2=$(echo "$INVALID_RESPONSE2" | tail -n1)
 [ "$HTTP_CODE2" == "400" ]
-echo -e "${GREEN}✓ Correctly rejected FIXED without amount (HTTP 400)${NC}\n"
+echo -e "${GREEN}✓ Correctly rejected template without amount (HTTP 400)${NC}\n"
 
 # ───────────────────────────────────────────────────────────
 # READ OPERATIONS
@@ -289,11 +282,11 @@ echo "$PREFILL_INVERTED" | jq -e ".counterparty_contact_id == \"$CONTACT_ID\"" >
 echo "$PREFILL_INVERTED" | jq -e ".payer_user_id == \"$USER_ID\"" > /dev/null
 echo -e "${GREEN}✓ Retrieved prefill data with role inversion${NC}\n"
 
-run_test "Get prefill data for VARIABLE template (amount should be null)"
+run_test "Get prefill data for template with estimated amount"
 PREFILL_VARIABLE=$(api_call $CURL_FLAGS -X GET "$BASE_URL/api/recurring-movements/prefill/$TEMPLATE_VARIABLE_ID" \
   -b $COOKIES_FILE)
-echo "$PREFILL_VARIABLE" | jq -e '.amount == null' > /dev/null
-echo -e "${GREEN}✓ VARIABLE template prefill has null amount${NC}\n"
+echo "$PREFILL_VARIABLE" | jq -e '.amount == 200000' > /dev/null
+echo -e "${GREEN}✓ Template prefill includes estimated amount${NC}\n"
 
 # ───────────────────────────────────────────────────────────
 # UPDATE OPERATIONS
@@ -303,8 +296,8 @@ run_test "Update template (change amount)"
 UPDATE_RESPONSE=$(api_call $CURL_FLAGS -X PUT "$BASE_URL/api/recurring-movements/$TEMPLATE_FIXED_MANUAL_ID" \
   -H "Content-Type: application/json" \
   -b $COOKIES_FILE \
-  -d '{"fixed_amount": 180000}')
-echo "$UPDATE_RESPONSE" | jq -e '.fixed_amount == 180000' > /dev/null
+  -d '{"amount": 180000}')
+echo "$UPDATE_RESPONSE" | jq -e '.amount == 180000' > /dev/null
 echo -e "${GREEN}✓ Template updated successfully${NC}\n"
 
 run_test "Update template (deactivate)"
@@ -350,8 +343,7 @@ TEMPLATE_PREFILL_TEST=$(api_call $CURL_FLAGS -X POST $BASE_URL/api/recurring-mov
     \"description\": \"For prefill testing\",
     \"movement_type\": \"SPLIT\",
     \"category_id\": \"$CATEGORY_ID\",
-    \"amount_type\": \"FIXED\",
-    \"fixed_amount\": 1000000,
+    \"amount\": 1000000,
     \"auto_generate\": true,
     \"payer_contact_id\": \"$CONTACT_ID\",
     \"participants\": [{
@@ -399,8 +391,7 @@ AUTO_TEMPLATE_PAYLOAD=$(cat <<EOF
   "name": "Auto-Generated Rent",
   "description": "Test auto-generation",
   "movement_type": "SPLIT",
-  "amount_type": "FIXED",
-  "fixed_amount": 3200000.00,
+  "amount": 3200000.00,
   "payer_contact_id": "$CONTACT_ID",
   "participants": [
     {
@@ -479,8 +470,8 @@ echo "✓ Found templates for $TEMPLATES_COUNT categories"
 
 # Verify each template has required fields (if templates exist)
 if [ "$TEMPLATES_COUNT" -gt 0 ]; then
-  if echo "$FORM_CONFIG" | jq -e '.recurring_templates | to_entries[] | .value[] | (.id and .name and .amount_type)' > /dev/null 2>&1; then
-    echo "✓ All templates have id, name, and amount_type fields"
+  if echo "$FORM_CONFIG" | jq -e '.recurring_templates | to_entries[] | .value[] | (.id and .name)' > /dev/null 2>&1; then
+    echo "✓ All templates have id and name fields"
   else
     echo -e "${RED}✗ Templates missing required fields${NC}"
     echo "$FORM_CONFIG" | jq '.recurring_templates'

@@ -72,7 +72,7 @@ func (h *Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 		case ErrNotAuthorized:
 			http.Error(w, "Not authorized", http.StatusForbidden)
 		case ErrInvalidRecurrencePattern, ErrInvalidDayOfMonth,
-			ErrInvalidDayOfYear, ErrRecurrenceRequired,
+			ErrInvalidDayOfYear, ErrAmountRequired, ErrRecurrenceRequired,
 			ErrInvalidParticipants, ErrInvalidPercentageSum:
 			http.Error(w, err.Error(), http.StatusBadRequest)
 		default:
