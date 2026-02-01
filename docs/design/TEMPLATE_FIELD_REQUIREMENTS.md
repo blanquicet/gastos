@@ -22,7 +22,7 @@ The required fields depend on whether auto-generate is enabled.
 |-------|---------------|---------------|
 | **Core fields** |
 | `name` | ✅ Required | ✅ Required |
-| `category_id` | ✅ Required | ✅ Required |
+| `category_id` | Conditional* | Conditional* |
 | `amount` | ✅ Required | ✅ Required |
 | `movement_type` | ✅ Required | ✅ Required |
 | **Payer/Counterparty** |
@@ -42,6 +42,76 @@ The required fields depend on whether auto-generate is enabled.
 | `start_date` | ❌ | ✅ Required |
 
 > **Note**: For SPLIT and DEBT_PAYMENT, exactly one of `payer_user_id` OR `payer_contact_id` is required when auto-generate is enabled. For HOUSEHOLD, payer is implicit (the household pays as a unit).
+
+---
+
+## Category Requirements (NEW - 2026-02-01)
+
+**Category is conditionally required** based on whether the movement represents a real household expense.
+
+### Logic
+
+| Movement Type | Payer | Participants | Category Required? | Reason |
+|---------------|-------|--------------|-------------------|--------|
+| **HOUSEHOLD** | - | - | ✅ **Always** | Real household expense |
+| **SPLIT** | Member | Any member participant | ✅ **Yes** | Household member benefited |
+| **SPLIT** | Member | **All** contacts | ❌ **No** | Loan to third party (money out, expected back) |
+| **SPLIT** | Contact | - | ✅ **Yes** | Third party paid for household |
+| **DEBT_PAYMENT** | Any | Any | ❌ **Never** | Just money movement, not an expense |
+
+### Key Insight
+
+**Loans to external parties (SPLIT with payer=member and all participants=contacts)** don't need a category because:
+1. The money is expected to return
+2. It's not a real household expense
+3. These movements are filtered out of the "Gastos" view anyway
+
+**Example:**
+- Jose lends $500k to Prebby → SPLIT with payer=Jose, participant=Prebby@100%
+- This is NOT a household expense, just money movement
+- No category needed, doesn't show in Gastos tab
+
+### Implementation
+
+The logic is centralized in `frontend/utils.js`:
+
+```javascript
+export function isCategoryRequired({ effectiveTipo, tipo, participants, usersData }) {
+  // LOAN type never requires category (it's just money movement)
+  if (tipo === 'LOAN') return false;
+  
+  // DEBT_PAYMENT never requires category (just money movement)
+  if (effectiveTipo === 'DEBT_PAYMENT') return false;
+  
+  // HOUSEHOLD always requires category (it's a real household expense)
+  if (effectiveTipo === 'HOUSEHOLD') return true;
+  
+  // SPLIT: check if any participant is a household member
+  if (effectiveTipo === 'SPLIT') {
+    if (!participants || participants.length === 0) return false;
+    
+    // Check if any participant is a household member
+    const hasHouseholdParticipant = participants.some(p => {
+      // Support both formats: {name} or {user_id}
+      let user = null;
+      if (p.name && typeof usersData === 'object' && !Array.isArray(usersData)) {
+        user = usersData[p.name];
+      } else if (p.user_id && Array.isArray(usersData)) {
+        user = usersData.find(u => u.id === p.user_id);
+      }
+      return user && user.type === 'member';
+    });
+    
+    return hasHouseholdParticipant;
+  }
+  
+  return false;
+}
+```
+
+This function is used by:
+- `registrar-movimiento.js` - Movement registration form
+- `home.js` - Template modal
 
 ---
 
@@ -132,7 +202,18 @@ Fully configured template that creates movements automatically:
 ## Validation Logic Summary
 
 ```
-ALWAYS REQUIRED: name, category_id, amount, movement_type
+ALWAYS REQUIRED: name, amount, movement_type
+
+CATEGORY_ID REQUIREMENT:
+    IF movement_type = HOUSEHOLD:
+        REQUIRE: category_id (always a real expense)
+    IF movement_type = SPLIT:
+        IF any participant is a household member:
+            REQUIRE: category_id (household benefited)
+        ELSE (all participants are contacts):
+            OPTIONAL: category_id (loan to third party)
+    IF movement_type = DEBT_PAYMENT:
+        OPTIONAL: category_id (just money movement)
 
 IF auto_generate = true:
     REQUIRE: recurrence_pattern, day_of_month/day_of_year, start_date
@@ -186,9 +267,11 @@ Auto-generate templates create movements automatically, so they must follow the 
 |-------|-------------------------|---------------------|--------|
 | `payer` | ✅ Required | ✅ Required | ✅ |
 | `payment_method_id` | ✅ If payer is member | ✅ If payer is member | ✅ |
-| `category_id` | ✅ Required | ✅ Required | ✅ |
+| `category_id` | Conditional* | Conditional* | ✅ |
 | `participants` | ✅ Required | ✅ Required | ✅ |
 | `counterparty` | ❌ Not allowed | ❌ Not allowed | ✅ |
+
+**\* Category for SPLIT**: Required only if any participant is a household member. If all participants are contacts (loan to third party), category is optional.
 
 ### DEBT_PAYMENT
 

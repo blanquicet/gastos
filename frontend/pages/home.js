@@ -11,7 +11,7 @@
 import { API_URL } from '../config.js';
 import router from '../router.js';
 import * as Navbar from '../components/navbar.js';
-import { showConfirmation, showSuccess, showError, showInputModal, getSimplifiedCategoryName } from '../utils.js';
+import { showConfirmation, showSuccess, showError, showInputModal, getSimplifiedCategoryName, isCategoryRequired } from '../utils.js';
 import { MovementFormState, FormFieldController } from '../components/movement-form.js';
 
 let currentUser = null;
@@ -3947,14 +3947,17 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
         </h3>
         
         <form id="template-form" style="display: flex; flex-direction: column; gap: 16px;">
-          <!-- Categoría -->
-          <label class="field">
-            <span>Categoría *</span>
-            <select id="template-category" required ${hasCategoryPreselected ? 'disabled' : ''}>
+          <!-- Categoría (required conditionally based on movement type and participants) -->
+          <label class="field" id="template-category-label">
+            <span id="template-category-label-text">Categoría *</span>
+            <select id="template-category" ${hasCategoryPreselected ? 'disabled' : ''}>
               <option value="" selected disabled>Seleccionar categoría</option>
               ${hasCategoryPreselected ? `<option value="${categoryId}" selected>${categoryName}</option>` : ''}
             </select>
             ${hasCategoryPreselected ? `<input type="hidden" name="category_id" value="${categoryId}" />` : ''}
+            <small id="template-category-hint" style="color: #6b7280; font-size: 12px; margin-top: 4px; display: none;">
+              La categoría no es requerida para préstamos a terceros
+            </small>
           </label>
           
           <!-- Nombre -->
@@ -4159,6 +4162,29 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
     if (!labelElement) return;
     const baseText = labelElement.textContent.replace(' *', '');
     labelElement.textContent = isRequired ? baseText + ' *' : baseText;
+  }
+  
+  /**
+   * Update category label and hint based on whether it's required
+   */
+  function updateCategoryRequired() {
+    const movementType = movementTypeSelect.value;
+    const isRequired = isCategoryRequired({
+      effectiveTipo: movementType,
+      tipo: movementType,  // template modal doesn't have LOAN type
+      participants: formState.participants,
+      usersData: users
+    });
+    
+    const labelText = document.getElementById('template-category-label-text');
+    const hint = document.getElementById('template-category-hint');
+    
+    if (labelText) {
+      labelText.textContent = isRequired ? 'Categoría *' : 'Categoría (opcional)';
+    }
+    if (hint) {
+      hint.style.display = isRequired ? 'none' : 'block';
+    }
   }
   
   // Populate category dropdown with optgroups (only if not pre-selected)
@@ -4369,6 +4395,9 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
     });
     
     validatePctSum();
+    
+    // Update category required status when participants change
+    updateCategoryRequired();
   }
   function computeEquitable() {
     if (formState.participants.length === 0) return;
@@ -4587,6 +4616,9 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
       updateLabelRequired(paymentMethodLabelOther, false);
       updateLoanLabels(loanDirectionInput.value);
     }
+    
+    // Update category required status based on movement type
+    updateCategoryRequired();
   });
   
   // Handle payer change for SPLIT (update payment methods)
@@ -4733,6 +4765,24 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
     // Movement type is now always required
     if (!movementType) {
       showError('Error', 'Debes seleccionar un tipo de movimiento');
+      return;
+    }
+    
+    // Check if category is required based on movement type and participants
+    // Category is required for:
+    // - HOUSEHOLD: always (real household expense)
+    // - SPLIT: only if any participant is a household member (not just loans to third parties)
+    // - DEBT_PAYMENT: never (just money movement)
+    const categoryRequired = isCategoryRequired({
+      effectiveTipo: movementType,
+      tipo: movementType,
+      participants: formState.participants,
+      usersData: users
+    });
+    const categoryValue = categorySelect.value;
+    
+    if (categoryRequired && !categoryValue) {
+      showError('Error', 'Categoría es requerida para este tipo de movimiento');
       return;
     }
     

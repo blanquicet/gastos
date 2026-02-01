@@ -12,7 +12,7 @@ import { logout, getMovementsApiUrl } from '../auth-utils.js';
 import { API_URL } from '../config.js';
 import router from '../router.js';
 import * as Navbar from '../components/navbar.js';
-import { showSuccess, getSimplifiedCategoryName } from '../utils.js';
+import { showSuccess, getSimplifiedCategoryName, isCategoryRequired } from '../utils.js';
 
 // Configuration loaded from API
 let users = [];
@@ -2000,8 +2000,18 @@ function readForm() {
     throw new Error('Pagador es obligatorio.');
   }
 
-  // Categoria is required for HOUSEHOLD and SPLIT only (not for DEBT_PAYMENT or LOAN)
-  if ((effectiveTipo === 'HOUSEHOLD' || effectiveTipo === 'SPLIT') && tipo !== 'LOAN' && !categoria) {
+  // Category is required for:
+  // - HOUSEHOLD: always (real household expense)
+  // - SPLIT: only when at least one participant is a household member
+  //   (if all participants are contacts, it's a loan to external parties - no category needed)
+  // - DEBT_PAYMENT/LOAN: never (just money movement back and forth)
+  const categoryRequired = isCategoryRequired({
+    effectiveTipo,
+    tipo,
+    participants,
+    usersData: usersMap
+  });
+  if (categoryRequired && !categoria) {
     throw new Error('Categoría es obligatoria.');
   }
 

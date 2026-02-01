@@ -300,3 +300,56 @@ export function showError(titleOrMessage, message) {
     document.addEventListener('keydown', escHandler);
   });
 }
+
+/**
+ * Determine if category is required based on movement type and participants
+ * 
+ * Category is required when:
+ * - HOUSEHOLD: always (real household expense)
+ * - SPLIT: only when at least one participant is a household member
+ *   (if all participants are contacts, it's a loan to external parties - no category needed)
+ * - DEBT_PAYMENT/LOAN: never (just money movement back and forth)
+ * 
+ * @param {Object} params - Parameters object
+ * @param {string} params.effectiveTipo - The effective movement type (HOUSEHOLD, SPLIT, DEBT_PAYMENT)
+ * @param {string} params.tipo - The UI type selected (could be LOAN which converts to SPLIT or DEBT_PAYMENT)
+ * @param {Array} params.participants - List of participants (either {name} or {user_id} format)
+ * @param {Object|Array} params.usersData - Either usersMap object or users array for lookup
+ * @returns {boolean} - Whether category is required
+ */
+export function isCategoryRequired({ effectiveTipo, tipo, participants, usersData }) {
+  // LOAN type never requires category (it's just money movement)
+  if (tipo === 'LOAN') return false;
+  
+  // DEBT_PAYMENT never requires category (just money movement back and forth)
+  if (effectiveTipo === 'DEBT_PAYMENT') return false;
+  
+  // HOUSEHOLD always requires category (it's a real household expense)
+  if (effectiveTipo === 'HOUSEHOLD') return true;
+  
+  // SPLIT: check if any participant is a household member
+  if (effectiveTipo === 'SPLIT') {
+    // If no participants yet, don't require category (they might be adding contacts)
+    if (!participants || participants.length === 0) return false;
+    
+    // Check if any participant is a household member
+    const hasHouseholdParticipant = participants.some(p => {
+      // Support both formats: {name} from registrar-movimiento or {user_id} from template modal
+      let user = null;
+      
+      if (p.name && typeof usersData === 'object' && !Array.isArray(usersData)) {
+        // usersMap format: usersData[name] = {type: 'member'|'contact', ...}
+        user = usersData[p.name];
+      } else if (p.user_id && Array.isArray(usersData)) {
+        // users array format: [{id, type: 'member'|'contact', ...}, ...]
+        user = usersData.find(u => u.id === p.user_id);
+      }
+      
+      return user && user.type === 'member';
+    });
+    
+    return hasHouseholdParticipant;
+  }
+  
+  return false;
+}
