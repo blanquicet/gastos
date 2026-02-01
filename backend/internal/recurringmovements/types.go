@@ -96,9 +96,9 @@ type RecurringMovementTemplate struct {
 	Description *string   `json:"description,omitempty"`
 	IsActive    bool      `json:"is_active"`   // Can be disabled without deletion
 	
-	// Movement template fields
-	MovementType movements.MovementType `json:"movement_type"` // HOUSEHOLD, SPLIT, DEBT_PAYMENT
-	CategoryID   *string                `json:"category_id,omitempty"`
+	// Movement template fields - MovementType is optional (nil = budget display only)
+	MovementType *movements.MovementType `json:"movement_type,omitempty"` // HOUSEHOLD, SPLIT, DEBT_PAYMENT
+	CategoryID   *string                 `json:"category_id,omitempty"`
 	
 	// Amount configuration (always required - either exact or estimated)
 	Amount   float64 `json:"amount"`   // Always required (NOT NULL in DB)
@@ -107,7 +107,7 @@ type RecurringMovementTemplate struct {
 	// Auto-generation flag
 	AutoGenerate bool `json:"auto_generate"` // If true, auto-create movements
 	
-	// Payer template
+	// Payer template (only for SPLIT and DEBT_PAYMENT)
 	PayerUserID    *string `json:"payer_user_id,omitempty"`
 	PayerContactID *string `json:"payer_contact_id,omitempty"`
 	PayerName      *string `json:"payer_name,omitempty"` // Populated from join
@@ -122,6 +122,8 @@ type RecurringMovementTemplate struct {
 	PaymentMethodName *string `json:"payment_method_name,omitempty"` // Populated from join
 	
 	// Receiver account template (for DEBT_PAYMENT when counterparty is household member)
+	ReceiverAccountID   *string `json:"receiver_account_id,omitempty"`
+	ReceiverAccountName *string `json:"receiver_account_name,omitempty"` // Populated from join
 	
 	// Participants template (for SPLIT)
 	Participants []TemplateParticipant `json:"participants,omitempty"`
@@ -157,28 +159,29 @@ type CreateTemplateInput struct {
 	Description *string `json:"description,omitempty"`
 	IsActive    *bool   `json:"is_active,omitempty"` // Defaults to true
 	
-	// Movement template
-	MovementType movements.MovementType `json:"movement_type"`
-	CategoryID   *string                `json:"category_id,omitempty"`
+	// Movement template - only required for Form Pre-fill or Auto-generate
+	MovementType *movements.MovementType `json:"movement_type,omitempty"`
+	CategoryID   *string                 `json:"category_id,omitempty"`
 	
-	// Amount - always required
+	// Amount - always required (for budget display)
 	Amount float64 `json:"amount"`
 	
 	// Auto-generation
 	AutoGenerate *bool `json:"auto_generate,omitempty"` // Defaults to false
 	
-	// Payer
+	// Payer - only for SPLIT and DEBT_PAYMENT (not HOUSEHOLD)
 	PayerUserID    *string `json:"payer_user_id,omitempty"`
 	PayerContactID *string `json:"payer_contact_id,omitempty"`
 	
-	// Counterparty
+	// Counterparty - only for DEBT_PAYMENT
 	CounterpartyUserID    *string `json:"counterparty_user_id,omitempty"`
 	CounterpartyContactID *string `json:"counterparty_contact_id,omitempty"`
 	
-	// Payment method
+	// Payment method - required for HOUSEHOLD, or when payer is a member
 	PaymentMethodID *string `json:"payment_method_id,omitempty"`
 	
-	// Receiver account
+	// Receiver account - required for DEBT_PAYMENT when counterparty is a member
+	ReceiverAccountID *string `json:"receiver_account_id,omitempty"`
 	
 	// Participants (for SPLIT)
 	Participants []TemplateParticipantInput `json:"participants,omitempty"`
@@ -198,35 +201,51 @@ type TemplateParticipantInput struct {
 }
 
 // Validate validates the create template input
+// See docs/design/TEMPLATE_FIELD_REQUIREMENTS.md for field requirements
 func (i *CreateTemplateInput) Validate() error {
-	// Validate name
+	// === ALWAYS REQUIRED (Budget Display) ===
 	if i.Name == "" {
 		return errors.New("name is required")
 	}
 	
+	if i.Amount <= 0 {
+		return ErrAmountRequired
+	}
+	
+	// CategoryID is required for all templates (for budget display)
+	if i.CategoryID == nil || *i.CategoryID == "" {
+		return errors.New("category_id is required")
+	}
+	
+	// === BUDGET DISPLAY ONLY MODE ===
+	// If no movement_type, this is a budget-only template - no further validation needed
+	if i.MovementType == nil {
+		// Ensure no movement-specific fields are set
+		if i.AutoGenerate != nil && *i.AutoGenerate {
+			return errors.New("auto_generate requires movement_type to be set")
+		}
+		return nil
+	}
+	
+	// === FORM PRE-FILL / AUTO-GENERATE MODE ===
 	// Validate movement type
 	if err := i.MovementType.Validate(); err != nil {
 		return err
 	}
 	
-	// Validate amount (always required)
-	if i.Amount <= 0 {
-		return ErrAmountRequired
-	}
+	// Check if auto-generate is enabled
+	isAutoGenerate := i.AutoGenerate != nil && *i.AutoGenerate
 	
-	// Validate auto-generate constraints
-	if i.AutoGenerate != nil && *i.AutoGenerate {
-		// Recurrence required for auto-generate
+	// === AUTO-GENERATE: Recurrence validation ===
+	if isAutoGenerate {
 		if i.RecurrencePattern == nil || i.StartDate == nil || !i.StartDate.Valid {
 			return ErrRecurrenceRequired
 		}
 		
-		// Validate recurrence pattern
 		if err := i.RecurrencePattern.Validate(); err != nil {
 			return err
 		}
 		
-		// Validate day fields based on pattern
 		switch *i.RecurrencePattern {
 		case RecurrenceMonthly:
 			if i.DayOfMonth == nil {
@@ -245,76 +264,111 @@ func (i *CreateTemplateInput) Validate() error {
 		case RecurrenceOneTime:
 			// No day validation needed
 		}
-	} else {
-		// If recurrence is provided, validate it even if not auto-generating
-		if i.RecurrencePattern != nil {
-			if err := i.RecurrencePattern.Validate(); err != nil {
-				return err
-			}
-		}
 	}
 	
-	// Validate payer (exactly one)
+	// === MOVEMENT TYPE SPECIFIC VALIDATION ===
 	hasPayerUser := i.PayerUserID != nil && *i.PayerUserID != ""
 	hasPayerContact := i.PayerContactID != nil && *i.PayerContactID != ""
-	if !hasPayerUser && !hasPayerContact {
-		return errors.New("exactly one payer (user or contact) is required")
-	}
-	if hasPayerUser && hasPayerContact {
-		return errors.New("cannot specify both payer_user_id and payer_contact_id")
-	}
+	hasPayer := hasPayerUser || hasPayerContact
 	
-	// Movement type specific validations
-	switch i.MovementType {
-	case movements.TypeSplit:
-		// Participants required
-		if len(i.Participants) == 0 {
-			return ErrInvalidParticipants
-		}
-		// Validate participants
-		totalPercentage := 0.0
-		for _, p := range i.Participants {
-			hasUser := p.ParticipantUserID != nil && *p.ParticipantUserID != ""
-			hasContact := p.ParticipantContactID != nil && *p.ParticipantContactID != ""
-			if !hasUser && !hasContact {
-				return errors.New("participant must have either user_id or contact_id")
-			}
-			if hasUser && hasContact {
-				return errors.New("participant cannot have both user_id and contact_id")
-			}
-			if p.Percentage <= 0 || p.Percentage > 1 {
-				return errors.New("participant percentage must be between 0 and 1")
-			}
-			totalPercentage += p.Percentage
-		}
-		// Check percentage sum (allow small floating point error)
-		if totalPercentage < 0.9999 || totalPercentage > 1.0001 {
-			return ErrInvalidPercentageSum
-		}
-		
-	case movements.TypeDebtPayment:
-		// Counterparty required
-		hasCounterpartyUser := i.CounterpartyUserID != nil && *i.CounterpartyUserID != ""
-		hasCounterpartyContact := i.CounterpartyContactID != nil && *i.CounterpartyContactID != ""
-		if !hasCounterpartyUser && !hasCounterpartyContact {
-			return errors.New("counterparty is required for DEBT_PAYMENT templates")
-		}
-		if hasCounterpartyUser && hasCounterpartyContact {
-			return errors.New("cannot specify both counterparty_user_id and counterparty_contact_id")
-		}
-		// No participants
-		if len(i.Participants) > 0 {
-			return errors.New("participants not allowed for DEBT_PAYMENT templates")
-		}
-		
+	switch *i.MovementType {
 	case movements.TypeHousehold:
-		// No participants
+		// HOUSEHOLD: Payer is implicit (not required)
+		// Payment method is ALWAYS required (to track where money came from)
+		if isAutoGenerate {
+			if i.PaymentMethodID == nil || *i.PaymentMethodID == "" {
+				return errors.New("payment_method_id is required for HOUSEHOLD auto-generate")
+			}
+		}
+		// No participants allowed
 		if len(i.Participants) > 0 {
 			return errors.New("participants not allowed for HOUSEHOLD templates")
 		}
-		// No counterparty
+		// No counterparty allowed
 		if i.CounterpartyUserID != nil || i.CounterpartyContactID != nil {
 			return errors.New("counterparty not allowed for HOUSEHOLD templates")
+		}
+		
+	case movements.TypeSplit:
+		// SPLIT: Payer required for auto-generate
+		if isAutoGenerate {
+			if !hasPayer {
+				return errors.New("payer (user or contact) is required for SPLIT auto-generate")
+			}
+			if hasPayerUser && hasPayerContact {
+				return errors.New("cannot specify both payer_user_id and payer_contact_id")
+			}
+			// Payment method required if payer is a member
+			if hasPayerUser && (i.PaymentMethodID == nil || *i.PaymentMethodID == "") {
+				return errors.New("payment_method_id is required when payer is a household member")
+			}
+			// Participants required for auto-generate
+			if len(i.Participants) == 0 {
+				return ErrInvalidParticipants
+			}
+		}
+		// Validate participants if provided (for both pre-fill and auto-generate)
+		if len(i.Participants) > 0 {
+			totalPercentage := 0.0
+			for _, p := range i.Participants {
+				hasUser := p.ParticipantUserID != nil && *p.ParticipantUserID != ""
+				hasContact := p.ParticipantContactID != nil && *p.ParticipantContactID != ""
+				if !hasUser && !hasContact {
+					return errors.New("participant must have either user_id or contact_id")
+				}
+				if hasUser && hasContact {
+					return errors.New("participant cannot have both user_id and contact_id")
+				}
+				if p.Percentage <= 0 || p.Percentage > 1 {
+					return errors.New("participant percentage must be between 0 and 1")
+				}
+				totalPercentage += p.Percentage
+			}
+			if totalPercentage < 0.9999 || totalPercentage > 1.0001 {
+				return ErrInvalidPercentageSum
+			}
+		}
+		// No counterparty allowed
+		if i.CounterpartyUserID != nil || i.CounterpartyContactID != nil {
+			return errors.New("counterparty not allowed for SPLIT templates")
+		}
+		
+	case movements.TypeDebtPayment:
+		hasCounterpartyUser := i.CounterpartyUserID != nil && *i.CounterpartyUserID != ""
+		hasCounterpartyContact := i.CounterpartyContactID != nil && *i.CounterpartyContactID != ""
+		hasCounterparty := hasCounterpartyUser || hasCounterpartyContact
+		
+		if isAutoGenerate {
+			// Payer required
+			if !hasPayer {
+				return errors.New("payer (user or contact) is required for DEBT_PAYMENT auto-generate")
+			}
+			if hasPayerUser && hasPayerContact {
+				return errors.New("cannot specify both payer_user_id and payer_contact_id")
+			}
+			// Payment method required if payer is a member
+			if hasPayerUser && (i.PaymentMethodID == nil || *i.PaymentMethodID == "") {
+				return errors.New("payment_method_id is required when payer is a household member")
+			}
+			// Counterparty required
+			if !hasCounterparty {
+				return errors.New("counterparty is required for DEBT_PAYMENT auto-generate")
+			}
+			if hasCounterpartyUser && hasCounterpartyContact {
+				return errors.New("cannot specify both counterparty_user_id and counterparty_contact_id")
+			}
+			// Receiver account required if counterparty is a member
+			if hasCounterpartyUser && (i.ReceiverAccountID == nil || *i.ReceiverAccountID == "") {
+				return errors.New("receiver_account_id is required when counterparty is a household member")
+			}
+		}
+		// Validate counterparty if provided (for pre-fill)
+		if hasCounterpartyUser && hasCounterpartyContact {
+			return errors.New("cannot specify both counterparty_user_id and counterparty_contact_id")
+		}
+		// No participants allowed
+		if len(i.Participants) > 0 {
+			return errors.New("participants not allowed for DEBT_PAYMENT templates")
 		}
 	}
 	
@@ -354,10 +408,10 @@ type ListTemplatesFilters struct {
 // PreFillData represents pre-fill data for movement forms
 // This is returned when user selects a template in the dropdown
 type PreFillData struct {
-	TemplateID   string                 `json:"template_id"`
-	TemplateName string                 `json:"template_name"`
-	MovementType movements.MovementType `json:"movement_type"`
-	Amount       *float64               `json:"amount,omitempty"` // Pre-filled from template
+	TemplateID   string                  `json:"template_id"`
+	TemplateName string                  `json:"template_name"`
+	MovementType *movements.MovementType `json:"movement_type,omitempty"`
+	Amount       *float64                `json:"amount,omitempty"` // Pre-filled from template
 	
 	PayerUserID    *string `json:"payer_user_id,omitempty"`
 	PayerContactID *string `json:"payer_contact_id,omitempty"`
@@ -366,6 +420,7 @@ type PreFillData struct {
 	CounterpartyContactID *string `json:"counterparty_contact_id,omitempty"`
 	
 	PaymentMethodID   *string `json:"payment_method_id,omitempty"`
+	ReceiverAccountID *string `json:"receiver_account_id,omitempty"`
 	
 	Participants []movements.ParticipantInput `json:"participants,omitempty"`
 }

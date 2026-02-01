@@ -219,14 +219,16 @@ func (s *service) GetPreFillData(ctx context.Context, userID, templateID string,
 
 	// Payment method
 	data.PaymentMethodID = template.PaymentMethodID
-
+	
 	// Receiver account
+	data.ReceiverAccountID = template.ReceiverAccountID
 
 	// Handle role inversion for SPLIT templates
-	if invertRoles && template.MovementType == movements.TypeSplit {
+	if invertRoles && template.MovementType != nil && *template.MovementType == movements.TypeSplit {
 		// For SPLIT: template stores SPLIT data, but we're pre-filling DEBT_PAYMENT
 		// Change movement type to DEBT_PAYMENT
-		data.MovementType = movements.TypeDebtPayment
+		debtPaymentType := movements.TypeDebtPayment
+		data.MovementType = &debtPaymentType
 		
 		// Invert: payer ↔ counterparty
 		// Participants become: single participant with 100%

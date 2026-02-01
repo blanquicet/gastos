@@ -124,7 +124,7 @@ func (r *repository) Create(ctx context.Context, input *CreateTemplateInput, hou
 	}
 
 	// Insert participants if SPLIT type
-	if input.MovementType == "SPLIT" && len(input.Participants) > 0 {
+	if input.MovementType != nil && *input.MovementType == "SPLIT" && len(input.Participants) > 0 {
 		for _, p := range input.Participants {
 			_, err := tx.Exec(ctx, `
 				INSERT INTO recurring_movement_participants (
@@ -223,7 +223,7 @@ func (r *repository) GetByID(ctx context.Context, id string) (*RecurringMovement
 	}
 
 	// Get participants if SPLIT type
-	if template.MovementType == "SPLIT" {
+	if template.MovementType != nil && *template.MovementType == "SPLIT" {
 		participants, err := r.getParticipants(ctx, template.ID)
 		if err != nil {
 			return nil, err
@@ -379,7 +379,7 @@ func (r *repository) ListByHousehold(ctx context.Context, householdID string, fi
 		}
 
 		// Get participants if SPLIT type
-		if t.MovementType == "SPLIT" {
+		if t.MovementType != nil && *t.MovementType == "SPLIT" {
 			participants, err := r.getParticipants(ctx, t.ID)
 			if err != nil {
 				return nil, err
@@ -468,7 +468,7 @@ func (r *repository) ListByCategory(ctx context.Context, categoryID string) ([]*
 		}
 
 		// Get participants if SPLIT type
-		if t.MovementType == "SPLIT" {
+		if t.MovementType != nil && *t.MovementType == "SPLIT" {
 			participants, err := r.getParticipants(ctx, t.ID)
 			if err != nil {
 				return nil, err
@@ -560,7 +560,7 @@ func (r *repository) ListPendingAutoGeneration(ctx context.Context, now time.Tim
 		}
 
 		// Get participants if SPLIT type
-		if t.MovementType == "SPLIT" {
+		if t.MovementType != nil && *t.MovementType == "SPLIT" {
 			participants, err := r.getParticipants(ctx, t.ID)
 			if err != nil {
 				return nil, err

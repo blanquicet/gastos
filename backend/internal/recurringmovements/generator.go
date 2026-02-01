@@ -2,6 +2,7 @@ package recurringmovements
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"time"
 
@@ -77,11 +78,16 @@ func (g *Generator) GenerateMovement(ctx context.Context, template *RecurringMov
 	if !template.AutoGenerate {
 		return nil // Skip if not configured for auto-generation
 	}
+	
+	// Auto-generate requires movement_type to be set
+	if template.MovementType == nil {
+		return errors.New("cannot auto-generate movement: movement_type is not set")
+	}
 
 	// Build movement input from template
 	templateID := template.ID // Store reference to template
 	input := &movements.CreateMovementInput{
-		Type:                   template.MovementType,
+		Type:                   *template.MovementType,
 		Description:            template.Name, // Use template name as description
 		Amount:                 template.Amount,
 		CategoryID:             template.CategoryID,
@@ -98,7 +104,7 @@ func (g *Generator) GenerateMovement(ctx context.Context, template *RecurringMov
 	}
 
 	// Add participants for SPLIT type
-	if template.MovementType == movements.TypeSplit && len(template.Participants) > 0 {
+	if *template.MovementType == movements.TypeSplit && len(template.Participants) > 0 {
 		input.Participants = make([]movements.ParticipantInput, len(template.Participants))
 		for i, p := range template.Participants {
 			input.Participants[i] = movements.ParticipantInput{
