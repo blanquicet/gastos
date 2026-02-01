@@ -1624,15 +1624,18 @@ function onTomadorChange() {
   const tomadorName = tomadorEl.value;
   const tomadorUser = usersMap[tomadorName];
   
-  // Show receiver account selector only for DEBT_PAYMENT when receiver is a member
-  // DEBT_PAYMENT can be either tipo='DEBT_PAYMENT' or tipo='LOAN' with direction='REPAY'
+  // Show receiver account selector when receiver is a household member
+  // - DEBT_PAYMENT (LOAN+REPAY): REQUIRED - when you pay back a debt, money goes to their account
+  // - SPLIT as loan (LOAN+LEND): OPTIONAL - could be money transfer (account) or paying something for them (no account)
   const isDebtPayment = tipo === 'DEBT_PAYMENT' || (tipo === 'LOAN' && loanDirection === 'REPAY');
+  const isLoanLend = tipo === 'LOAN' && loanDirection === 'LEND';
   
-  if (isDebtPayment && tomadorUser && tomadorUser.type === 'member') {
+  if (tomadorUser && tomadorUser.type === 'member' && (isDebtPayment || isLoanLend)) {
     // Render accounts for this member
     renderCuentaReceptoraSelect(tomadorUser.id);
     cuentaReceptoraWrap.classList.remove('hidden');
-    cuentaReceptoraEl.required = true;
+    // Required for DEBT_PAYMENT, optional for LOAN+LEND
+    cuentaReceptoraEl.required = isDebtPayment;
   } else {
     cuentaReceptoraWrap.classList.add('hidden');
     cuentaReceptoraEl.required = false;
@@ -2118,6 +2121,12 @@ function readForm() {
       if (tomadorUser) {
         if (tomadorUser.type === 'member') {
           participant.participant_user_id = tomadorUser.id;
+          
+          // Add receiver account if provided (optional for LOAN+LEND)
+          const cuentaReceptoraEl = document.getElementById('cuentaReceptora');
+          if (cuentaReceptoraEl && cuentaReceptoraEl.value) {
+            payload.receiver_account_id = cuentaReceptoraEl.value;
+          }
         } else if (tomadorUser.type === 'contact') {
           participant.participant_contact_id = tomadorUser.id;
         }

@@ -130,6 +130,24 @@ func (s *service) Create(ctx context.Context, userID string, input *CreateMoveme
 			}
 			// Contacts will be validated by FK constraint
 		}
+
+		// For SPLIT: receiver_account_id is OPTIONAL but if provided, verify it exists and belongs to household
+		if input.ReceiverAccountID != nil {
+			account, err := s.accountsRepo.GetByID(ctx, *input.ReceiverAccountID)
+			if err != nil {
+				if errors.Is(err, accounts.ErrAccountNotFound) {
+					return nil, errors.New("receiver account not found")
+				}
+				return nil, err
+			}
+			if account.HouseholdID != householdID {
+				return nil, ErrNotAuthorized
+			}
+			// Verify account type can receive income (only savings and cash)
+			if !account.Type.CanReceiveIncome() {
+				return nil, errors.New("receiver account must be of type savings or cash")
+			}
+		}
 	}
 
 	// Resolve category ID from category name if needed
