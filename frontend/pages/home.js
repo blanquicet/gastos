@@ -3477,22 +3477,37 @@ function setupBudgetListeners() {
       item.closest('.three-dots-menu').style.display = 'none';
       
       if (action === 'edit-template') {
-        // TODO: Implement edit template functionality
-        // - Load template data via GET /api/recurring-movements/:id
-        // - Populate showTemplateModal with existing template data
-        // - Use PUT /api/recurring-movements/:id for updates
-        // - Handle participants loading for SPLIT templates
-        // - Reload templates after successful update
-        // - Update budget total if template amount changed
-        alert('Editar template: ' + templateId + ' (por implementar)');
+        // Load template data and show edit modal
+        try {
+          const response = await fetch(`${API_URL}/api/recurring-movements/${templateId}`, {
+            credentials: 'include'
+          });
+          
+          if (!response.ok) {
+            throw new Error('No se pudo cargar el gasto');
+          }
+          
+          const template = await response.json();
+          
+          // Get category info for the modal
+          const categoryId = template.category_id;
+          const categoryBudget = budgetsData?.budgets?.find(b => b.category_id === categoryId);
+          const categoryName = categoryBudget?.category_name || 'Sin categoría';
+          
+          // Show modal with existing template data
+          showTemplateModal(categoryId, categoryName, template);
+        } catch (error) {
+          console.error('Error loading template:', error);
+          showError('Error', error.message || 'No se pudo cargar el gasto');
+        }
         
       } else if (action === 'delete-template') {
-        // TODO: Implement delete with scope modal (like movements)
-        // - Show scope modal with options: THIS (delete template only), FUTURE (deactivate), ALL (delete all)
-        // - Use DELETE /api/recurring-movements/:id?scope={scope}
-        // - Visual warning for scope=ALL (red background)
-        // - Update budget total after deletion
-        const confirmed = confirm('¿Estás seguro de eliminar este gasto?');
+        // Get template name for display
+        const templateItem = document.querySelector(`.movement-detail-entry[data-template-id="${templateId}"]`);
+        const templateName = templateItem?.querySelector('.entry-description')?.textContent?.trim() || 'este gasto';
+        
+        // Show delete confirmation modal
+        const confirmed = await showDeleteTemplateModal(templateName);
         if (confirmed) {
           try {
             const response = await fetch(`${API_URL}/api/recurring-movements/${templateId}`, {
@@ -3504,7 +3519,7 @@ function setupBudgetListeners() {
               throw new Error('Error al eliminar el gasto');
             }
             
-            showSuccess('Gasto Eliminado', 'El gasto ha sido eliminado exitosamente');
+            showSuccess('Gasto Eliminado', `<strong>${templateName}</strong> ha sido eliminado exitosamente`);
             await loadBudgetsData();
             refreshDisplay();
           } catch (error) {
@@ -3515,6 +3530,66 @@ function setupBudgetListeners() {
       }
     });
   });
+  
+  /**
+   * Show delete template confirmation modal
+   */
+  function showDeleteTemplateModal(templateName) {
+    return new Promise((resolve) => {
+      const modalHtml = `
+        <div class="modal-overlay" id="delete-template-modal">
+          <div class="modal-content" style="max-width: 400px;">
+            <div style="text-align: center; margin-bottom: 16px;">
+              <div style="width: 48px; height: 48px; background: #fee2e2; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px;">
+                <span style="font-size: 24px;">🗑️</span>
+              </div>
+              <h3 style="margin: 0; font-size: 18px; font-weight: 600; color: #111827;">Eliminar gasto recurrente</h3>
+            </div>
+            
+            <p style="margin: 0 0 16px 0; color: #4b5563; text-align: center; font-size: 14px;">
+              ¿Estás seguro de eliminar <strong>${templateName}</strong>?
+            </p>
+            
+            <div style="background: #fef3c7; border-radius: 8px; padding: 12px; margin-bottom: 20px;">
+              <p style="margin: 0; color: #92400e; font-size: 13px; display: flex; align-items: flex-start; gap: 8px;">
+                <span style="font-size: 16px;">⚠️</span>
+                <span>El presupuesto de la categoría se ajustará automáticamente al eliminar este gasto.</span>
+              </p>
+            </div>
+            
+            <div style="display: flex; gap: 12px;">
+              <button id="delete-template-cancel" class="btn-secondary" style="flex: 1; padding: 10px 16px; border-radius: 8px;">
+                Cancelar
+              </button>
+              <button id="delete-template-confirm" class="btn-danger" style="flex: 1; padding: 10px 16px; border-radius: 8px; background: #dc2626; color: white; border: none; cursor: pointer;">
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+      
+      const modal = document.getElementById('delete-template-modal');
+      const cancelBtn = document.getElementById('delete-template-cancel');
+      const confirmBtn = document.getElementById('delete-template-confirm');
+      
+      const closeModal = (result) => {
+        modal.remove();
+        resolve(result);
+      };
+      
+      cancelBtn.addEventListener('click', () => closeModal(false));
+      confirmBtn.addEventListener('click', () => closeModal(true));
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal(false);
+      });
+      
+      // Focus on cancel button for safety
+      cancelBtn.focus();
+    });
+  }
   
   // Group expand/collapse for budget groups
   document.querySelectorAll('.expense-group-card[data-group]').forEach(card => {
@@ -4204,6 +4279,133 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
     });
   }
   
+  // Pre-fill form with existing template data when editing
+  if (isEdit && existingTemplate) {
+    // Name and description
+    const nameInput = document.getElementById('template-name');
+    const descInput = document.getElementById('template-description');
+    if (nameInput) nameInput.value = existingTemplate.name || '';
+    if (descInput) descInput.value = existingTemplate.description || '';
+    
+    // Amount
+    if (amountInput && existingTemplate.amount) {
+      amountInput.value = formatNumber(existingTemplate.amount);
+    }
+    
+    // Auto-generate and day
+    if (autoGenerateCheckbox) {
+      autoGenerateCheckbox.checked = existingTemplate.auto_generate || false;
+      dayField.classList.toggle('hidden', !existingTemplate.auto_generate);
+      const dayInput = document.getElementById('template-day');
+      if (dayInput && existingTemplate.day_of_month) {
+        dayInput.value = existingTemplate.day_of_month;
+      }
+    }
+    
+    // Movement type
+    if (movementTypeSelect && existingTemplate.movement_type) {
+      movementTypeSelect.value = existingTemplate.movement_type;
+      // Trigger change to show/hide correct fields
+      movementTypeSelect.dispatchEvent(new Event('change'));
+    }
+    
+    // Category (if not pre-selected and exists)
+    if (!hasCategoryPreselected && existingTemplate.category_id && categorySelect) {
+      categorySelect.value = existingTemplate.category_id;
+    }
+    
+    // Handle type-specific data after a small delay (let change event propagate)
+    setTimeout(() => {
+      const type = existingTemplate.movement_type;
+      
+      if (type === 'HOUSEHOLD') {
+        // Payment method - ensure the field is visible first
+        if (paymentMethodWrapOther) {
+          paymentMethodWrapOther.classList.remove('hidden');
+        }
+        if (paymentMethodSelectOther && existingTemplate.payment_method_id) {
+          paymentMethodSelectOther.value = existingTemplate.payment_method_id;
+        }
+      } else if (type === 'SPLIT') {
+        // Ensure SPLIT fields are visible (in case change event didn't propagate)
+        if (payerWrap) payerWrap.classList.remove('hidden');
+        if (participantsWrap) participantsWrap.classList.remove('hidden');
+        
+        // Payer
+        if (payerSelect) {
+          if (existingTemplate.payer_user_id) {
+            payerSelect.value = existingTemplate.payer_user_id;
+          } else if (existingTemplate.payer_contact_id) {
+            payerSelect.value = existingTemplate.payer_contact_id;
+          }
+          payerSelect.dispatchEvent(new Event('change'));
+        }
+        
+        // Participants
+        if (existingTemplate.participants && existingTemplate.participants.length > 0) {
+          formState.participants = existingTemplate.participants.map(p => ({
+            user_id: p.user_id,
+            name: p.user_name || users.find(u => u.id === p.user_id)?.name || 'Unknown',
+            percentage: p.percentage * 100 // Convert from decimal to percentage
+          }));
+          
+          // Check if equitable
+          const firstPct = formState.participants[0]?.percentage || 0;
+          const allEqual = formState.participants.every(p => Math.abs(p.percentage - firstPct) < 0.01);
+          if (equitableCheckbox) {
+            equitableCheckbox.checked = allEqual;
+          }
+          
+          renderTemplateParticipants();
+        }
+        
+        // Payment method (for payer if member)
+        if (paymentMethodSelect && existingTemplate.payment_method_id) {
+          paymentMethodSelect.value = existingTemplate.payment_method_id;
+        }
+      } else if (type === 'DEBT_PAYMENT') {
+        // Ensure DEBT_PAYMENT fields are visible
+        if (loanDirectionWrap) loanDirectionWrap.classList.remove('hidden');
+        if (debtPaymentWrap) debtPaymentWrap.classList.remove('hidden');
+        
+        // Set loan direction (infer from payer/counterparty)
+        // For now, default to 'pago' (I pay someone)
+        const directionBtn = document.querySelector('.loan-direction-btn[data-direction="pago"]');
+        if (directionBtn) directionBtn.click();
+        
+        // Payer
+        if (debtPayerSelect) {
+          if (existingTemplate.payer_user_id) {
+            debtPayerSelect.value = existingTemplate.payer_user_id;
+          } else if (existingTemplate.payer_contact_id) {
+            debtPayerSelect.value = existingTemplate.payer_contact_id;
+          }
+          debtPayerSelect.dispatchEvent(new Event('change'));
+        }
+        
+        // Counterparty (receiver)
+        if (debtReceiverSelect) {
+          if (existingTemplate.counterparty_user_id) {
+            debtReceiverSelect.value = existingTemplate.counterparty_user_id;
+          } else if (existingTemplate.counterparty_contact_id) {
+            debtReceiverSelect.value = existingTemplate.counterparty_contact_id;
+          }
+          debtReceiverSelect.dispatchEvent(new Event('change'));
+        }
+        
+        // Receiver account (if counterparty is member)
+        if (receiverAccountSelect && existingTemplate.receiver_account_id) {
+          receiverAccountSelect.value = existingTemplate.receiver_account_id;
+        }
+        
+        // Payment method
+        if (paymentMethodSelectOther && existingTemplate.payment_method_id) {
+          paymentMethodSelectOther.value = existingTemplate.payment_method_id;
+        }
+      }
+    }, 100); // Increased delay to ensure DOM is ready
+  }
+  
   // Participant rendering functions (integrated UI like registrar-movimiento)
   function renderTemplateParticipants() {
     const container = document.getElementById('template-participants-list');
@@ -4513,8 +4715,9 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
       paymentMethodSelectOther.required = isAutoGenerate;
       updateLabelRequired(paymentMethodLabelOther, isAutoGenerate);
     } else if (type === 'SPLIT') {
-      // For SPLIT, payer and participants are required only for auto-generate
-      // But we validate in submission, not with HTML required
+      // For SPLIT, payer is required only for auto-generate
+      payerSelect.required = isAutoGenerate;
+      updateLabelRequired(payerLabel, isAutoGenerate);
       // Payment method required if payer is a member AND auto-generate
       const payerId = payerSelect.value;
       if (payerId) {
@@ -4524,6 +4727,11 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
         updateLabelRequired(paymentMethodLabelSplit, isRequired);
       }
     } else if (type === 'DEBT_PAYMENT') {
+      // Payer and receiver required only if auto-generate
+      debtPayerSelect.required = isAutoGenerate;
+      debtReceiverSelect.required = isAutoGenerate;
+      updateLabelRequired(payerLabel, isAutoGenerate);
+      updateLabelRequired(receiverLabel, isAutoGenerate);
       // Payment method required if payer is a member AND auto-generate
       const payerId = debtPayerSelect.value;
       if (payerId) {
@@ -4605,6 +4813,9 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
       // Gasto compartido: pagador + participantes (payment method appears after payer selection)
       payerWrap.classList.remove('hidden');
       participantsWrap.classList.remove('hidden');
+      // Payer only required if auto-generate is enabled
+      payerSelect.required = isAutoGenerate;
+      updateLabelRequired(payerLabel, isAutoGenerate);
     } else if (type === 'DEBT_PAYMENT') {
       // Préstamo: dirección + pagador/receptor
       // Payment method hidden by default, shown only if payer is household member
@@ -4614,6 +4825,11 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
       paymentMethodWrapOther.classList.add('hidden'); // Hidden by default
       paymentMethodSelectOther.required = false;
       updateLabelRequired(paymentMethodLabelOther, false);
+      // Payer and receiver only required if auto-generate is enabled
+      debtPayerSelect.required = isAutoGenerate;
+      debtReceiverSelect.required = isAutoGenerate;
+      updateLabelRequired(payerLabel, isAutoGenerate);
+      updateLabelRequired(receiverLabel, isAutoGenerate);
       updateLoanLabels(loanDirectionInput.value);
     }
     
@@ -4816,6 +5032,25 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
       formData.start_date = new Date().toISOString().split('T')[0]; // Today's date in YYYY-MM-DD format
     }
     
+    // When editing, clear fields that don't apply to the new type
+    if (isEdit) {
+      // Clear payer fields if type doesn't need them (HOUSEHOLD doesn't have payer)
+      if (movementType === 'HOUSEHOLD') {
+        formData.payer_user_id = null;
+        formData.payer_contact_id = null;
+      }
+      // Clear counterparty fields if type is not DEBT_PAYMENT
+      if (movementType !== 'DEBT_PAYMENT') {
+        formData.counterparty_user_id = null;
+        formData.counterparty_contact_id = null;
+        formData.receiver_account_id = null;
+      }
+      // Clear participants if type is not SPLIT
+      if (movementType !== 'SPLIT') {
+        formData.participants = [];
+      }
+    }
+    
     // Add type-specific fields (only required for auto-generate, but include for pre-fill if provided)
     if (movementType === 'HOUSEHOLD') {
       // For HOUSEHOLD: payment_method is required for auto-generate
@@ -4825,6 +5060,9 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
       } else if (isAutoGenerate) {
         showError('Error', 'El método de pago es requerido para generar automáticamente');
         return;
+      } else if (isEdit) {
+        // When editing and clearing the payment method, send empty string to signal deletion
+        formData.payment_method_id = '';
       }
     } else if (movementType === 'SPLIT') {
       // Handle payer (can be user or contact)
@@ -4931,10 +5169,15 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
       }
     }
     
-    // Create template via API
+    // Create or update template via API
     try {
-      const response = await fetch(`${API_URL}/api/recurring-movements`, {
-        method: 'POST',
+      const url = isEdit 
+        ? `${API_URL}/api/recurring-movements/${existingTemplate.id}`
+        : `${API_URL}/api/recurring-movements`;
+      const method = isEdit ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify(formData)
@@ -4948,14 +5191,14 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
           throw new Error('Ya existe un gasto con ese nombre. Por favor usa un nombre diferente.');
         }
         
-        throw new Error(errorText || 'Error al crear el gasto');
+        throw new Error(errorText || (isEdit ? 'Error al actualizar el gasto' : 'Error al crear el gasto'));
       }
       
       const template = await response.json();
       
       // Get old budget amount before reload
-      const categoryId = categorySelect.value;
-      const oldBudget = budgetsData?.budgets?.find(b => b.category_id === categoryId);
+      const categoryIdForBudget = categorySelect.value || existingTemplate?.category_id;
+      const oldBudget = budgetsData?.budgets?.find(b => b.category_id === categoryIdForBudget);
       const oldAmount = oldBudget?.amount || 0;
       
       closeModal();
@@ -4965,29 +5208,34 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
         await loadBudgetsData();
         
         // Get new budget amount after reload
-        const newBudget = budgetsData?.budgets?.find(b => b.category_id === categoryId);
+        const newBudget = budgetsData?.budgets?.find(b => b.category_id === categoryIdForBudget);
         const newAmount = newBudget?.amount || 0;
         
         // Show success message with budget change info
+        const actionText = isEdit ? 'Actualizado' : 'Creado';
+        const actionVerb = isEdit ? 'actualizado' : 'creado';
+        
         if (newAmount !== oldAmount) {
           const categoryName = newBudget?.category_name || 'esta categoría';
           showSuccess(
-            'Gasto Creado', 
-            `El gasto <strong>${template.name}</strong> ha sido creado.<br><br>` +
+            `Gasto ${actionText}`, 
+            `El gasto <strong>${template.name}</strong> ha sido ${actionVerb}.<br><br>` +
             `Nuevo presupuesto de <strong>${categoryName}</strong>: ${formatCurrency(oldAmount)} → ${formatCurrency(newAmount)}`
           );
         } else {
-          showSuccess('Gasto Creado', `El gasto <strong>${template.name}</strong> ha sido creado exitosamente`);
+          showSuccess(`Gasto ${actionText}`, `El gasto <strong>${template.name}</strong> ha sido ${actionVerb} exitosamente`);
         }
       } catch (err) {
         console.error('Error reloading budgets data:', err);
-        showSuccess('Gasto Creado', `El gasto <strong>${template.name}</strong> ha sido creado exitosamente`);
+        const actionText = isEdit ? 'Actualizado' : 'Creado';
+        const actionVerb = isEdit ? 'actualizado' : 'creado';
+        showSuccess(`Gasto ${actionText}`, `El gasto <strong>${template.name}</strong> ha sido ${actionVerb} exitosamente`);
       }
       refreshDisplay();
       
     } catch (error) {
-      console.error('Error creating template:', error);
-      showError('Error', error.message || 'No se pudo crear el gasto');
+      console.error(isEdit ? 'Error updating template:' : 'Error creating template:', error);
+      showError('Error', error.message || (isEdit ? 'No se pudo actualizar el gasto' : 'No se pudo crear el gasto'));
     }
   });
   

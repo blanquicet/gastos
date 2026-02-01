@@ -605,13 +605,115 @@ func (r *repository) Update(ctx context.Context, id string, input *UpdateTemplat
 		args = append(args, *input.Amount)
 		argIndex++
 	}
+	if input.MovementType != nil {
+		setClauses = append(setClauses, fmt.Sprintf("type = $%d", argIndex))
+		args = append(args, *input.MovementType)
+		argIndex++
+	}
+	if input.CategoryID != nil {
+		setClauses = append(setClauses, fmt.Sprintf("category_id = $%d", argIndex))
+		args = append(args, *input.CategoryID)
+		argIndex++
+	}
+	if input.AutoGenerate != nil {
+		setClauses = append(setClauses, fmt.Sprintf("auto_generate = $%d", argIndex))
+		args = append(args, *input.AutoGenerate)
+		argIndex++
+	}
+	if input.RecurrencePattern != nil {
+		setClauses = append(setClauses, fmt.Sprintf("recurrence_pattern = $%d", argIndex))
+		args = append(args, *input.RecurrencePattern)
+		argIndex++
+	}
+	if input.DayOfMonth != nil {
+		setClauses = append(setClauses, fmt.Sprintf("day_of_month = $%d", argIndex))
+		args = append(args, *input.DayOfMonth)
+		argIndex++
+	}
+	if input.DayOfYear != nil {
+		setClauses = append(setClauses, fmt.Sprintf("day_of_year = $%d", argIndex))
+		args = append(args, *input.DayOfYear)
+		argIndex++
+	}
+	if input.StartDate != nil {
+		if input.StartDate.Valid {
+			setClauses = append(setClauses, fmt.Sprintf("start_date = $%d", argIndex))
+			args = append(args, input.StartDate.Time)
+		} else {
+			setClauses = append(setClauses, fmt.Sprintf("start_date = $%d", argIndex))
+			args = append(args, nil)
+		}
+		argIndex++
+	}
+	
+	// Payer fields - handle clearing when type changes
+	if input.PayerUserID != nil {
+		setClauses = append(setClauses, fmt.Sprintf("payer_user_id = $%d", argIndex))
+		args = append(args, *input.PayerUserID)
+		argIndex++
+	} else if input.ClearPayer {
+		setClauses = append(setClauses, fmt.Sprintf("payer_user_id = $%d", argIndex))
+		args = append(args, nil)
+		argIndex++
+	}
+	if input.PayerContactID != nil {
+		setClauses = append(setClauses, fmt.Sprintf("payer_contact_id = $%d", argIndex))
+		args = append(args, *input.PayerContactID)
+		argIndex++
+	} else if input.ClearPayer {
+		setClauses = append(setClauses, fmt.Sprintf("payer_contact_id = $%d", argIndex))
+		args = append(args, nil)
+		argIndex++
+	}
+	
+	// Counterparty fields
+	if input.CounterpartyUserID != nil {
+		setClauses = append(setClauses, fmt.Sprintf("counterparty_user_id = $%d", argIndex))
+		args = append(args, *input.CounterpartyUserID)
+		argIndex++
+	} else if input.ClearCounterparty {
+		setClauses = append(setClauses, fmt.Sprintf("counterparty_user_id = $%d", argIndex))
+		args = append(args, nil)
+		argIndex++
+	}
+	if input.CounterpartyContactID != nil {
+		setClauses = append(setClauses, fmt.Sprintf("counterparty_contact_id = $%d", argIndex))
+		args = append(args, *input.CounterpartyContactID)
+		argIndex++
+	} else if input.ClearCounterparty {
+		setClauses = append(setClauses, fmt.Sprintf("counterparty_contact_id = $%d", argIndex))
+		args = append(args, nil)
+		argIndex++
+	}
+	
 	if input.PaymentMethodID != nil {
-		setClauses = append(setClauses, fmt.Sprintf("payment_method_id = $%d", argIndex))
-		args = append(args, *input.PaymentMethodID)
+		if *input.PaymentMethodID == "" {
+			// Empty string means clear the field
+			setClauses = append(setClauses, fmt.Sprintf("payment_method_id = $%d", argIndex))
+			args = append(args, nil)
+		} else {
+			setClauses = append(setClauses, fmt.Sprintf("payment_method_id = $%d", argIndex))
+			args = append(args, *input.PaymentMethodID)
+		}
+		argIndex++
+	}
+	if input.ReceiverAccountID != nil {
+		if *input.ReceiverAccountID == "" {
+			// Empty string means clear the field
+			setClauses = append(setClauses, fmt.Sprintf("receiver_account_id = $%d", argIndex))
+			args = append(args, nil)
+		} else {
+			setClauses = append(setClauses, fmt.Sprintf("receiver_account_id = $%d", argIndex))
+			args = append(args, *input.ReceiverAccountID)
+		}
+		argIndex++
+	} else if input.ClearReceiverAccount {
+		setClauses = append(setClauses, fmt.Sprintf("receiver_account_id = $%d", argIndex))
+		args = append(args, nil)
 		argIndex++
 	}
 
-	if len(setClauses) == 0 {
+	if len(setClauses) == 0 && len(input.Participants) == 0 {
 		// Nothing to update, just return current template
 		return r.GetByID(ctx, id)
 	}
@@ -633,6 +735,29 @@ func (r *repository) Update(ctx context.Context, id string, input *UpdateTemplat
 	_, err := r.pool.Exec(ctx, query, args...)
 	if err != nil {
 		return nil, err
+	}
+
+	// Update participants if provided
+	if len(input.Participants) > 0 {
+		// Delete existing participants
+		_, err = r.pool.Exec(ctx, `
+			DELETE FROM recurring_movement_participants
+			WHERE template_id = $1
+		`, id)
+		if err != nil {
+			return nil, err
+		}
+		
+		// Insert new participants
+		for _, p := range input.Participants {
+			_, err = r.pool.Exec(ctx, `
+				INSERT INTO recurring_movement_participants (template_id, participant_user_id, participant_contact_id, percentage)
+				VALUES ($1, $2, $3, $4)
+			`, id, p.ParticipantUserID, p.ParticipantContactID, p.Percentage)
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	// Return updated template

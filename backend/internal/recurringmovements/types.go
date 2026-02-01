@@ -377,14 +377,43 @@ func (i *CreateTemplateInput) Validate() error {
 
 // UpdateTemplateInput represents input for updating a template
 type UpdateTemplateInput struct {
-	Name              *string  `json:"name,omitempty"`
-	Description       *string  `json:"description,omitempty"`
-	IsActive          *bool    `json:"is_active,omitempty"`
-	Amount            *float64 `json:"amount,omitempty"` // Changed from fixed_amount
-	PaymentMethodID   *string  `json:"payment_method_id,omitempty"`
+	Name        *string  `json:"name,omitempty"`
+	Description *string  `json:"description,omitempty"`
+	IsActive    *bool    `json:"is_active,omitempty"`
+	Amount      *float64 `json:"amount,omitempty"`
 	
-	// Cannot update: movement_type, auto_generate, recurrence_pattern
-	// Cannot update: payer, counterparty, participants (too complex)
+	// Movement type - can be changed
+	MovementType *movements.MovementType `json:"movement_type,omitempty"`
+	CategoryID   *string                 `json:"category_id,omitempty"`
+	
+	// Auto-generation settings
+	AutoGenerate      *bool              `json:"auto_generate,omitempty"`
+	RecurrencePattern *RecurrencePattern `json:"recurrence_pattern,omitempty"`
+	DayOfMonth        *int               `json:"day_of_month,omitempty"`
+	DayOfYear         *int               `json:"day_of_year,omitempty"`
+	StartDate         *NullableDate      `json:"start_date,omitempty"`
+	
+	// Payer - for SPLIT and DEBT_PAYMENT
+	PayerUserID    *string `json:"payer_user_id,omitempty"`
+	PayerContactID *string `json:"payer_contact_id,omitempty"`
+	
+	// Counterparty - for DEBT_PAYMENT
+	CounterpartyUserID    *string `json:"counterparty_user_id,omitempty"`
+	CounterpartyContactID *string `json:"counterparty_contact_id,omitempty"`
+	
+	// Payment method
+	PaymentMethodID *string `json:"payment_method_id,omitempty"`
+	
+	// Receiver account - for DEBT_PAYMENT when counterparty is member
+	ReceiverAccountID *string `json:"receiver_account_id,omitempty"`
+	
+	// Participants - for SPLIT
+	Participants []TemplateParticipantInput `json:"participants,omitempty"`
+	
+	// Internal flags to clear fields when changing movement type
+	ClearPayer            bool `json:"-"`
+	ClearCounterparty     bool `json:"-"`
+	ClearReceiverAccount  bool `json:"-"`
 }
 
 // Validate validates the update template input

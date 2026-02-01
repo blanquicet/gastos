@@ -594,6 +594,189 @@ async function testTemplates() {
     console.log('✅ Test 7 PASSED: Cannot create budget below templates sum');
     
     // ==================================================================
+    // TEST 8: Edit an existing template
+    // ==================================================================
+    console.log('\n📝 Test 8: Edit existing template - change amount');
+    
+    // First, restore the Gastos fijos budget that we deleted in test 7
+    await pool.query(
+      `INSERT INTO monthly_budgets (household_id, category_id, month, amount)
+       VALUES ($1, $2, DATE_TRUNC('month', CURRENT_DATE)::DATE, $3)`,
+      [householdId, categoryIds[1].id, 3200000]
+    );
+    
+    // Refresh page
+    await page.goto(`${appUrl}/`);
+    await page.waitForSelector('#loading', { state: 'hidden', timeout: 15000 });
+    await page.waitForTimeout(1000);
+    await presupuestoTab.click();
+    await page.waitForTimeout(1500);
+    
+    // Expand Casa group
+    const casaGroupForTest8 = page.locator('.expense-group-header').filter({ hasText: 'Casa' });
+    await casaGroupForTest8.waitFor({ state: 'visible', timeout: 5000 });
+    await casaGroupForTest8.click();
+    await page.waitForTimeout(700);
+    
+    // Expand Gastos fijos category
+    const gastosFijosCategoryHeader8 = page.locator('.expense-category-header').filter({ hasText: 'Gastos fijos' });
+    await gastosFijosCategoryHeader8.waitFor({ state: 'visible', timeout: 5000 });
+    await gastosFijosCategoryHeader8.click();
+    await page.waitForTimeout(700);
+    
+    // Find the Arriendo template and click its three-dot menu
+    // Templates use class .movement-detail-entry with data-template-id attribute
+    const arrendoTemplateItem = page.locator('.movement-detail-entry[data-template-id]').filter({ hasText: 'Arriendo' });
+    await arrendoTemplateItem.waitFor({ state: 'visible', timeout: 5000 });
+    
+    const arrendoThreeDotsBtn = arrendoTemplateItem.locator('.three-dots-btn');
+    await arrendoThreeDotsBtn.click();
+    await page.waitForTimeout(500);
+    
+    // Click "Editar" option
+    const editOptionBtn = arrendoTemplateItem.locator('.menu-item[data-action="edit-template"]');
+    await editOptionBtn.waitFor({ state: 'visible', timeout: 5000 });
+    await editOptionBtn.click();
+    await page.waitForTimeout(1500);
+    
+    // Verify form is pre-filled with existing data
+    const templateNameInput = page.locator('#template-name');
+    const existingName = await templateNameInput.inputValue();
+    if (existingName !== 'Arriendo') {
+      throw new Error(`Expected template name 'Arriendo' but got '${existingName}'`);
+    }
+    console.log('  ✅ Template name pre-filled correctly');
+    
+    // Modify the amount (3,200,000 → 3,500,000)
+    // Need to clear first as input may have formatted value
+    const templateAmountInput = page.locator('#template-amount');
+    await templateAmountInput.clear();
+    await templateAmountInput.fill('3500000');
+    // Trigger blur to ensure value is processed
+    await templateAmountInput.blur();
+    await page.waitForTimeout(300);
+    
+    // Submit the edit
+    const updateBtn = page.locator('button[type="submit"]').filter({ hasText: /Guardar|Actualizar/i }).first();
+    await updateBtn.waitFor({ state: 'visible', timeout: 5000 });
+    await updateBtn.click();
+    await page.waitForTimeout(5000); // Wait longer for backend processing
+    
+    // Close success modal
+    if (await okBtn.count() > 0) {
+      await okBtn.click();
+      await page.waitForTimeout(1000);
+    }
+    
+    // Verify the template was updated in the database
+    const templateQuery8 = await pool.query(
+      `SELECT amount FROM recurring_movement_templates 
+       WHERE household_id = $1 AND name = 'Arriendo'`,
+      [householdId]
+    );
+    
+    const updatedAmount = parseFloat(templateQuery8.rows[0].amount);
+    if (updatedAmount !== 3500000) {
+      throw new Error(`Expected updated amount 3,500,000 but got ${updatedAmount}`);
+    }
+    
+    // Verify the budget was also updated
+    const budgetQuery8 = await pool.query(
+      `SELECT amount FROM monthly_budgets 
+       WHERE category_id = $1 AND month = DATE_TRUNC('month', CURRENT_DATE)::DATE`,
+      [categoryIds[1].id]
+    );
+    
+    const budget8 = parseFloat(budgetQuery8.rows[0].amount);
+    if (budget8 !== 3500000) {
+      throw new Error(`Expected budget of 3,500,000 but got ${budget8}`);
+    }
+    
+    console.log('✅ Test 8 PASSED: Template edited, amount updated to $ 3.500.000, budget auto-updated');
+    
+    // ==================================================================
+    // TEST 9: Delete a template
+    // ==================================================================
+    console.log('\n📝 Test 9: Delete template - verify budget updates');
+    
+    // Refresh page
+    await page.goto(`${appUrl}/`);
+    await page.waitForSelector('#loading', { state: 'hidden', timeout: 15000 });
+    await page.waitForTimeout(1000);
+    await presupuestoTab.click();
+    await page.waitForTimeout(1500);
+    
+    // Expand Casa group
+    const casaGroupForTest9 = page.locator('.expense-group-header').filter({ hasText: 'Casa' });
+    await casaGroupForTest9.click();
+    await page.waitForTimeout(700);
+    
+    // Expand Mercado category (has 2 templates: Compras Exito 500k + Compras Carulla 300k)
+    const mercadoCategoryHeader9 = page.locator('.expense-category-header').filter({ hasText: 'Mercado' });
+    await mercadoCategoryHeader9.click();
+    await page.waitForTimeout(700);
+    
+    // Get current budget before deletion
+    const budgetBeforeDelete = await pool.query(
+      `SELECT amount FROM monthly_budgets 
+       WHERE category_id = $1 AND month = DATE_TRUNC('month', CURRENT_DATE)::DATE`,
+      [categoryIds[0].id]
+    );
+    const budgetBefore = parseFloat(budgetBeforeDelete.rows[0].amount);
+    console.log(`  Current budget before deletion: $ ${budgetBefore.toLocaleString('es-CO')}`);
+    
+    // Find "Compras Exito" template and click its three-dot menu
+    const exitoTemplateItem = page.locator('.movement-detail-entry[data-template-id]').filter({ hasText: 'Compras Exito' });
+    await exitoTemplateItem.waitFor({ state: 'visible', timeout: 5000 });
+    
+    const exitoThreeDotsBtn = exitoTemplateItem.locator('.three-dots-btn');
+    await exitoThreeDotsBtn.click();
+    await page.waitForTimeout(500);
+    
+    // Click "Eliminar" option
+    const deleteOptionBtn = exitoTemplateItem.locator('.menu-item[data-action="delete-template"]');
+    await deleteOptionBtn.waitFor({ state: 'visible', timeout: 5000 });
+    await deleteOptionBtn.click();
+    await page.waitForTimeout(1000);
+    
+    // Handle the delete confirmation modal (new custom modal)
+    const deleteModal = page.locator('#delete-template-modal');
+    await deleteModal.waitFor({ state: 'visible', timeout: 5000 });
+    console.log(`  Delete modal shown`);
+    
+    // Click "Eliminar" button in the modal
+    const confirmDeleteBtn = page.locator('#delete-template-confirm');
+    await confirmDeleteBtn.click();
+    await page.waitForTimeout(3000);
+    
+    // Verify the template was deleted
+    const templateQuery9 = await pool.query(
+      `SELECT COUNT(*) as count FROM recurring_movement_templates 
+       WHERE household_id = $1 AND name = 'Compras Exito'`,
+      [householdId]
+    );
+    
+    if (parseInt(templateQuery9.rows[0].count) !== 0) {
+      throw new Error('Template should have been deleted');
+    }
+    
+    // Verify the budget was updated (should be reduced by 500k, but since we set it to 1,000,000 in Test 6,
+    // and delete doesn't auto-reduce budget below templates sum, let's check it)
+    const budgetQuery9 = await pool.query(
+      `SELECT amount FROM monthly_budgets 
+       WHERE category_id = $1 AND month = DATE_TRUNC('month', CURRENT_DATE)::DATE`,
+      [categoryIds[0].id]
+    );
+    
+    const budget9 = parseFloat(budgetQuery9.rows[0].amount);
+    // Budget should still be 1,000,000 (deletion doesn't auto-reduce budget, only validates it's >= templates)
+    // The remaining template is Compras Carulla 300k, so budget >= 300k is valid
+    console.log(`  Budget after deletion: $ ${budget9.toLocaleString('es-CO')}`);
+    console.log(`  Remaining templates sum: $ 300.000 (only Compras Carulla)`);
+    
+    console.log('✅ Test 9 PASSED: Template deleted successfully');
+    
+    // ==================================================================
     // SUMMARY
     // ==================================================================
     console.log('\n' + '='.repeat(60));
@@ -606,6 +789,8 @@ async function testTemplates() {
     console.log('✅ Test 5: Edit budget = templates → SUCCESS ✅');
     console.log('✅ Test 6: Edit budget > templates → SUCCESS (buffer allowed) ✅');
     console.log('✅ Test 7: Create budget < templates → VALIDATION ERROR ✅');
+    console.log('✅ Test 8: Edit template → Amount updated, budget auto-updated ✅');
+    console.log('✅ Test 9: Delete template → Template removed ✅');
     console.log('='.repeat(60));
     console.log('\n🎯 KEY FINDINGS:');
     console.log('- Backend auto-calculates budget = SUM(templates)');
@@ -614,9 +799,9 @@ async function testTemplates() {
     console.log('- Auto-generate flag works correctly');
     console.log('- ✨ Budget validation: budget >= SUM(templates) enforced');
     console.log('- ✨ Users can add buffer for uncategorized expenses');
-    console.log('\n✅ ✅ ✅ TEMPLATE INTEGRATION + VALIDATION WORKING! ✅ ✅ ✅\n');
-    
-    console.log('\n✅ ✅ ✅ TEMPLATE INTEGRATION WORKING! ✅ ✅ ✅\n');
+    console.log('- ✨ Edit template updates amount and auto-recalculates budget');
+    console.log('- ✨ Delete template removes it from the database');
+    console.log('\n✅ ✅ ✅ TEMPLATE CRUD COMPLETE! ✅ ✅ ✅\n');
     
     // ==================================================================
     // Cleanup

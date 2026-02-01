@@ -295,6 +295,28 @@ func (s *service) Update(ctx context.Context, userID, id string, input *UpdateTe
 		return nil, err
 	}
 
+	// If movement type is changing, clear fields that don't apply to the new type
+	if input.MovementType != nil && template.MovementType != nil && *input.MovementType != *template.MovementType {
+		newType := *input.MovementType
+		
+		// HOUSEHOLD doesn't have payer
+		if newType == movements.TypeHousehold {
+			input.ClearPayer = true
+		}
+		
+		// Only DEBT_PAYMENT has counterparty and receiver_account
+		if newType != movements.TypeDebtPayment {
+			input.ClearCounterparty = true
+			input.ClearReceiverAccount = true
+		}
+		
+		// Clear participants if changing away from SPLIT
+		if newType != movements.TypeSplit && template.MovementType != nil && *template.MovementType == movements.TypeSplit {
+			// Empty participants array will trigger deletion in repository
+			input.Participants = []TemplateParticipantInput{}
+		}
+	}
+
 	// Update template
 	updated, err := s.repo.Update(ctx, id, input)
 	if err != nil {
