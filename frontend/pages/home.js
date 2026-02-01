@@ -1353,10 +1353,12 @@ async function loadIncomeData() {
         income_entries: filteredEntries,
         totals: {
           total_amount: totalAmount
-        }
+        },
+        _loadedMonth: currentMonth // Track which month this data belongs to
       };
     } else {
       incomeData = data;
+      incomeData._loadedMonth = currentMonth; // Track which month this data belongs to
     }
     
   } catch (error) {
@@ -1400,9 +1402,10 @@ async function loadMovementsData() {
     // Load budgets (optional - don't fail if not available)
     if (budgetsResponse.ok) {
       budgetsData = await budgetsResponse.json();
+      budgetsData._loadedMonth = currentMonth; // Track which month this data belongs to
     } else if (budgetsResponse.status === 404) {
       // No budgets for this month yet
-      budgetsData = { month: currentMonth, budgets: [], totals: { total_budget: 0, total_spent: 0, percentage: 0 } };
+      budgetsData = { month: currentMonth, budgets: [], totals: { total_budget: 0, total_spent: 0, percentage: 0 }, _loadedMonth: currentMonth };
     } else {
       console.error('Error loading budgets data');
       budgetsData = null;
@@ -1494,7 +1497,8 @@ async function loadMovementsData() {
         total_amount: totalAmount,
         by_category: byCategory
       },
-      category_groups: householdData.category_groups
+      category_groups: householdData.category_groups,
+      _loadedMonth: currentMonth // Track which month this data belongs to
     };
     
   } catch (error) {
@@ -1520,6 +1524,7 @@ async function loadLoansData() {
     }
 
     loansData = await consolidationResponse.json();
+    loansData._loadedMonth = currentMonth; // Track which month this data belongs to
     
   } catch (error) {
     console.error('Error loading loans data:', error);
@@ -1546,13 +1551,14 @@ async function loadBudgetsData() {
     if (!budgetsResponse.ok) {
       if (budgetsResponse.status === 404) {
         // No budgets for this month yet
-        budgetsData = { month: currentMonth, budgets: [], totals: { total_budget: 0, total_spent: 0, percentage: 0 } };
+        budgetsData = { month: currentMonth, budgets: [], totals: { total_budget: 0, total_spent: 0, percentage: 0 }, _loadedMonth: currentMonth };
       } else {
         console.error('Error loading budgets data');
         budgetsData = null;
       }
     } else {
       budgetsData = await budgetsResponse.json();
+      budgetsData._loadedMonth = currentMonth; // Track which month this data belongs to
     }
 
     // Handle templates response
@@ -1634,6 +1640,7 @@ async function loadCreditCardsData() {
     }
 
     creditCardsData = await response.json();
+    creditCardsData._loadedMonth = currentMonth; // Track which month this data belongs to
     
     // On first load (no filters), store all cards for the filter dropdown
     if (allCreditCards.length === 0 && creditCardsData?.cards) {
@@ -3943,15 +3950,18 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
             </small>
           </label>
           
-          <!-- Tipo de movimiento -->
+          <!-- Tipo de movimiento (optional - only for form pre-fill or auto-generate) -->
           <label class="field">
-            <span>Tipo de movimiento *</span>
-            <select id="template-movement-type" required>
-              <option value="">Selecciona...</option>
+            <span>Tipo de movimiento</span>
+            <select id="template-movement-type">
+              <option value="">Solo para presupuesto (sin tipo)</option>
               <option value="HOUSEHOLD">Gasto del hogar</option>
               <option value="SPLIT">Gasto compartido</option>
               <option value="DEBT_PAYMENT">Préstamo</option>
             </select>
+            <small style="color: #6b7280; font-size: 12px; margin-top: 4px; display: block;">
+              Si seleccionas un tipo, podrás pre-llenar el formulario de movimiento
+            </small>
           </label>
           
           <!-- Loan direction selector (Hacer/Pagar préstamo) -->
@@ -4393,10 +4403,21 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
     });
   }
   
-  // Toggle day field based on auto-generate
+  // Toggle day field and require movement_type based on auto-generate
   autoGenerateCheckbox.addEventListener('change', (e) => {
     dayField.classList.toggle('hidden', !e.target.checked);
     document.getElementById('template-day').required = e.target.checked;
+    
+    // Auto-generate requires movement_type to be selected
+    if (e.target.checked) {
+      movementTypeSelect.required = true;
+      if (!movementTypeSelect.value) {
+        setStatus('Para generar automáticamente, debes seleccionar un tipo de movimiento', 'err');
+      }
+    } else {
+      movementTypeSelect.required = false;
+      setStatus('', '');
+    }
   });
   
   // Handle loan direction buttons
@@ -4585,9 +4606,16 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
     e.preventDefault();
     
     const movementType = movementTypeSelect.value;
+    const isAutoGenerate = autoGenerateCheckbox.checked;
     
-    // Validate participants for SPLIT
-    if (movementType === 'SPLIT') {
+    // If auto-generate is enabled, movement_type is required
+    if (isAutoGenerate && !movementType) {
+      showError('Error', 'Para generar automáticamente, debes seleccionar un tipo de movimiento');
+      return;
+    }
+    
+    // Validate participants for SPLIT (only required for auto-generate)
+    if (movementType === 'SPLIT' && isAutoGenerate) {
       const validation = formState.validateParticipants();
       if (!validation.valid) {
         showError('Error', validation.error);
@@ -4595,31 +4623,48 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
       }
     }
     
-    // Gather form data
+    // Gather form data - base fields (always required)
     const formData = {
       name: document.getElementById('template-name').value,
       description: document.getElementById('template-description').value || null,
       category_id: categorySelect.value,
       amount: parseNumber(document.getElementById('template-amount').value),
-      auto_generate: autoGenerateCheckbox.checked,
-      movement_type: movementType,
+      auto_generate: isAutoGenerate,
     };
+    
+    // Only add movement_type if it's selected (for form pre-fill or auto-generate)
+    if (movementType) {
+      formData.movement_type = movementType;
+    }
         
     // Add recurrence fields if auto-generate is enabled
-    if (autoGenerateCheckbox.checked) {
+    if (isAutoGenerate) {
       formData.recurrence_pattern = 'MONTHLY';
       formData.day_of_month = parseInt(document.getElementById('template-day').value);
       formData.start_date = new Date().toISOString().split('T')[0]; // Today's date in YYYY-MM-DD format
     }
     
-    // Add type-specific fields
+    // Add type-specific fields (only required for auto-generate, but include for pre-fill if provided)
     if (movementType === 'HOUSEHOLD') {
-      formData.payer_user_id = currentUser.id;
-      formData.payment_method_id = paymentMethodSelectOther.value || null;
+      // For HOUSEHOLD: payment_method is required for auto-generate
+      const pmValue = paymentMethodSelectOther.value;
+      if (pmValue) {
+        formData.payment_method_id = pmValue;
+      } else if (isAutoGenerate) {
+        showError('Error', 'El método de pago es requerido para generar automáticamente');
+        return;
+      }
     } else if (movementType === 'SPLIT') {
       // Handle payer (can be user or contact)
       const payerId = payerSelect.value;
       const payer = users.find(u => u.id === payerId);
+      
+      // For auto-generate, payer is required
+      if (isAutoGenerate && !payer) {
+        showError('Error', 'El pagador es requerido para generar automáticamente');
+        return;
+      }
+      
       if (payer) {
         if (payer.type === 'member') {
           formData.payer_user_id = payer.id;
@@ -4628,29 +4673,48 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
         }
       }
       
-      formData.payment_method_id = paymentMethodSelect.value || null;
-      formData.participants = formState.participants.map(p => {
-        // Find the user/contact info to determine type
-        const user = users.find(u => u.id === p.user_id);
-        const participant = {
-          percentage: p.percentage / 100  // Convert from 0-100 to 0-1 scale
-        };
-        
-        // Set either participant_user_id or participant_contact_id based on type
-        if (user) {
-          if (user.type === 'member') {
-            participant.participant_user_id = user.id;
-          } else if (user.type === 'contact') {
-            participant.participant_contact_id = user.id;
+      // Payment method only required if payer is a member
+      const pmValue = paymentMethodSelect.value;
+      if (pmValue) {
+        formData.payment_method_id = pmValue;
+      } else if (isAutoGenerate && payer && payer.type === 'member') {
+        showError('Error', 'El método de pago es requerido cuando el pagador es un miembro');
+        return;
+      }
+      
+      // Participants
+      if (formState.participants.length > 0) {
+        formData.participants = formState.participants.map(p => {
+          const user = users.find(u => u.id === p.user_id);
+          const participant = {
+            percentage: p.percentage / 100  // Convert from 0-100 to 0-1 scale
+          };
+          
+          if (user) {
+            if (user.type === 'member') {
+              participant.participant_user_id = user.id;
+            } else if (user.type === 'contact') {
+              participant.participant_contact_id = user.id;
+            }
           }
-        }
-        
-        return participant;
-      });
+          
+          return participant;
+        });
+      } else if (isAutoGenerate) {
+        showError('Error', 'Los participantes son requeridos para generar automáticamente');
+        return;
+      }
     } else if (movementType === 'DEBT_PAYMENT') {
       // Handle payer (can be user or contact)
       const payerId = debtPayerSelect.value;
       const payer = users.find(u => u.id === payerId);
+      
+      // For auto-generate, payer is required
+      if (isAutoGenerate && !payer) {
+        showError('Error', 'El pagador es requerido para generar automáticamente');
+        return;
+      }
+      
       if (payer) {
         if (payer.type === 'member') {
           formData.payer_user_id = payer.id;
@@ -4662,19 +4726,37 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
       // Handle counterparty (can be user or contact)
       const counterpartyId = debtReceiverSelect.value;
       const counterparty = users.find(u => u.id === counterpartyId);
+      
+      // For auto-generate, counterparty is required
+      if (isAutoGenerate && !counterparty) {
+        showError('Error', 'El receptor es requerido para generar automáticamente');
+        return;
+      }
+      
       if (counterparty) {
         if (counterparty.type === 'member') {
           formData.counterparty_user_id = counterparty.id;
           // Add receiver account if counterparty is a member
-          if (receiverAccountSelect.value) {
-            formData.receiver_account_id = receiverAccountSelect.value;
+          const raValue = receiverAccountSelect.value;
+          if (raValue) {
+            formData.receiver_account_id = raValue;
+          } else if (isAutoGenerate) {
+            showError('Error', 'La cuenta receptora es requerida cuando el receptor es un miembro');
+            return;
           }
         } else if (counterparty.type === 'contact') {
           formData.counterparty_contact_id = counterparty.id;
         }
       }
       
-      formData.payment_method_id = paymentMethodSelectOther.value || null;
+      // Payment method only required if payer is a member
+      const pmValue = paymentMethodSelectOther.value;
+      if (pmValue) {
+        formData.payment_method_id = pmValue;
+      } else if (isAutoGenerate && payer && payer.type === 'member') {
+        showError('Error', 'El método de pago es requerido cuando el pagador es un miembro');
+        return;
+      }
     }
     
     // Create template via API
@@ -5743,12 +5825,12 @@ export async function setup() {
         tabsNeedingReload.delete(activeTab);
       }
       
-      // Load data for the new tab only if not already loaded
-      const needsLoad = (activeTab === 'gastos' && !movementsData) ||
-                        (activeTab === 'ingresos' && !incomeData) ||
-                        (activeTab === 'prestamos' && !loansData) ||
-                        (activeTab === 'presupuesto' && (!budgetsData || Object.keys(templatesData).length === 0)) ||
-                        (activeTab === 'tarjetas' && !creditCardsData);
+      // Load data for the new tab only if not already loaded OR if loaded for a different month
+      const needsLoad = (activeTab === 'gastos' && (!movementsData || movementsData._loadedMonth !== currentMonth)) ||
+                        (activeTab === 'ingresos' && (!incomeData || incomeData._loadedMonth !== currentMonth)) ||
+                        (activeTab === 'prestamos' && (!loansData || loansData._loadedMonth !== currentMonth)) ||
+                        (activeTab === 'presupuesto' && (!budgetsData || budgetsData._loadedMonth !== currentMonth || Object.keys(templatesData).length === 0)) ||
+                        (activeTab === 'tarjetas' && (!creditCardsData || creditCardsData._loadedMonth !== currentMonth));
       
       if (needsLoad) {
         // Show loading state immediately
