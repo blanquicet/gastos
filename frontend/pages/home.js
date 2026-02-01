@@ -545,6 +545,11 @@ function renderBudgets() {
     // Get templates for this category (handle null/undefined templatesData)
     const templates = (templatesData && templatesData[budget.category_id]) || [];
     
+    // Calculate templates sum and additional budget
+    const templatesSum = templates.reduce((sum, t) => sum + (t.amount || 0), 0);
+    const budgetTotal = budget.amount || 0;
+    const additionalBudget = Math.max(0, budgetTotal - templatesSum);
+    
     return `
       <div class="expense-category-item">
         <div class="expense-category-header" onclick="toggleBudgetCategoryDetails('${safeCategoryId}')">
@@ -559,24 +564,48 @@ function renderBudgets() {
           </svg>
         </div>
         <div class="expense-category-details hidden" id="budget-category-details-${safeCategoryId}">
-          ${templates.length > 0 ? `
-            ${templates.map(template => renderTemplateItem(template)).join('')}
-          ` : `
-            <div class="empty-templates-message" style="text-align: center; color: #6c757d; padding: 16px; font-size: 14px;">
-              No hay gastos presupuestados
+          
+          <!-- Card: Gastos recurrentes -->
+          <div class="budget-templates-card">
+            <div class="budget-card-title">Gastos recurrentes</div>
+            <div class="budget-templates-list">
+              ${templates.length > 0 ? `
+                ${templates.map(template => renderTemplateItem(template)).join('')}
+              ` : `
+                <div class="empty-templates-message">
+                  No hay gastos recurrentes definidos
+                </div>
+              `}
             </div>
-          `}
-          <div class="budget-action-buttons">
-            ${hasBudget ? `
-              <button class="budget-action-btn" data-action="edit-budget" data-category-id="${budget.category_id}" data-budget-id="${budget.id}" data-amount="${budget.amount}" data-category-name="${simplifiedName}">
-                Editar presupuesto total
-              </button>
-            ` : `
-              <button class="budget-action-btn" data-action="add-budget" data-category-id="${budget.category_id}" data-category-name="${simplifiedName}">
-                <span style="font-size: 18px; margin-right: 8px;">+</span> Agregar presupuesto total
-              </button>
-            `}
+            <button class="budget-add-template-btn" data-action="add-template" data-category-id="${budget.category_id}" data-category-name="${simplifiedName}">
+              + Agregar gasto recurrente
+            </button>
           </div>
+          
+          <!-- Card: Resumen de presupuesto -->
+          <div class="budget-summary-card">
+            <div class="budget-card-title">Resumen</div>
+            <div class="budget-summary-rows">
+              <div class="budget-summary-row">
+                <span class="budget-summary-label">Gastos recurrentes</span>
+                <span class="budget-summary-value">${formatCurrency(templatesSum)}</span>
+              </div>
+              ${additionalBudget > 0 ? `
+                <div class="budget-summary-row">
+                  <span class="budget-summary-label">Sin detallar</span>
+                  <span class="budget-summary-value">${formatCurrency(additionalBudget)}</span>
+                </div>
+              ` : ''}
+              <div class="budget-summary-row budget-summary-total">
+                <span class="budget-summary-label">Presupuesto total</span>
+                <span class="budget-summary-value">${hasBudget ? formatCurrency(budgetTotal) : '<span class="no-budget-text">Sin definir</span>'}</span>
+              </div>
+            </div>
+            <button class="budget-edit-btn" data-action="${hasBudget ? 'edit-budget' : 'add-budget'}" data-category-id="${budget.category_id}" data-budget-id="${budget.id || ''}" data-amount="${budgetTotal}" data-category-name="${simplifiedName}" data-templates-sum="${templatesSum}">
+              ${hasBudget ? 'Editar presupuesto total' : 'Definir presupuesto total'}
+            </button>
+          </div>
+          
         </div>
       </div>
     `;
@@ -652,11 +681,6 @@ function renderBudgets() {
     <div class="categories-grid">
       ${groupsHtml}
       ${ungroupedHtml}
-    </div>
-    
-    <!-- Floating add button -->
-    <div class="floating-actions">
-      <button id="add-template-btn" class="btn-add-floating" title="Presupuestar nuevo gasto">+</button>
     </div>
   `;
 }
@@ -3531,13 +3555,34 @@ function setupBudgetListeners() {
     });
   }
   
-  // Floating add button
-  const addTemplateBtn = document.getElementById('add-template-btn');
-  if (addTemplateBtn) {
-    addTemplateBtn.addEventListener('click', () => {
-      handleAddTemplate(); // No category pre-selected
+  // New: Add template button inside category (Proposal 3)
+  document.querySelectorAll('.budget-add-template-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      await handleAddTemplate(btn.dataset.categoryId, btn.dataset.categoryName);
     });
-  }
+  });
+  
+  // New: Edit/Add budget button inside category (Proposal 3)
+  document.querySelectorAll('.budget-edit-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const action = btn.dataset.action;
+      
+      if (action === 'add-budget') {
+        await handleAddBudget(btn.dataset.categoryId, btn.dataset.categoryName);
+      } else if (action === 'edit-budget') {
+        await handleEditBudget(
+          btn.dataset.categoryId,
+          btn.dataset.budgetId,
+          btn.dataset.amount,
+          btn.dataset.categoryName
+        );
+      }
+    });
+  });
 }
 
 /**
@@ -3840,7 +3885,8 @@ async function handleAddTemplate(categoryId = null, categoryName = null) {
  */
 async function showTemplateModal(categoryId, categoryName, existingTemplate = null) {
   const isEdit = !!existingTemplate;
-  const title = isEdit ? 'Editar gasto' : 'Presupuestar nuevo gasto';
+  const hasCategoryPreselected = !!categoryId;
+  const title = isEdit ? 'Editar gasto recurrente' : 'Agregar gasto recurrente';
   
   // Get form config data from global state
   const users = window.formConfigCache?.users || [];
@@ -3904,9 +3950,11 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
           <!-- Categoría -->
           <label class="field">
             <span>Categoría *</span>
-            <select id="template-category" required>
+            <select id="template-category" required ${hasCategoryPreselected ? 'disabled' : ''}>
               <option value="" selected disabled>Seleccionar categoría</option>
+              ${hasCategoryPreselected ? `<option value="${categoryId}" selected>${categoryName}</option>` : ''}
             </select>
+            ${hasCategoryPreselected ? `<input type="hidden" name="category_id" value="${categoryId}" />` : ''}
           </label>
           
           <!-- Nombre -->
@@ -3950,17 +3998,17 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
             </small>
           </label>
           
-          <!-- Tipo de movimiento (optional - only for form pre-fill or auto-generate) -->
+          <!-- Tipo de movimiento (required for templates) -->
           <label class="field">
-            <span>Tipo de movimiento</span>
-            <select id="template-movement-type">
-              <option value="">Solo para presupuesto (sin tipo)</option>
+            <span>Tipo de movimiento *</span>
+            <select id="template-movement-type" required>
+              <option value="" selected disabled>Seleccionar tipo</option>
               <option value="HOUSEHOLD">Gasto del hogar</option>
               <option value="SPLIT">Gasto compartido</option>
               <option value="DEBT_PAYMENT">Préstamo</option>
             </select>
             <small style="color: #6b7280; font-size: 12px; margin-top: 4px; display: block;">
-              Si seleccionas un tipo, podrás pre-llenar el formulario de movimiento
+              Define cómo se registrará este gasto cuando lo agregues desde el formulario
             </small>
           </label>
           
@@ -3988,7 +4036,7 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
           
           <!-- Método de pago (para SPLIT, justo después del pagador) -->
           <label class="field hidden" id="template-payment-method-wrap-split">
-            <span>Método de pago *</span>
+            <span id="template-payment-method-label-split">Método de pago</span>
             <select id="template-payment-method">
               <option value="">Selecciona...</option>
               ${paymentMethods.map(pm => `<option value="${pm.id}">${pm.name}</option>`).join('')}
@@ -4039,7 +4087,7 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
           
           <!-- Cuenta donde recibe (para DEBT_PAYMENT cuando el receptor es miembro) -->
           <label class="field hidden" id="template-receiver-account-wrap">
-            <span>Cuenta donde recibe *</span>
+            <span id="template-receiver-account-label">Cuenta donde recibe</span>
             <select id="template-receiver-account">
               <option value="">Selecciona cuenta</option>
             </select>
@@ -4047,7 +4095,7 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
           
           <!-- Método de pago (para DEBT_PAYMENT/HOUSEHOLD) -->
           <label class="field hidden" id="template-payment-method-wrap-other">
-            <span>Método de pago *</span>
+            <span id="template-payment-method-label-other">Método de pago</span>
             <select id="template-payment-method-other">
               <option value="">Selecciona...</option>
               ${paymentMethods.map(pm => `<option value="${pm.id}">${pm.name}</option>`).join('')}
@@ -4101,8 +4149,20 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
   const showAsValueCheckbox = document.getElementById('template-show-as-value');
   const amountInput = document.getElementById('template-amount');
   
-  // Populate category dropdown with optgroups
-  if (categoryGroups && categoryGroups.length > 0) {
+  // Label elements for dynamic asterisk
+  const paymentMethodLabelSplit = document.getElementById('template-payment-method-label-split');
+  const paymentMethodLabelOther = document.getElementById('template-payment-method-label-other');
+  const receiverAccountLabel = document.getElementById('template-receiver-account-label');
+  
+  // Helper function to update label asterisk based on required state
+  function updateLabelRequired(labelElement, isRequired) {
+    if (!labelElement) return;
+    const baseText = labelElement.textContent.replace(' *', '');
+    labelElement.textContent = isRequired ? baseText + ' *' : baseText;
+  }
+  
+  // Populate category dropdown with optgroups (only if not pre-selected)
+  if (!hasCategoryPreselected && categoryGroups && categoryGroups.length > 0) {
     categoryGroups.forEach(group => {
       const optgroup = document.createElement('optgroup');
       optgroup.label = group.name.toUpperCase();
@@ -4111,9 +4171,6 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
         const opt = document.createElement('option');
         opt.value = cat.id;
         opt.textContent = getSimplifiedCategoryName(cat.name, group.name);
-        if (categoryId && cat.id === categoryId) {
-          opt.selected = true;
-        }
         optgroup.appendChild(opt);
       });
       
@@ -4405,18 +4462,55 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
   
   // Toggle day field and require movement_type based on auto-generate
   autoGenerateCheckbox.addEventListener('change', (e) => {
-    dayField.classList.toggle('hidden', !e.target.checked);
-    document.getElementById('template-day').required = e.target.checked;
+    const isAutoGenerate = e.target.checked;
+    const type = movementTypeSelect.value;
+    
+    dayField.classList.toggle('hidden', !isAutoGenerate);
+    document.getElementById('template-day').required = isAutoGenerate;
     
     // Auto-generate requires movement_type to be selected
-    if (e.target.checked) {
+    if (isAutoGenerate) {
       movementTypeSelect.required = true;
-      if (!movementTypeSelect.value) {
+      if (!type) {
         setStatus('Para generar automáticamente, debes seleccionar un tipo de movimiento', 'err');
       }
     } else {
       movementTypeSelect.required = false;
       setStatus('', '');
+    }
+    
+    // Update required status of type-specific fields based on auto-generate
+    if (type === 'HOUSEHOLD') {
+      paymentMethodSelectOther.required = isAutoGenerate;
+      updateLabelRequired(paymentMethodLabelOther, isAutoGenerate);
+    } else if (type === 'SPLIT') {
+      // For SPLIT, payer and participants are required only for auto-generate
+      // But we validate in submission, not with HTML required
+      // Payment method required if payer is a member AND auto-generate
+      const payerId = payerSelect.value;
+      if (payerId) {
+        const user = formState.usersMap[payerId];
+        const isRequired = isAutoGenerate && user && user.type === 'member';
+        paymentMethodSelect.required = isRequired;
+        updateLabelRequired(paymentMethodLabelSplit, isRequired);
+      }
+    } else if (type === 'DEBT_PAYMENT') {
+      // Payment method required if payer is a member AND auto-generate
+      const payerId = debtPayerSelect.value;
+      if (payerId) {
+        const user = formState.usersMap[payerId];
+        const isRequired = isAutoGenerate && user && user.type === 'member';
+        paymentMethodSelectOther.required = isRequired;
+        updateLabelRequired(paymentMethodLabelOther, isRequired);
+      }
+      // Receiver account required if receiver is a member AND auto-generate
+      const receiverId = debtReceiverSelect.value;
+      if (receiverId) {
+        const user = formState.usersMap[receiverId];
+        const isRequired = isAutoGenerate && user && user.type === 'member';
+        receiverAccountSelect.required = isRequired;
+        updateLabelRequired(receiverAccountLabel, isRequired);
+      }
     }
   });
   
@@ -4445,6 +4539,12 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
   // Handle movement type change
   movementTypeSelect.addEventListener('change', (e) => {
     const type = e.target.value;
+    const isAutoGenerate = autoGenerateCheckbox.checked;
+    
+    // Clear the error message when a type is selected
+    if (type && isAutoGenerate) {
+      setStatus('', '');
+    }
     
     // Reset all conditional sections
     loanDirectionWrap.classList.add('hidden');
@@ -4463,8 +4563,11 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
     
     if (type === 'HOUSEHOLD') {
       // Gasto del hogar: solo método de pago
+      // Show the field so user can optionally fill it (for pre-fill)
       paymentMethodWrapOther.classList.remove('hidden');
-      paymentMethodSelectOther.required = true;
+      // Only required if auto-generate is enabled
+      paymentMethodSelectOther.required = isAutoGenerate;
+      updateLabelRequired(paymentMethodLabelOther, isAutoGenerate);
       // Update payment methods for current user
       if (currentUser) {
         updatePaymentMethods(currentUser.id, paymentMethodSelectOther);
@@ -4481,6 +4584,7 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
       debtPaymentWrap.classList.remove('hidden');
       paymentMethodWrapOther.classList.add('hidden'); // Hidden by default
       paymentMethodSelectOther.required = false;
+      updateLabelRequired(paymentMethodLabelOther, false);
       updateLoanLabels(loanDirectionInput.value);
     }
   });
@@ -4488,9 +4592,12 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
   // Handle payer change for SPLIT (update payment methods)
   payerSelect.addEventListener('change', (e) => {
     const payerId = e.target.value;
+    const isAutoGenerate = autoGenerateCheckbox.checked;
+    
     if (!payerId) {
       paymentMethodWrapSplit.classList.add('hidden');
       paymentMethodSelect.required = false;
+      updateLabelRequired(paymentMethodLabelSplit, false);
       return;
     }
     
@@ -4498,17 +4605,22 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
     if (user && user.type === 'member') {
       // Only show payment method for household members
       paymentMethodWrapSplit.classList.remove('hidden');
-      paymentMethodSelect.required = true;
+      // Only required if auto-generate is enabled
+      paymentMethodSelect.required = isAutoGenerate;
+      updateLabelRequired(paymentMethodLabelSplit, isAutoGenerate);
       updatePaymentMethods(payerId, paymentMethodSelect);
     } else {
       paymentMethodWrapSplit.classList.add('hidden');
       paymentMethodSelect.required = false;
+      updateLabelRequired(paymentMethodLabelSplit, false);
     }
   });
   
   // Handle debt payer change (update payment methods)
   debtPayerSelect.addEventListener('change', (e) => {
     const payerId = e.target.value;
+    const isAutoGenerate = autoGenerateCheckbox.checked;
+    
     if (payerId) {
       const user = formState.usersMap[payerId];
       const isMember = user && user.type === 'member';
@@ -4516,11 +4628,14 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
       if (isMember) {
         updatePaymentMethods(payerId, paymentMethodSelectOther);
         paymentMethodWrapOther.classList.remove('hidden');
-        paymentMethodSelectOther.required = true;
+        // Only required if auto-generate is enabled
+        paymentMethodSelectOther.required = isAutoGenerate;
+        updateLabelRequired(paymentMethodLabelOther, isAutoGenerate);
       } else {
         // Hide payment method for contacts
         paymentMethodWrapOther.classList.add('hidden');
         paymentMethodSelectOther.required = false;
+        updateLabelRequired(paymentMethodLabelOther, false);
         paymentMethodSelectOther.value = '';
       }
     }
@@ -4529,6 +4644,8 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
   // Handle debt receiver change (show/hide receiver account for members)
   debtReceiverSelect.addEventListener('change', (e) => {
     const receiverId = e.target.value;
+    const isAutoGenerate = autoGenerateCheckbox.checked;
+    
     if (receiverId) {
       const user = formState.usersMap[receiverId];
       const isMember = user && user.type === 'member';
@@ -4546,20 +4663,25 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
         
         if (memberAccounts.length > 0) {
           receiverAccountWrap.classList.remove('hidden');
-          receiverAccountSelect.required = true;
+          // Only required if auto-generate is enabled
+          receiverAccountSelect.required = isAutoGenerate;
+          updateLabelRequired(receiverAccountLabel, isAutoGenerate);
         } else {
           receiverAccountWrap.classList.add('hidden');
           receiverAccountSelect.required = false;
+          updateLabelRequired(receiverAccountLabel, false);
         }
       } else {
         // Hide receiver account for contacts
         receiverAccountWrap.classList.add('hidden');
         receiverAccountSelect.required = false;
+        updateLabelRequired(receiverAccountLabel, false);
         receiverAccountSelect.value = '';
       }
     } else {
       receiverAccountWrap.classList.add('hidden');
       receiverAccountSelect.required = false;
+      updateLabelRequired(receiverAccountLabel, false);
       receiverAccountSelect.value = '';
     }
   });
@@ -4608,9 +4730,9 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
     const movementType = movementTypeSelect.value;
     const isAutoGenerate = autoGenerateCheckbox.checked;
     
-    // If auto-generate is enabled, movement_type is required
-    if (isAutoGenerate && !movementType) {
-      showError('Error', 'Para generar automáticamente, debes seleccionar un tipo de movimiento');
+    // Movement type is now always required
+    if (!movementType) {
+      showError('Error', 'Debes seleccionar un tipo de movimiento');
       return;
     }
     
