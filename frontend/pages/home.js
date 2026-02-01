@@ -899,7 +899,7 @@ function renderLoansCards() {
     const creditorInitials = getInitials(balance.creditor_name);
     const debtorColor = getAvatarColor(balance.debtor_name);
     const creditorColor = getAvatarColor(balance.creditor_name);
-    const isSettled = balance.amount === 0;
+    const isSettled = Math.abs(balance.amount) < 1; // Less than $1 COP = settled
     
     return `
       <div class="expense-group-card loan-card ${isSettled ? 'loan-settled' : ''}" data-debtor-id="${balance.debtor_id}" data-creditor-id="${balance.creditor_id}">
