@@ -4740,11 +4740,13 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
         paymentMethodSelectOther.required = isRequired;
         updateLabelRequired(paymentMethodLabelOther, isRequired);
       }
-      // Receiver account required if receiver is a member AND auto-generate
+      // Receiver account: required for REPAY + auto-generate, optional for LEND
       const receiverId = debtReceiverSelect.value;
       if (receiverId) {
         const user = formState.usersMap[receiverId];
-        const isRequired = isAutoGenerate && user && user.type === 'member';
+        const loanDirection = loanDirectionInput.value;
+        // Only required for REPAY (paying back debt), not for LEND (giving loan)
+        const isRequired = isAutoGenerate && user && user.type === 'member' && loanDirection === 'REPAY';
         receiverAccountSelect.required = isRequired;
         updateLabelRequired(receiverAccountLabel, isRequired);
       }
@@ -4759,6 +4761,17 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
       const direction = btn.dataset.direction;
       loanDirectionInput.value = direction;
       updateLoanLabels(direction);
+      
+      // Update receiver account required status based on direction
+      const receiverId = debtReceiverSelect.value;
+      const isAutoGenerate = autoGenerateCheckbox.checked;
+      if (receiverId) {
+        const user = formState.usersMap[receiverId];
+        // Only required for REPAY (paying back debt), not for LEND (giving loan)
+        const isRequired = isAutoGenerate && user && user.type === 'member' && direction === 'REPAY';
+        receiverAccountSelect.required = isRequired;
+        updateLabelRequired(receiverAccountLabel, isRequired);
+      }
     });
   });
   
@@ -4893,6 +4906,7 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
   debtReceiverSelect.addEventListener('change', (e) => {
     const receiverId = e.target.value;
     const isAutoGenerate = autoGenerateCheckbox.checked;
+    const loanDirection = loanDirectionInput.value;
     
     if (receiverId) {
       const user = formState.usersMap[receiverId];
@@ -4911,9 +4925,11 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
         
         if (memberAccounts.length > 0) {
           receiverAccountWrap.classList.remove('hidden');
-          // Only required if auto-generate is enabled
-          receiverAccountSelect.required = isAutoGenerate;
-          updateLabelRequired(receiverAccountLabel, isAutoGenerate);
+          // REPAY (pay back debt): required if auto-generate (money goes to their account)
+          // LEND (give loan): always optional (could be transfer or paying for them)
+          const isRequired = isAutoGenerate && loanDirection === 'REPAY';
+          receiverAccountSelect.required = isRequired;
+          updateLabelRequired(receiverAccountLabel, isRequired);
         } else {
           receiverAccountWrap.classList.add('hidden');
           receiverAccountSelect.required = false;
