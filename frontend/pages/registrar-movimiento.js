@@ -1085,7 +1085,7 @@ function renderRecurringTemplatesSelect() {
       const opt = document.createElement('option');
       opt.value = template.id;
       opt.textContent = template.name;
-      if (selectedTemplate && template.id === selectedTemplate) {
+      if (selectedTemplate && template.id === selectedTemplate.id) {
         opt.selected = true;
         foundSelected = true;
       }
@@ -2060,8 +2060,10 @@ function readForm() {
   };
 
   // Add generated_from_template_id if movement was created using a template
+  console.log('selectedTemplate before payload:', selectedTemplate); // DEBUG
   if (selectedTemplate && selectedTemplate.id) {
     payload.generated_from_template_id = selectedTemplate.id;
+    console.log('Adding generated_from_template_id to payload:', selectedTemplate.id); // DEBUG
   }
 
   // Add category_id (required for HOUSEHOLD, optional for DEBT_PAYMENT if payer is member)
@@ -2263,6 +2265,18 @@ async function loadMovementForEdit(movementId) {
     if (valorEl) valorEl.value = formatNumber(movement.amount);
     if (categoriaEl) categoriaEl.value = movement.category_id || '';
     
+    // If movement was created from a template, set selectedTemplate
+    if (movement.generated_from_template_id) {
+      selectedTemplate = { 
+        id: movement.generated_from_template_id,
+        name: movement.description || 'Template' // Use description as fallback name
+      };
+      console.log('Set selectedTemplate from movement:', selectedTemplate);
+      
+      // Update template dropdown if visible (need to trigger category change first)
+      // This will be done after onTipoChange updates the UI
+    }
+    
     if (fechaEl && movement.movement_date) {
       // Extract date in YYYY-MM-DD format without timezone conversion
       // movement_date comes as "2025-12-31" or "2025-12-31T00:00:00Z"
@@ -2357,7 +2371,7 @@ async function loadMovementForEdit(movementId) {
     if (currentTipoBtn) {
       currentTipoBtn.classList.add('active');
       document.getElementById('tipo').value = tipoForUI;
-      onTipoChange(); // This will render participants if type is SPLIT
+      onTipoChange(true); // Keep template selection when loading for edit
     }
     
     // Disable tipo selector buttons after selection
@@ -2400,8 +2414,8 @@ async function loadMovementForEdit(movementId) {
           }
         });
         
-        // Trigger UI update
-        onTipoChange();
+        // Trigger UI update (keep template selection)
+        onTipoChange(true);
       }
       
       // Set pagador (payer)
@@ -2562,6 +2576,45 @@ async function loadMovementForEdit(movementId) {
           }
         } catch (err) {
           console.error('Error setting receiver account:', err);
+        }
+      })();
+    }
+    
+    // If movement has a template, try to select it in the dropdown after templates are loaded
+    if (movement.generated_from_template_id && movement.category_id) {
+      (async () => {
+        try {
+          // Wait for category change to load templates
+          await delay(300);
+          
+          // Manually update recurringTemplates from the map
+          recurringTemplates = movement.category_id && recurringTemplatesMap[movement.category_id]
+            ? recurringTemplatesMap[movement.category_id]
+            : [];
+          
+          // Rebuild template dropdown
+          renderRecurringTemplatesSelect();
+          
+          // Select the template in dropdown
+          const templateEl = document.getElementById('recurringTemplate');
+          const templateEl2 = document.getElementById('recurringTemplate2');
+          
+          if (templateEl) {
+            templateEl.value = movement.generated_from_template_id;
+          }
+          if (templateEl2) {
+            templateEl2.value = movement.generated_from_template_id;
+          }
+          
+          // Show the template dropdown
+          const templateWrap = document.getElementById('recurringTemplateWrap');
+          const templateWrap2 = document.getElementById('recurringTemplateWrap2');
+          if (templateWrap && recurringTemplates.length > 0) templateWrap.classList.remove('hidden');
+          if (templateWrap2 && recurringTemplates.length > 0) templateWrap2.classList.remove('hidden');
+          
+          console.log('Template dropdown set to:', movement.generated_from_template_id);
+        } catch (err) {
+          console.error('Error setting template dropdown:', err);
         }
       })();
     }

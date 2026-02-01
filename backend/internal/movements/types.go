@@ -127,7 +127,7 @@ type CreateMovementInput struct {
 	// Participants (required only for SPLIT)
 	Participants []ParticipantInput `json:"participants,omitempty"`
 	
-	// Generated from template (internal use only, not from API input)
+	// Generated from template (set when movement is created from a recurring template)
 	GeneratedFromTemplateID *string `json:"generated_from_template_id,omitempty"`
 }
 

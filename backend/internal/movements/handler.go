@@ -401,6 +401,9 @@ type CreateMovementRequest struct {
 	PaymentMethodID   *string                  `json:"payment_method_id,omitempty"`
 	ReceiverAccountID *string                  `json:"receiver_account_id,omitempty"`
 	Participants      []ParticipantRequestItem `json:"participants,omitempty"`
+	
+	// Template reference (when movement is created from a recurring template)
+	GeneratedFromTemplateID *string `json:"generated_from_template_id,omitempty"`
 }
 
 // ParticipantRequestItem represents a participant in the HTTP request
@@ -420,18 +423,19 @@ func (r *CreateMovementRequest) ToInput() (*CreateMovementInput, error) {
 	}
 
 	input := &CreateMovementInput{
-		Type:                  MovementType(r.Type),
-		Description:           r.Description,
-		Amount:                r.Amount,
-		Category:              r.Category,
-		CategoryID:            r.CategoryID,
-		MovementDate:          movementDate,
-		PayerUserID:           r.PayerUserID,
-		PayerContactID:        r.PayerContactID,
-		CounterpartyUserID:    r.CounterpartyUserID,
-		CounterpartyContactID: r.CounterpartyContactID,
-		PaymentMethodID:       r.PaymentMethodID,
-		ReceiverAccountID:     r.ReceiverAccountID,
+		Type:                    MovementType(r.Type),
+		Description:             r.Description,
+		Amount:                  r.Amount,
+		Category:                r.Category,
+		CategoryID:              r.CategoryID,
+		MovementDate:            movementDate,
+		PayerUserID:             r.PayerUserID,
+		PayerContactID:          r.PayerContactID,
+		CounterpartyUserID:      r.CounterpartyUserID,
+		CounterpartyContactID:   r.CounterpartyContactID,
+		PaymentMethodID:         r.PaymentMethodID,
+		ReceiverAccountID:       r.ReceiverAccountID,
+		GeneratedFromTemplateID: r.GeneratedFromTemplateID,
 	}
 
 	// Convert participants
