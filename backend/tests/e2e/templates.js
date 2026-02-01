@@ -134,15 +134,23 @@ async function testTemplates() {
     await presupuestoTab.click();
     await page.waitForTimeout(1500);
     
-    // Click + button (global add template button)
-    const plusBtn = page.locator('button#add-template-btn');
-    await plusBtn.click();
+    // Expand Casa group to see categories
+    const casaGroupHeader = page.locator('.expense-group-header').filter({ hasText: 'Casa' });
+    await casaGroupHeader.click();
+    await page.waitForTimeout(500);
+    
+    // Click on Mercado category to expand it
+    const mercadoCategoryHeader = page.locator('.expense-category-header').filter({ hasText: 'Mercado' });
+    await mercadoCategoryHeader.click();
+    await page.waitForTimeout(500);
+    
+    // Click "Agregar gasto recurrente" button inside Mercado category
+    const addTemplateBtn = page.locator('.budget-add-template-btn[data-category-name="Mercado"]');
+    await addTemplateBtn.waitFor({ state: 'visible', timeout: 5000 });
+    await addTemplateBtn.click();
     await page.waitForTimeout(1000);
     
-    // Fill template form
-    const categorySelect = page.locator('#template-category');
-    await categorySelect.selectOption(categoryIds[0].id); // Mercado
-    
+    // Fill template form (category should be pre-selected and disabled)
     await page.locator('#template-name').fill('Compras Exito');
     await page.locator('#template-amount').fill('500000');
     await page.locator('#template-movement-type').selectOption('HOUSEHOLD');
@@ -191,10 +199,27 @@ async function testTemplates() {
     // ==================================================================
     console.log('\n📝 Test 2: Add second template to Mercado');
     
-    await plusBtn.click();
+    // Navigate back to Presupuesto and expand Mercado again
+    await page.goto(`${appUrl}/`);
+    await page.waitForSelector('#loading', { state: 'hidden', timeout: 15000 });
+    await presupuestoTab.click();
+    await page.waitForTimeout(1500);
+    
+    // Expand Casa group
+    const casaGroupHeader2 = page.locator('.expense-group-header').filter({ hasText: 'Casa' });
+    await casaGroupHeader2.click();
+    await page.waitForTimeout(500);
+    
+    // Click on Mercado category to expand it
+    const mercadoCategoryHeader2 = page.locator('.expense-category-header').filter({ hasText: 'Mercado' });
+    await mercadoCategoryHeader2.click();
+    await page.waitForTimeout(500);
+    
+    // Click "Agregar gasto recurrente" button
+    const addTemplateBtn2 = page.locator('.budget-add-template-btn[data-category-name="Mercado"]');
+    await addTemplateBtn2.click();
     await page.waitForTimeout(1000);
     
-    await categorySelect.selectOption(categoryIds[0].id);
     await page.locator('#template-name').fill('Compras Carulla');
     await page.locator('#template-amount').fill('300000');
     
@@ -240,10 +265,27 @@ async function testTemplates() {
     // ==================================================================
     console.log('\n📝 Test 3: Add template to Gastos fijos (no budget yet)');
     
-    await plusBtn.click();
+    // Navigate back to Presupuesto
+    await page.goto(`${appUrl}/`);
+    await page.waitForSelector('#loading', { state: 'hidden', timeout: 15000 });
+    await presupuestoTab.click();
+    await page.waitForTimeout(1500);
+    
+    // Expand Casa group
+    const casaGroupHeader3 = page.locator('.expense-group-header').filter({ hasText: 'Casa' });
+    await casaGroupHeader3.click();
+    await page.waitForTimeout(500);
+    
+    // Click on Gastos fijos category to expand it
+    const gastosFijosCategoryHeader = page.locator('.expense-category-header').filter({ hasText: 'Gastos fijos' });
+    await gastosFijosCategoryHeader.click();
+    await page.waitForTimeout(500);
+    
+    // Click "Agregar gasto recurrente" button
+    const addTemplateBtn3 = page.locator('.budget-add-template-btn[data-category-name="Gastos fijos"]');
+    await addTemplateBtn3.click();
     await page.waitForTimeout(1000);
     
-    await categorySelect.selectOption(categoryIds[1].id); // Gastos fijos
     await page.locator('#template-name').fill('Arriendo');
     await page.locator('#template-amount').fill('3200000');
     
@@ -298,20 +340,20 @@ async function testTemplates() {
     await page.waitForTimeout(1500);
     
     // Expand Casa group to see categories
-    const casaGroup = page.locator('.expense-group-header').filter({ hasText: 'Casa' });
-    if (await casaGroup.count() > 0) {
-      await casaGroup.click();
+    const casaGroup4 = page.locator('.expense-group-header').filter({ hasText: 'Casa' });
+    if (await casaGroup4.count() > 0) {
+      await casaGroup4.click();
       await page.waitForTimeout(500);
     }
     
     // Click on Mercado category HEADER to expand it
-    const mercadoCategoryHeader = page.locator('.expense-category-header').filter({ hasText: 'Mercado' });
-    await mercadoCategoryHeader.waitFor({ state: 'visible', timeout: 5000 });
-    await mercadoCategoryHeader.click();
+    const mercadoCategoryHeader4 = page.locator('.expense-category-header').filter({ hasText: 'Mercado' });
+    await mercadoCategoryHeader4.waitFor({ state: 'visible', timeout: 5000 });
+    await mercadoCategoryHeader4.click();
     await page.waitForTimeout(500);
     
     // Now the edit button should be visible - find it by data-category-name attribute
-    const editBudgetBtn = page.locator('.budget-action-btn[data-action="edit-budget"][data-category-name="Mercado"]');
+    const editBudgetBtn = page.locator('.budget-edit-btn[data-category-name="Mercado"]');
     await editBudgetBtn.waitFor({ state: 'visible', timeout: 5000 });
     await editBudgetBtn.click();
     await page.waitForTimeout(1000);
@@ -384,7 +426,7 @@ async function testTemplates() {
     await page.waitForTimeout(700);
     
     // Step 3: Click edit button (now visible)
-    const editBudgetBtn2 = page.locator('.budget-action-btn[data-action="edit-budget"][data-category-name="Mercado"]');
+    const editBudgetBtn2 = page.locator('.budget-edit-btn[data-category-name="Mercado"]');
     await editBudgetBtn2.waitFor({ state: 'visible', timeout: 5000 });
     await editBudgetBtn2.click();
     await page.waitForTimeout(800);
@@ -447,7 +489,7 @@ async function testTemplates() {
     await page.waitForTimeout(700);
     
     // Step 3: Click edit button
-    const editBudgetBtn3 = page.locator('.budget-action-btn[data-action="edit-budget"][data-category-name="Mercado"]');
+    const editBudgetBtn3 = page.locator('.budget-edit-btn[data-category-name="Mercado"]');
     await editBudgetBtn3.waitFor({ state: 'visible', timeout: 5000 });
     await editBudgetBtn3.click();
     await page.waitForTimeout(800);
@@ -505,13 +547,13 @@ async function testTemplates() {
     await page.waitForTimeout(700);
     
     // Expand Gastos fijos category
-    const gastosFijosCategoryHeader = page.locator('.expense-category-header').filter({ hasText: 'Gastos fijos' });
-    await gastosFijosCategoryHeader.waitFor({ state: 'visible', timeout: 5000 });
-    await gastosFijosCategoryHeader.click();
+    const gastosFijosCategoryHeader7 = page.locator('.expense-category-header').filter({ hasText: 'Gastos fijos' });
+    await gastosFijosCategoryHeader7.waitFor({ state: 'visible', timeout: 5000 });
+    await gastosFijosCategoryHeader7.click();
     await page.waitForTimeout(700);
     
     // Click "Agregar presupuesto" button (now visible)
-    const addBudgetBtn = page.locator('.budget-action-btn[data-action="add-budget"]').filter({ hasText: /Agregar presupuesto total/i }).first();
+    const addBudgetBtn = page.locator('.budget-edit-btn[data-category-name="Gastos fijos"]');
     await addBudgetBtn.waitFor({ state: 'visible', timeout: 5000 });
     await addBudgetBtn.click();
     await page.waitForTimeout(1000);

@@ -119,16 +119,16 @@ async function testTemplatePrefill() {
     const paymentMethodId = paymentMethodResult.rows[0].id;
     console.log('  ✅ Created payment method: Efectivo Test (ID:', paymentMethodId, ')');
     
-    // Create recurring template (HOUSEHOLD type)
+    // Create recurring template (HOUSEHOLD type - no payer required per constraint)
     const templateResult = await pool.query(
       `INSERT INTO recurring_movement_templates 
        (household_id, name, type, category_id, amount, 
         auto_generate, recurrence_pattern, day_of_month, is_active, 
-        payer_user_id, payment_method_id, start_date)
+        payment_method_id, start_date)
        VALUES ($1, 'Arriendo Test', 'HOUSEHOLD', $2, 3200000, 
-               true, 'MONTHLY', 1, true, $3, $4, CURRENT_DATE) 
+               true, 'MONTHLY', 1, true, $3, CURRENT_DATE) 
        RETURNING id`,
-      [householdId, categoryId, userId, paymentMethodId]
+      [householdId, categoryId, paymentMethodId]
     );
     const templateId = templateResult.rows[0].id;
     console.log('  ✅ Created template: Arriendo Test (ID:', templateId, ')');

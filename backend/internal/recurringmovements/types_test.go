@@ -93,11 +93,11 @@ func TestCreateTemplateInputValidate(t *testing.T) {
 	categoryID := "cat-123"
 	payerUserID := "user-123"
 	participantUserID := "participant-123"
+	paymentMethodID := "pm-123"
 	dayOfMonth := 1
 	startDate := &NullableDate{Valid: true, Time: time.Now()}
 	recurrence := RecurrenceMonthly
 	autoGenTrue := true
-	autoGenFalse := false
 
 	tests := []struct {
 		name    string
@@ -109,10 +109,11 @@ func TestCreateTemplateInputValidate(t *testing.T) {
 			name: "Valid template with auto_generate",
 			input: &CreateTemplateInput{
 				Name:              "Rent",
-				MovementType:      movements.TypeSplit,
+				MovementType:      movementTypePtr(movements.TypeSplit),
 				Amount:            amount,
 				CategoryID:        &categoryID,
 				PayerUserID:       &payerUserID,
+				PaymentMethodID:   &paymentMethodID,
 				AutoGenerate:      &autoGenTrue,
 				RecurrencePattern: &recurrence,
 				DayOfMonth:        &dayOfMonth,
@@ -124,16 +125,13 @@ func TestCreateTemplateInputValidate(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "Valid template without auto_generate",
+			name: "Valid template without auto_generate - minimal",
 			input: &CreateTemplateInput{
 				Name:         "Utilities",
-				MovementType: movements.TypeSplit,
+				MovementType: movementTypePtr(movements.TypeSplit),
 				Amount:       amount,
 				CategoryID:   &categoryID,
-				PayerUserID:  &payerUserID,
-				Participants: []TemplateParticipantInput{
-					{ParticipantUserID: &participantUserID, Percentage: 1.0},
-				},
+				// No payer required for non-auto-generate
 			},
 			wantErr: false,
 		},
@@ -141,8 +139,9 @@ func TestCreateTemplateInputValidate(t *testing.T) {
 			name: "Missing name",
 			input: &CreateTemplateInput{
 				Name:         "",
-				MovementType: movements.TypeSplit,
+				MovementType: movementTypePtr(movements.TypeSplit),
 				Amount:       amount,
+				CategoryID:   &categoryID,
 			},
 			wantErr: true,
 			errMsg:  "name is required",
@@ -151,7 +150,8 @@ func TestCreateTemplateInputValidate(t *testing.T) {
 			name: "Missing amount",
 			input: &CreateTemplateInput{
 				Name:         "Test",
-				MovementType: movements.TypeSplit,
+				MovementType: movementTypePtr(movements.TypeSplit),
+				CategoryID:   &categoryID,
 			},
 			wantErr: true,
 			errMsg:  "amount is required and must be greater than 0",
@@ -160,8 +160,9 @@ func TestCreateTemplateInputValidate(t *testing.T) {
 			name: "auto_generate without recurrence",
 			input: &CreateTemplateInput{
 				Name:         "Test",
-				MovementType: movements.TypeSplit,
+				MovementType: movementTypePtr(movements.TypeSplit),
 				Amount:       amount,
+				CategoryID:   &categoryID,
 				AutoGenerate: &autoGenTrue,
 			},
 			wantErr: true,
@@ -171,8 +172,9 @@ func TestCreateTemplateInputValidate(t *testing.T) {
 			name: "MONTHLY without day_of_month",
 			input: &CreateTemplateInput{
 				Name:              "Test",
-				MovementType:      movements.TypeSplit,
+				MovementType:      movementTypePtr(movements.TypeSplit),
 				Amount:            amount,
+				CategoryID:        &categoryID,
 				AutoGenerate:      &autoGenTrue,
 				RecurrencePattern: &recurrence,
 				StartDate:         startDate,
@@ -184,8 +186,9 @@ func TestCreateTemplateInputValidate(t *testing.T) {
 			name: "Invalid day_of_month",
 			input: &CreateTemplateInput{
 				Name:              "Test",
-				MovementType:      movements.TypeSplit,
+				MovementType:      movementTypePtr(movements.TypeSplit),
 				Amount:            amount,
+				CategoryID:        &categoryID,
 				AutoGenerate:      &autoGenTrue,
 				RecurrencePattern: &recurrence,
 				StartDate:         startDate,
@@ -198,8 +201,9 @@ func TestCreateTemplateInputValidate(t *testing.T) {
 			name: "YEARLY without day_of_year",
 			input: &CreateTemplateInput{
 				Name:              "Test",
-				MovementType:      movements.TypeSplit,
+				MovementType:      movementTypePtr(movements.TypeSplit),
 				Amount:            amount,
+				CategoryID:        &categoryID,
 				AutoGenerate:      &autoGenTrue,
 				RecurrencePattern: recurrencePtr(RecurrenceYearly),
 				StartDate:         startDate,
@@ -208,14 +212,36 @@ func TestCreateTemplateInputValidate(t *testing.T) {
 			errMsg:  "day_of_year required for YEARLY recurrence",
 		},
 		{
-			name: "SPLIT without participants",
+			name: "SPLIT with auto_generate needs payer",
 			input: &CreateTemplateInput{
-				Name:         "Test",
-				MovementType: movements.TypeSplit,
-				Amount:       amount,
-				CategoryID:   &categoryID,
-				PayerUserID:  &payerUserID,
-				AutoGenerate: &autoGenFalse,
+				Name:              "Test",
+				MovementType:      movementTypePtr(movements.TypeSplit),
+				Amount:            amount,
+				CategoryID:        &categoryID,
+				AutoGenerate:      &autoGenTrue,
+				RecurrencePattern: &recurrence,
+				DayOfMonth:        &dayOfMonth,
+				StartDate:         startDate,
+				Participants: []TemplateParticipantInput{
+					{ParticipantUserID: &participantUserID, Percentage: 1.0},
+				},
+			},
+			wantErr: true,
+			errMsg:  "payer (user or contact) is required for SPLIT auto-generate",
+		},
+		{
+			name: "SPLIT with auto_generate needs participants",
+			input: &CreateTemplateInput{
+				Name:              "Test",
+				MovementType:      movementTypePtr(movements.TypeSplit),
+				Amount:            amount,
+				CategoryID:        &categoryID,
+				PayerUserID:       &payerUserID,
+				PaymentMethodID:   &paymentMethodID,
+				AutoGenerate:      &autoGenTrue,
+				RecurrencePattern: &recurrence,
+				DayOfMonth:        &dayOfMonth,
+				StartDate:         startDate,
 			},
 			wantErr: true,
 			errMsg:  "participants required for SPLIT templates",
@@ -223,12 +249,16 @@ func TestCreateTemplateInputValidate(t *testing.T) {
 		{
 			name: "Invalid participant percentage sum",
 			input: &CreateTemplateInput{
-				Name:         "Test",
-				MovementType: movements.TypeSplit,
-				Amount:       amount,
-				CategoryID:   &categoryID,
-				PayerUserID:  &payerUserID,
-				AutoGenerate: &autoGenFalse,
+				Name:              "Test",
+				MovementType:      movementTypePtr(movements.TypeSplit),
+				Amount:            amount,
+				CategoryID:        &categoryID,
+				PayerUserID:       &payerUserID,
+				PaymentMethodID:   &paymentMethodID,
+				AutoGenerate:      &autoGenTrue,
+				RecurrencePattern: &recurrence,
+				DayOfMonth:        &dayOfMonth,
+				StartDate:         startDate,
 				Participants: []TemplateParticipantInput{
 					{ParticipantUserID: strPtr("user1"), Percentage: 0.5},
 					{ParticipantUserID: strPtr("user2"), Percentage: 0.3},
@@ -264,4 +294,8 @@ func strPtr(s string) *string {
 
 func recurrencePtr(r RecurrencePattern) *RecurrencePattern {
 	return &r
+}
+
+func movementTypePtr(t movements.MovementType) *movements.MovementType {
+	return &t
 }

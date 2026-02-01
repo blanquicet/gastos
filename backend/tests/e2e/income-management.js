@@ -167,11 +167,12 @@ async function testIncomeManagement() {
     console.log('📝 Step 4: Registering salary income...');
     
     await page.goto(`${appUrl}/registrar-movimiento`);
-    await page.waitForTimeout(1000);
+    await page.waitForSelector('#loading', { state: 'hidden', timeout: 10000 });
+    await page.waitForSelector('.tipo-btn[data-tipo="INGRESO"]', { state: 'visible', timeout: 5000 });
     
     // Click INGRESO button
     await page.locator('button.tipo-btn[data-tipo="INGRESO"]').click();
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(300);
     
     // Fill income form
     await page.locator('#descripcion').fill('Salario Enero 2026');
@@ -222,11 +223,12 @@ async function testIncomeManagement() {
     console.log('📝 Step 5: Registering freelance income...');
     
     await page.goto(`${appUrl}/registrar-movimiento`);
-    await page.waitForTimeout(1000);
+    await page.waitForSelector('#loading', { state: 'hidden', timeout: 10000 });
+    await page.waitForSelector('.tipo-btn[data-tipo="INGRESO"]', { state: 'visible', timeout: 5000 });
     
     // Click INGRESO button
     await page.locator('button.tipo-btn[data-tipo="INGRESO"]').click();
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(300);
     
     await page.locator('#descripcion').fill('Proyecto Freelance X');
     await page.locator('#valor').fill('1500000');
@@ -264,11 +266,12 @@ async function testIncomeManagement() {
     console.log('📝 Step 6: Registering savings withdrawal...');
     
     await page.goto(`${appUrl}/registrar-movimiento`);
-    await page.waitForTimeout(1000);
+    await page.waitForSelector('#loading', { state: 'hidden', timeout: 10000 });
+    await page.waitForSelector('.tipo-btn[data-tipo="INGRESO"]', { state: 'visible', timeout: 5000 });
     
     // Click INGRESO button
     await page.locator('button.tipo-btn[data-tipo="INGRESO"]').click();
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(300);
     
     await page.locator('#descripcion').fill('Retiro para bolsillo');
     await page.locator('#valor').fill('200000');
@@ -307,15 +310,23 @@ async function testIncomeManagement() {
     
     // Navigate to home first
     await page.goto(`${appUrl}/`);
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(1000);
     
     // Click on Ingresos tab
     await page.locator('button.tab-btn[data-tab="ingresos"]').click();
-    await page.waitForTimeout(3000); // Wait for data to load
+    await page.waitForTimeout(1500);
+    
+    // Navigate to January 2026 (incomes were registered for January)
+    // Click prev month button until we see "Enero"
+    const currentMonth = await page.locator('.month-display').textContent();
+    if (!currentMonth.includes('Enero')) {
+      await page.locator('.month-nav-btn:first-child').click(); // Previous month
+      await page.waitForTimeout(1000);
+    }
     
     // Wait for income list to be present
     await page.waitForSelector('.dashboard-content', { timeout: 5000 });
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(500);
     
     // Check for income descriptions
     const salaryText = await page.locator('text=Salario Enero 2026').count();
