@@ -8,7 +8,6 @@ import (
 	"github.com/blanquicet/gastos/backend/internal/accounts"
 	"github.com/blanquicet/gastos/backend/internal/audit"
 	"github.com/blanquicet/gastos/backend/internal/households"
-	"github.com/blanquicet/gastos/backend/internal/n8nclient"
 	"github.com/blanquicet/gastos/backend/internal/paymentmethods"
 )
 
@@ -18,7 +17,6 @@ type service struct {
 	householdsRepo    households.HouseholdRepository
 	paymentMethodRepo paymentmethods.Repository
 	accountsRepo      accounts.Repository
-	n8nClient         *n8nclient.Client
 	auditService      audit.Service
 	logger            *slog.Logger
 }
@@ -29,7 +27,6 @@ func NewService(
 	householdsRepo households.HouseholdRepository,
 	paymentMethodRepo paymentmethods.Repository,
 	accountsRepo accounts.Repository,
-	n8nClient *n8nclient.Client,
 	auditService audit.Service,
 	logger *slog.Logger,
 ) Service {
@@ -38,7 +35,6 @@ func NewService(
 		householdsRepo:    householdsRepo,
 		paymentMethodRepo: paymentMethodRepo,
 		accountsRepo:      accountsRepo,
-		n8nClient:         n8nClient,
 		auditService:      auditService,
 		logger:            logger,
 	}
@@ -188,80 +184,7 @@ func (s *service) Create(ctx context.Context, userID string, input *CreateMoveme
 		Success:      true,
 	})
 
-	// Dual write to n8n (Google Sheets) if configured
-	if s.n8nClient != nil {
-		n8nMovement := s.convertToN8NMovement(movement)
-		
-		s.logger.Info("sending movement to n8n", 
-			"movement_id", movement.ID, 
-			"type", movement.Type, 
-			"amount", movement.Amount)
-		
-		resp, err := s.n8nClient.RecordMovement(ctx, n8nMovement)
-		if err != nil {
-			s.logger.Error("failed to send movement to n8n", 
-				"error", err, 
-				"movement_id", movement.ID)
-			return nil, ErrN8NUnavailable
-		}
-		s.logger.Info("movement sent to n8n successfully", 
-			"movement_id", movement.ID, 
-			"n8n_response", resp)
-	}
-
 	return movement, nil
-}
-
-// convertToN8NMovement converts a Movement to n8nclient.Movement format
-func (s *service) convertToN8NMovement(m *Movement) *n8nclient.Movement {
-	n8nMov := &n8nclient.Movement{
-		ID:          m.ID,
-		Fecha:       m.MovementDate.Format("2006-01-02"),
-		Tipo:        "gasto", // All movements are "gasto" type in n8n
-		Valor:       m.Amount,
-		Descripcion: m.Description,
-	}
-
-	// Map English type to Spanish for Google Sheets compatibility
-	switch m.Type {
-	case TypeHousehold:
-		n8nMov.SubTipo = "FAMILIAR"
-	case TypeSplit:
-		n8nMov.SubTipo = "COMPARTIDO"
-	case TypeDebtPayment:
-		n8nMov.SubTipo = "PAGO_DEUDA"
-	}
-
-	// Set payer name
-	n8nMov.Pagador = m.PayerName
-
-	// Set counterparty for DEBT_PAYMENT
-	if m.Type == TypeDebtPayment && m.CounterpartyName != nil {
-		n8nMov.Contraparte = *m.CounterpartyName
-	}
-
-	// Set category
-	if m.CategoryName != nil {
-		n8nMov.Categoria = *m.CategoryName
-	}
-
-	// Set payment method
-	if m.PaymentMethodName != nil {
-		n8nMov.MetodoPago = *m.PaymentMethodName
-	}
-
-	// Set participants for SPLIT
-	if m.Type == TypeSplit && len(m.Participants) > 0 {
-		n8nMov.Participantes = make([]n8nclient.Participante, len(m.Participants))
-		for i, p := range m.Participants {
-			n8nMov.Participantes[i] = n8nclient.Participante{
-				Nombre:     p.ParticipantName,
-				Porcentaje: p.Percentage,
-			}
-		}
-	}
-
-	return n8nMov
 }
 
 // GetByID retrieves a movement by ID
@@ -768,12 +691,6 @@ func (s *service) Update(ctx context.Context, userID, id string, input *UpdateMo
 		Success:      true,
 	})
 
-	// Note: We don't dual-write updates to n8n for now
-	// Google Sheets will have the original data until migration
-	s.logger.Info("movement updated", 
-		"movement_id", id, 
-		"note", "update not synced to Google Sheets")
-
 	return updated, nil
 }
 
@@ -821,12 +738,6 @@ func (s *service) Delete(ctx context.Context, userID, id string) error {
 		OldValues:    audit.StructToMap(existing),
 		Success:      true,
 	})
-
-	// Note: We don't dual-write deletes to n8n for now
-	// Google Sheets will keep the data until manual cleanup
-	s.logger.Info("movement deleted", 
-		"movement_id", id, 
-		"note", "deletion not synced to Google Sheets")
 
 	return nil
 }

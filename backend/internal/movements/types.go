@@ -20,7 +20,6 @@ var (
 	ErrInvalidPercentageSum   = errors.New("participant percentages must sum to 100%")
 	ErrCategoryRequired       = errors.New("category is required for this movement type")
 	ErrPaymentMethodRequired  = errors.New("payment method is required")
-	ErrN8NUnavailable         = errors.New("n8n service unavailable - movement saved to database but not synced to Google Sheets. Please contact administrator")
 )
 
 // MovementType represents the type of movement

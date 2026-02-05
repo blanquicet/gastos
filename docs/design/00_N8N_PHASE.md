@@ -1,9 +1,38 @@
 # Movement Registration with n8n Backend
 
-> **Current Status:** ✅ ACTIVE for movements registration
+> **⚠️ DEPRECATED - REMOVED AS OF FEBRUARY 2026**
 >
-> This phase describes the n8n-based movement registration system.
-> This is the **current implementation** for recording movements until Phase 2 migration.
+> This phase describes the **legacy** n8n-based movement registration system.
+> **n8n integration has been completely removed from the codebase.**
+>
+> PostgreSQL is now the single source of truth for all data.
+> Google Sheets sync via n8n is no longer used.
+>
+> This document is preserved for historical reference only.
+
+---
+
+## Removal Details
+
+**Date removed:** February 2026
+
+**Files deleted:**
+- `backend/internal/n8nclient/` (entire package)
+
+**Files modified:**
+- `backend/internal/movements/service.go` - Removed dual-write code
+- `backend/internal/income/service.go` - Removed dual-write code
+- `backend/internal/httpserver/server.go` - Removed n8n client initialization
+- `backend/internal/config/config.go` - Removed n8n config fields
+- `backend/.env.example` - Removed n8n environment variables
+
+**Environment variables removed:**
+- `N8N_WEBHOOK_URL`
+- `N8N_API_KEY`
+
+---
+
+## Historical Documentation (for reference)
 
 **Architecture:**
 

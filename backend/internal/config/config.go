@@ -38,11 +38,6 @@ type Config struct {
 	SMTPUsername     string
 	SMTPPassword     string
 
-	// n8n configuration (for movement registration during migration period)
-	N8NWebhookURL string
-	N8NAPIKey     string
-	N8NIsTest     bool
-
 	// Static files (for local development)
 	StaticDir string
 }
@@ -115,11 +110,6 @@ func Load() (*Config, error) {
 	// Email provider API key (generic for SendGrid, Resend, etc.)
 	emailAPIKey := os.Getenv("EMAIL_API_KEY")
 
-	// n8n configuration (for movement registration during migration period)
-	n8nWebhookURL := os.Getenv("N8N_WEBHOOK_URL")
-	n8nAPIKey := os.Getenv("N8N_API_KEY")
-	n8nIsTest := os.Getenv("N8N_IS_TEST") == "true"
-
 	// Static directory for serving frontend in development
 	staticDir := os.Getenv("STATIC_DIR")
 	
@@ -143,9 +133,6 @@ func Load() (*Config, error) {
 		SMTPPort:            smtpPort,
 		SMTPUsername:        smtpUsername,
 		SMTPPassword:        smtpPassword,
-		N8NWebhookURL:       n8nWebhookURL,
-		N8NAPIKey:           n8nAPIKey,
-		N8NIsTest:           n8nIsTest,
 		StaticDir:           staticDir,
 	}, nil
 }

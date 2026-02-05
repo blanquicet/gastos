@@ -2758,33 +2758,6 @@ async function onSubmit(e) {
 
       const text = await res.text();
       if (!res.ok) {
-        // Check if it's a n8n service unavailable (503)
-        if (res.status === 503) {
-          // For income, data is saved to DB but not synced to Sheets
-          setStatus('⚠️ Ingreso guardado en base de datos pero no sincronizado con Google Sheets. Por favor contacta al administrador.', 'warning');
-          
-          // Re-enable form fields and buttons
-          const form = document.getElementById('movForm');
-          const formElements = form.querySelectorAll('input, select, textarea, button');
-          formElements.forEach(el => el.disabled = false);
-          
-          submitBtn.disabled = false;
-          submitBtn.textContent = originalText;
-          if (cancelBtn) {
-            cancelBtn.disabled = false;
-          }
-          
-          // Reset form after 3 seconds
-          setTimeout(() => {
-            document.getElementById('movForm').reset();
-            document.getElementById('fecha').value = getTodayLocal();
-            document.getElementById('tipo').value = '';
-            onTipoChange();
-            setStatus('', '');
-          }, 3000);
-          
-          return;
-        }
         throw new Error(`HTTP ${res.status} - ${text}`);
       }
 
@@ -2876,34 +2849,6 @@ async function onSubmit(e) {
           }
         } catch (e) {
           // Ignore parse errors
-        }
-        
-        // Check if it's a n8n service unavailable (503)
-        if (res.status === 503 && !isEditMode) {
-          // For movements with new backend, data IS saved to PostgreSQL even if n8n fails
-          setStatus('⚠️ Movimiento guardado en PostgreSQL pero no sincronizado con Google Sheets. La sincronización se realizará más tarde.', 'warning');
-          
-          // Re-enable form fields and buttons
-          const form = document.getElementById('movForm');
-          const formElements = form.querySelectorAll('input, select, textarea, button');
-          formElements.forEach(el => el.disabled = false);
-          
-          submitBtn.disabled = false;
-          submitBtn.textContent = originalText;
-          if (cancelBtn) {
-            cancelBtn.disabled = false;
-          }
-          
-          // Reset form after 3 seconds
-          setTimeout(() => {
-            document.getElementById('movForm').reset();
-            document.getElementById('fecha').value = getTodayLocal();
-            document.getElementById('tipo').value = '';
-            onTipoChange();
-            setStatus('', '');
-          }, 3000);
-          
-          return;
         }
         
         throw new Error(errorMsg);

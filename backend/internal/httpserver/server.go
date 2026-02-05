@@ -24,7 +24,6 @@ import (
 	"github.com/blanquicet/gastos/backend/internal/income"
 	"github.com/blanquicet/gastos/backend/internal/middleware"
 	"github.com/blanquicet/gastos/backend/internal/movements"
-	"github.com/blanquicet/gastos/backend/internal/n8nclient"
 	"github.com/blanquicet/gastos/backend/internal/paymentmethods"
 	"github.com/blanquicet/gastos/backend/internal/recurringmovements"
 	"github.com/blanquicet/gastos/backend/internal/sessions"
@@ -118,25 +117,13 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 		logger,
 	)
 	
-	// Create n8n client if configured (optional for movements)
-	var n8nClient *n8nclient.Client
-	if cfg.N8NWebhookURL != "" && cfg.N8NAPIKey != "" {
-		n8nClient = n8nclient.New(cfg.N8NWebhookURL, cfg.N8NAPIKey, cfg.N8NIsTest)
-		logger.Info("n8n client configured for dual write",
-			"webhook", cfg.N8NWebhookURL,
-			"is_test", cfg.N8NIsTest)
-	} else {
-		logger.Info("n8n client not configured; movements will only be saved to PostgreSQL")
-	}
-	
-	// Create movements service and handler (always create, n8n is optional)
+	// Create movements service and handler
 	movementsRepo := movements.NewRepository(pool)
 	movementsService := movements.NewService(
 		movementsRepo,
 		householdRepo,
 		paymentMethodsRepo,
 		accountsRepo,
-		n8nClient, // Can be nil
 		auditService,
 		logger,
 	)
@@ -144,13 +131,12 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 		movementsService,
 		authService,
 		cfg.SessionCookieName,
-		n8nClient, // Can be nil - for backwards compatibility with legacy endpoint
 		logger,
 	)
 	
-	// Create income service and handler (needs n8n client for dual write)
+	// Create income service and handler
 	incomeRepo := income.NewRepository(pool)
-	incomeService := income.NewService(incomeRepo, accountsRepo, householdRepo, n8nClient, auditService, logger)
+	incomeService := income.NewService(incomeRepo, accountsRepo, householdRepo, auditService, logger)
 	
 	incomeHandler := income.NewHandler(
 		incomeService,
@@ -383,10 +369,6 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 	
 	// Debt consolidation (for Resume page)
 	mux.HandleFunc("GET /movements/debts/consolidate", movementsHandler.HandleGetDebtConsolidation)
-	
-	// Legacy endpoint (backwards compatibility with n8n direct calls)
-	// This can be removed after frontend is updated
-	// mux.HandleFunc("POST /movements/legacy", movementsHandler.RecordMovement)
 	
 	// Movement form config endpoint
 	mux.HandleFunc("GET /movement-form-config", formConfigHandler.GetFormConfig)

@@ -34,24 +34,13 @@ logger:       logger,
 When creating the service, pass the audit service:
 
 ```go
-// Before
+// Example
 movementsService := movements.NewService(
 movementsRepo,
 householdRepo,
 paymentMethodsRepo,
 accountsRepo,
-n8nClient,
-logger,
-)
-
-// After
-movementsService := movements.NewService(
-movementsRepo,
-householdRepo,
-paymentMethodsRepo,
-accountsRepo,
-n8nClient,
-auditService,  // ADD THIS
+auditService,
 logger,
 )
 ```
@@ -87,8 +76,6 @@ HouseholdID:  audit.StringPtr(householdID),
 NewValues:    audit.StructToMap(resource),  // Full snapshot
 Success:      true,
 })
-
-// ... rest of function (dual-write to n8n, etc.) ...
 
 return resource, nil
 }

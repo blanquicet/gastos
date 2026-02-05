@@ -9,7 +9,6 @@ import (
 	"github.com/blanquicet/gastos/backend/internal/accounts"
 	"github.com/blanquicet/gastos/backend/internal/audit"
 	"github.com/blanquicet/gastos/backend/internal/households"
-	"github.com/blanquicet/gastos/backend/internal/n8nclient"
 )
 
 // service implements Service interface
@@ -17,18 +16,16 @@ type service struct {
 	repo          Repository
 	accountsRepo  accounts.Repository
 	householdsRepo households.HouseholdRepository
-	n8nClient     *n8nclient.Client
 	auditService  audit.Service
 	logger        *slog.Logger
 }
 
 // NewService creates a new income service
-func NewService(repo Repository, accountsRepo accounts.Repository, householdsRepo households.HouseholdRepository, n8nClient *n8nclient.Client, auditService audit.Service, logger *slog.Logger) Service {
+func NewService(repo Repository, accountsRepo accounts.Repository, householdsRepo households.HouseholdRepository, auditService audit.Service, logger *slog.Logger) Service {
 	return &service{
 		repo:          repo,
 		accountsRepo:  accountsRepo,
 		householdsRepo: householdsRepo,
-		n8nClient:     n8nClient,
 		auditService:  auditService,
 		logger:        logger,
 	}
@@ -86,27 +83,6 @@ func (s *service) Create(ctx context.Context, userID string, input *CreateIncome
 			ErrorMessage: audit.StringPtr(err.Error()),
 		})
 		return nil, err
-	}
-
-	// Dual write to n8n (Google Sheets) if configured
-	if s.n8nClient != nil {
-		n8nIncome := &n8nclient.IncomeMovement{
-			Tipo:        "ingreso",
-			Fecha:       income.IncomeDate.Format("2006-01-02"),
-			Miembro:     income.MemberName,
-			TipoIngreso: string(income.Type),
-			Monto:       income.Amount,
-			Descripcion: income.Description,
-		}
-		
-		s.logger.Info("sending income to n8n", "income_id", income.ID, "type", income.Type, "amount", income.Amount)
-		
-		resp, err := s.n8nClient.RecordIncome(ctx, n8nIncome)
-		if err != nil {
-			s.logger.Error("failed to send income to n8n", "error", err, "income_id", income.ID)
-			return nil, ErrN8NUnavailable
-		}
-		s.logger.Info("income sent to n8n successfully", "income_id", income.ID, "n8n_response", resp)
 	}
 
 	// Log successful creation

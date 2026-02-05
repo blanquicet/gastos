@@ -14,7 +14,6 @@ var (
 	ErrInvalidAccountType   = errors.New("account cannot receive income")
 	ErrMemberNotInHousehold = errors.New("member does not belong to household")
 	ErrInvalidAmount        = errors.New("amount must be positive")
-	ErrN8NUnavailable       = errors.New("n8n service unavailable - income saved to database but not synced to Google Sheets. Please contact administrator")
 )
 
 // IncomeType represents the type of income

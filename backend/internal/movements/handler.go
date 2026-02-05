@@ -10,9 +10,7 @@ import (
 	"github.com/blanquicet/gastos/backend/internal/auth"
 	"github.com/blanquicet/gastos/backend/internal/categorygroups"
 	"github.com/blanquicet/gastos/backend/internal/households"
-	"github.com/blanquicet/gastos/backend/internal/n8nclient"
 	"github.com/blanquicet/gastos/backend/internal/paymentmethods"
-	"github.com/google/uuid"
 )
 
 // Handler handles movement-related HTTP requests.
@@ -21,8 +19,6 @@ type Handler struct {
 	authSvc    *auth.Service
 	cookieName string
 	logger     *slog.Logger
-	// Legacy n8n client for backwards compatibility
-	n8nClient *n8nclient.Client
 }
 
 // NewHandler creates a new movements handler.
@@ -30,14 +26,12 @@ func NewHandler(
 	service Service,
 	authService *auth.Service,
 	cookieName string,
-	n8nClient *n8nclient.Client,
 	logger *slog.Logger,
 ) *Handler {
 	return &Handler{
 		service:    service,
 		authSvc:    authService,
 		cookieName: cookieName,
-		n8nClient:  n8nClient,
 		logger:     logger,
 	}
 }
@@ -83,8 +77,6 @@ func (h *Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 		
 		// Handle specific errors
 		switch err {
-		case ErrN8NUnavailable:
-			http.Error(w, err.Error(), http.StatusServiceUnavailable)
 		case ErrNotAuthorized:
 			http.Error(w, "Not authorized", http.StatusForbidden)
 		case ErrInvalidMovementType, ErrInvalidAmount, ErrPayerRequired,
@@ -104,44 +96,6 @@ func (h *Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 	if err := json.NewEncoder(w).Encode(movement); err != nil {
 		h.logger.Error("failed to encode response", "error", err)
-	}
-}
-
-// RecordMovement proxies movement registration to n8n (DEPRECATED - kept for backwards compatibility).
-// POST /movements (legacy)
-func (h *Handler) RecordMovement(w http.ResponseWriter, r *http.Request) {
-	var movement n8nclient.Movement
-
-	if err := json.NewDecoder(r.Body).Decode(&movement); err != nil {
-		h.logger.Error("failed to decode movement", "error", err)
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
-
-	// Always generate unique ID for this movement (force rebuild)
-	if movement.ID == "" {
-		movement.ID = uuid.New().String()
-		h.logger.Info("generated new movement ID", "id", movement.ID)
-	}
-
-	h.logger.Info("recording movement (legacy)", "id", movement.ID, "type", movement.Tipo, "valor", movement.Valor)
-
-	// Forward to n8n
-	resp, err := h.n8nClient.RecordMovement(r.Context(), &movement)
-	if err != nil {
-		h.logger.Error("failed to record movement in n8n", "error", err, "movement_id", movement.ID)
-		http.Error(w, "n8n service unavailable - movement could not be synced to Google Sheets. Please contact administrator", http.StatusServiceUnavailable)
-		return
-	}
-
-	h.logger.Info("movement recorded successfully", "id", movement.ID, "n8n_response", resp)
-
-	// Return n8n's response
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(resp); err != nil {
-		h.logger.Error("failed to encode response", "error", err)
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-		return
 	}
 }
 

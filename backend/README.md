@@ -22,8 +22,7 @@ backend/
 │   ├── email/         # Email service (SMTP, Resend)
 │   ├── httpserver/    # HTTP server setup
 │   ├── middleware/    # HTTP middleware
-│   ├── movements/     # Movements registration (n8n proxy)
-│   ├── n8nclient/     # n8n client
+│   ├── movements/     # Movements CRUD operations
 │   ├── sessions/      # Session management
 │   └── users/         # User management
 ├── migrations/        # Database migrations
@@ -182,10 +181,14 @@ POST /auth/forgot-password   # Request password reset
 POST /auth/reset-password    # Reset password with token
 ```
 
-### Movements (Migration Period)
+### Movements
 
 ```
-POST /movements           # Proxy to n8n (requires n8n configuration)
+GET  /movements        # List movements (with filters)
+POST /movements        # Create movement
+GET  /movements/{id}   # Get movement by ID
+PATCH /movements/{id}  # Update movement
+DELETE /movements/{id} # Delete movement
 ```
 
 ## Environment Variables
@@ -210,9 +213,6 @@ POST /movements           # Proxy to n8n (requires n8n configuration)
 | `SMTP_PASSWORD` | SMTP authentication password | - |
 | **Email Provider API Key** | | |
 | `EMAIL_API_KEY` | Email service API key (Resend, SendGrid, etc.) | - |
-| **n8n Configuration** | | |
-| `N8N_WEBHOOK_URL` | n8n webhook URL (for movements) | - |
-| `N8N_API_KEY` | n8n API key | - |
 
 ## Testing
 

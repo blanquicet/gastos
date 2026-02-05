@@ -129,8 +129,6 @@ func (h *Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 			h.respondError(w, err, http.StatusForbidden)
 		case errors.Is(err, ErrInvalidAmount):
 			h.respondError(w, err, http.StatusBadRequest)
-		case errors.Is(err, ErrN8NUnavailable):
-			h.respondError(w, err, http.StatusServiceUnavailable)
 		default:
 			h.respondError(w, err, http.StatusInternalServerError)
 		}
