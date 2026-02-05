@@ -651,6 +651,14 @@ function renderBudgets() {
     return totalB - totalA;
   });
 
+  // Sort categories within each group by amount (descending)
+  sortedGroupNames.forEach(groupName => {
+    grouped[groupName].sort((a, b) => (b.amount || 0) - (a.amount || 0));
+  });
+
+  // Sort ungrouped categories too
+  ungrouped.sort((a, b) => (b.amount || 0) - (a.amount || 0));
+
   // Render all groups
   const groupsHtml = sortedGroupNames
     .map(groupName => renderGroupCard(groupName, grouped[groupName], totals.total_budget))
