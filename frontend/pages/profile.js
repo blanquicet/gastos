@@ -11,7 +11,7 @@
 import { API_URL } from '../config.js';
 import router from '../router.js';
 import * as Navbar from '../components/navbar.js';
-import { showConfirmation, showSuccess, showError } from '../utils.js';
+import { showConfirmation, showSuccess, showError, showCreateHouseholdModal } from '../utils.js';
 
 let currentUser = null;
 let currentHousehold = null;
@@ -209,16 +209,16 @@ function renderHouseholdSection() {
 function renderAccountsList() {
   if (!accounts || !Array.isArray(accounts)) {
     return `
-      <div class="empty-state">
-        <p class="empty-state-text">No tienes cuentas registradas</p>
+      <div class="no-household">
+        <p class="no-household-text">No tienes cuentas registradas</p>
         <button id="add-account-btn" class="btn-secondary" style="margin-top: 16px;">Agregar cuenta</button>
       </div>
     `;
   }
 
   const emptyState = accounts.length === 0 ? `
-    <div class="empty-state">
-      <p class="empty-state-text">No tienes cuentas registradas</p>
+    <div class="no-household">
+      <p class="no-household-text">No tienes cuentas registradas</p>
       <button id="add-account-btn" class="btn-secondary" style="margin-top: 16px;">Agregar cuenta</button>
     </div>
   ` : '';
@@ -357,8 +357,13 @@ function setupEventListeners() {
   const addPaymentMethodBtn = document.getElementById('add-payment-method-btn');
 
   if (createBtn) {
-    createBtn.addEventListener('click', () => {
-      router.navigate('/hogar/crear');
+    createBtn.addEventListener('click', async () => {
+      const household = await showCreateHouseholdModal(API_URL);
+      if (household) {
+        showSuccess('¡Hogar creado!', `Tu hogar <strong>${household.name}</strong> ha sido creado exitosamente.`);
+        // Reload the profile page to show the new household
+        router.navigate('/perfil');
+      }
     });
   }
 

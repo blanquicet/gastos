@@ -21,7 +21,7 @@ const { Pool } = pg;
 async function testPaymentMethods() {
   const headless = process.env.CI === 'true' || process.env.HEADLESS === 'true';
   const appUrl = process.env.APP_URL || 'http://localhost:8080';
-  const dbUrl = process.env.DATABASE_URL || 'postgres://gastos:gastos_dev_password@localhost:5432/gastos?sslmode=disable';
+  const dbUrl = process.env.DATABASE_URL || 'postgres://conti:conti_dev_password@localhost:5432/conti?sslmode=disable';
   
   const browser = await chromium.launch({ headless });
   
@@ -74,16 +74,14 @@ async function testPaymentMethods() {
     
     // Click "Crear hogar"
     await page1.getByRole('button', { name: 'Crear hogar' }).click();
-    await page1.waitForTimeout(1000);
+    await page1.waitForTimeout(500);
     
-    // Fill household name
-    await page1.locator('#household-name').fill(householdName);
-    await page1.getByRole('button', { name: 'Crear hogar' }).click();
+    // Fill household name in modal
+    await page1.locator('#household-name-input').fill(householdName);
+    await page1.locator('#household-create-btn').click();
+    await page1.waitForTimeout(1000);
+    await page1.locator('#modal-ok').click();
     await page1.waitForTimeout(2000);
-    
-    // Should be on household page
-    await page1.waitForURL('**/hogar');
-    await page1.waitForTimeout(1000);
     
     console.log('✅ User 1 registered and household created');
 

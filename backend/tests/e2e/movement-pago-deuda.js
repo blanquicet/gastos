@@ -47,7 +47,7 @@ async function submitFormAndConfirm(page) {
 async function testMovementPagoDeuda() {
   const headless = process.env.CI === 'true' || process.env.HEADLESS === 'true';
   const appUrl = process.env.APP_URL || 'http://localhost:8080';
-  const dbUrl = process.env.DATABASE_URL || 'postgres://gastos:gastos_dev_password@localhost:5432/gastos?sslmode=disable';
+  const dbUrl = process.env.DATABASE_URL || 'postgres://conti:conti_dev_password@localhost:5432/conti?sslmode=disable';
   
   const browser = await chromium.launch({ headless });
   
@@ -106,10 +106,12 @@ async function testMovementPagoDeuda() {
     await page1.waitForTimeout(1000);
     
     await page1.getByRole('button', { name: 'Crear hogar' }).click();
-    await page1.waitForTimeout(1000);
+    await page1.waitForTimeout(500);
     
-    await page1.locator('#household-name').fill(householdName);
-    await page1.getByRole('button', { name: 'Crear hogar' }).click();
+    await page1.locator('#household-name-input').fill(householdName);
+    await page1.locator('#household-create-btn').click();
+    await page1.waitForTimeout(1000);
+    await page1.locator('#modal-ok').click();
     await page1.waitForTimeout(2000);
     
     // Get household ID from database

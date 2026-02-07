@@ -10,7 +10,7 @@ import pg from 'pg';
 const { Pool } = pg;
 
 const appUrl = process.env.APP_URL || 'http://localhost:8080';
-const dbUrl = process.env.DATABASE_URL || 'postgres://gastos:gastos_dev_password@localhost:5432/gastos?sslmode=disable';
+const dbUrl = process.env.DATABASE_URL || 'postgres://conti:conti_dev_password@localhost:5432/conti?sslmode=disable';
 
 async function testTemplatePrefill() {
   const headless = process.env.CI === 'true' || process.env.HEADLESS === 'true';
@@ -66,13 +66,14 @@ async function testTemplatePrefill() {
     await page.waitForTimeout(1000);
     
     await page.getByRole('button', { name: 'Crear hogar' }).click();
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(500);
     
-    await page.locator('#household-name').fill(householdName);
-    await page.getByRole('button', { name: 'Crear hogar' }).click();
+    await page.locator('#household-name-input').fill(householdName);
+    await page.locator('#household-create-btn').click();
+    await page.waitForTimeout(1000);
+    await page.locator('#modal-ok').click();
     await page.waitForTimeout(2000);
     
-    await page.waitForURL('**/hogar');
     console.log('✅ User and household created');
     
     // Get IDs from database

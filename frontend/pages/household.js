@@ -88,8 +88,8 @@ async function loadHousehold() {
     const households = data.households || [];
     
     if (households.length === 0) {
-      // No household - redirect to create
-      router.navigate('/hogar/crear');
+      // No household - redirect to home where modal can be shown
+      router.navigate('/');
       return;
     }
 

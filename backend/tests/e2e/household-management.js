@@ -20,7 +20,7 @@ const { Pool } = pg;
 async function testHouseholdManagement() {
   const headless = process.env.CI === 'true' || process.env.HEADLESS === 'true';
   const apiUrl = process.env.API_URL || 'http://localhost:8080';
-  const dbUrl = process.env.DATABASE_URL || 'postgres://gastos:gastos_dev_password@localhost:5432/gastos?sslmode=disable';
+  const dbUrl = process.env.DATABASE_URL || 'postgres://conti:conti_dev_password@localhost:5432/conti?sslmode=disable';
   
   const browser = await chromium.launch({ headless });
   
@@ -103,15 +103,17 @@ async function testHouseholdManagement() {
     
     // Click "Crear hogar"
     await page1.getByRole('button', { name: 'Crear hogar' }).click();
-    await page1.waitForTimeout(1000);
+    await page1.waitForTimeout(500);
     
-    // Fill household name
-    await page1.locator('#household-name').fill(householdName);
-    await page1.getByRole('button', { name: 'Crear hogar' }).click();
+    // Fill household name in modal
+    await page1.locator('#household-name-input').fill(householdName);
+    await page1.locator('#household-create-btn').click();
+    await page1.waitForTimeout(1000);
+    await page1.locator('#modal-ok').click();
     await page1.waitForTimeout(2000);
     
-    // Should be on household page
-    await page1.waitForURL('**/hogar');
+    // Navigate to household page to continue test
+    await page1.goto(`${apiUrl}/hogar`);
     await page1.waitForTimeout(1000);
     
     // Verify household name appears
@@ -371,6 +373,10 @@ async function testHouseholdManagement() {
     // ==================================================================
     console.log('🔍 Step 10: User 2 verifying removal...');
     
+    // Reload page to get fresh state
+    await page2.reload();
+    await page2.waitForTimeout(2000);
+    
     // Navigate to profile to check
     await page2.locator('#hamburger-btn').click();
     await page2.waitForTimeout(500);
@@ -380,7 +386,7 @@ async function testHouseholdManagement() {
     // Should see no household
     const noHouseholdText = await page2.locator('.no-household-text').first().textContent();
     if (!noHouseholdText.includes('no tienes un hogar')) {
-      throw new Error('User 2 still has household access');
+      throw new Error('User 2 still has household access: ' + noHouseholdText);
     }
     console.log('✅ User 2 no longer has household');
 

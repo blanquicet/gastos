@@ -203,7 +203,7 @@ export function showSuccess(title, message) {
     
     modal.innerHTML = `
       <div class="modal-header">
-        <h3>✓ ${title}</h3>
+        <h3>${title}</h3>
       </div>
       <div class="modal-body">
         <p>${message}</p>
@@ -295,6 +295,156 @@ export function showError(titleOrMessage, message) {
         document.body.removeChild(overlay);
         document.removeEventListener('keydown', escHandler);
         resolve();
+      }
+    };
+    document.addEventListener('keydown', escHandler);
+  });
+}
+
+/**
+ * Show a modal to create a household
+ * @param {string} apiUrl - The API URL base
+ * @returns {Promise<Object|null>} - The created household or null if cancelled
+ */
+export function showCreateHouseholdModal(apiUrl) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.id = 'create-household-modal';
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.maxWidth = '400px';
+    
+    modal.innerHTML = `
+      <div class="modal-header">
+        <h3>🏠 Crear hogar</h3>
+      </div>
+      <div class="modal-body">
+        <div class="field">
+          <label for="household-name-input">
+            <span>Nombre del hogar</span>
+            <input 
+              type="text" 
+              id="household-name-input" 
+              placeholder="Ej: Casa de Jose y Caro"
+              maxlength="100"
+              autofocus
+            />
+            <small style="color: #6b7280; font-size: 12px; margin-top: 4px; display: block;">
+              El nombre que identificará a tu hogar
+            </small>
+          </label>
+        </div>
+        <div id="household-error" class="error" style="display: none; margin-top: 8px;"></div>
+      </div>
+      <div class="modal-footer">
+        <button id="household-cancel-btn" class="btn-secondary">Cancelar</button>
+        <button id="household-create-btn" class="btn-primary">Crear hogar</button>
+      </div>
+    `;
+    
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    
+    const input = modal.querySelector('#household-name-input');
+    const createBtn = modal.querySelector('#household-create-btn');
+    const cancelBtn = modal.querySelector('#household-cancel-btn');
+    const errorEl = modal.querySelector('#household-error');
+    
+    input.focus();
+    
+    const closeModal = () => {
+      document.body.removeChild(overlay);
+    };
+    
+    const showModalError = (message) => {
+      errorEl.textContent = message;
+      errorEl.style.display = 'block';
+    };
+    
+    const handleCreate = async () => {
+      const name = input.value.trim();
+      
+      if (!name) {
+        showModalError('Por favor ingresa un nombre para el hogar');
+        input.focus();
+        return;
+      }
+      
+      if (name.length > 100) {
+        showModalError('El nombre es demasiado largo (máximo 100 caracteres)');
+        return;
+      }
+      
+      // Disable button and show loading
+      createBtn.disabled = true;
+      createBtn.textContent = 'Creando...';
+      errorEl.style.display = 'none';
+      
+      try {
+        const response = await fetch(`${apiUrl}/households`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ name }),
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          closeModal();
+          resolve(data);
+        } else {
+          showModalError(data.error || 'Error al crear el hogar');
+          createBtn.disabled = false;
+          createBtn.textContent = 'Crear hogar';
+        }
+      } catch (error) {
+        console.error('Error creating household:', error);
+        showModalError('Error de conexión. Por favor, intenta de nuevo.');
+        createBtn.disabled = false;
+        createBtn.textContent = 'Crear hogar';
+      }
+    };
+    
+    // Event listeners
+    createBtn.addEventListener('click', handleCreate);
+    
+    cancelBtn.addEventListener('click', () => {
+      closeModal();
+      resolve(null);
+    });
+    
+    // Submit on Enter
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleCreate();
+      }
+    });
+    
+    // Clear error on input
+    input.addEventListener('input', () => {
+      errorEl.style.display = 'none';
+    });
+    
+    // Close on overlay click
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        closeModal();
+        resolve(null);
+      }
+    });
+    
+    // Close on escape
+    const escHandler = (e) => {
+      if (e.key === 'Escape') {
+        closeModal();
+        document.removeEventListener('keydown', escHandler);
+        resolve(null);
       }
     };
     document.addEventListener('keydown', escHandler);

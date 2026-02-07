@@ -11,7 +11,7 @@
 import { API_URL } from '../config.js';
 import router from '../router.js';
 import * as Navbar from '../components/navbar.js';
-import { showConfirmation, showSuccess, showError, showInputModal, getSimplifiedCategoryName, isCategoryRequired } from '../utils.js';
+import { showConfirmation, showSuccess, showError, showInputModal, showCreateHouseholdModal, getSimplifiedCategoryName, isCategoryRequired } from '../utils.js';
 import { MovementFormState, FormFieldController } from '../components/movement-form.js';
 
 let currentUser = null;
@@ -40,6 +40,7 @@ let budgetsData = null; // Presupuesto data
 let templatesData = {}; // Templates data grouped by category_id (initialize as empty object)
 let categoryGroupsData = null; // Category groups with categories (from /api/category-groups)
 let showChronological = false; // Track if showing chronological view (true) or grouped view (false)
+let hasHousehold = true; // Assume true until API returns 404
 
 /**
  * Format number as COP currency
@@ -162,6 +163,33 @@ function nextMonth(yearMonth) {
   const date = new Date(year, parseInt(month) - 1, 1);
   date.setMonth(date.getMonth() + 1);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/**
+ * Render welcome state for users without a household
+ */
+function renderNoHouseholdState() {
+  return `
+    <div class="no-household-state">
+      <div class="no-household-icon">🏠</div>
+      <h2 class="no-household-title">¡Bienvenido a Conti!</h2>
+      <p class="no-household-text">
+        Para registrar tus gastos necesitas<br>
+        crear o unirte a un hogar.
+      </p>
+      <p class="no-household-text secondary">
+        Un hogar es un grupo de personas que<br>
+        comparten sus finanzas con transparencia.<br>
+        Puedes ser solo tú, o tú con tu pareja o roommates.
+      </p>
+      <button class="no-household-btn" id="create-household-btn">
+        Crear mi hogar
+      </button>
+      <p class="no-household-hint">
+        ¿Ya te invitaron a uno? Revisa tu email.
+      </p>
+    </div>
+  `;
 }
 
 /**
@@ -1314,11 +1342,18 @@ async function loadHouseholdMembers() {
     });
 
     if (!response.ok) {
-      console.error('Error loading household members:', response.status);
+      // 404 means user has no household - this is expected for new users
+      if (response.status === 404) {
+        hasHousehold = false;
+        console.log('User has no household yet');
+      } else {
+        console.error('Error loading household members:', response.status);
+      }
       householdMembers = [];
       return;
     }
 
+    hasHousehold = true;
     const data = await response.json();
     
     // Cache form config globally for template modal
@@ -6192,6 +6227,37 @@ export async function setup() {
   // Load household members for filter
   await loadHouseholdMembers();
   
+  // If user has no household, show welcome state and return early
+  const contentContainer = document.querySelector('.dashboard-content');
+  if (!hasHousehold) {
+    if (contentContainer) {
+      contentContainer.innerHTML = renderNoHouseholdState();
+    }
+    // Hide tabs and header since they're not useful without household
+    const tabsContainer = document.querySelector('.tabs-container');
+    if (tabsContainer) {
+      tabsContainer.style.display = 'none';
+    }
+    const headerH1 = document.querySelector('.header h1');
+    if (headerH1) {
+      headerH1.style.visibility = 'hidden';
+    }
+    // Setup button click handler
+    const createBtn = document.getElementById('create-household-btn');
+    if (createBtn) {
+      createBtn.addEventListener('click', async () => {
+        const household = await showCreateHouseholdModal(API_URL);
+        if (household) {
+          // Show success modal and wait for user to click OK
+          await showSuccess('¡Hogar creado!', `Tu hogar <strong>${household.name}</strong> ha sido creado exitosamente.`);
+          // Then force full page reload
+          window.location.href = '/';
+        }
+      });
+    }
+    return; // Don't load any data
+  }
+  
   // Load category groups (needed for filters)
   await loadCategoryGroups();
 
@@ -6210,7 +6276,7 @@ export async function setup() {
   tabsNeedingReload.delete(activeTab);
   
   // Initial render of content - UPDATE THE DOM after loading data
-  const contentContainer = document.querySelector('.dashboard-content');
+  // contentContainer already declared above for no-household check
   if (contentContainer) {
     if (activeTab === 'gastos' && movementsData) {
       contentContainer.innerHTML = `

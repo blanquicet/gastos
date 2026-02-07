@@ -14,7 +14,7 @@ const { Pool } = pg;
 async function testHouseholdValidation() {
   const headless = process.env.CI === 'true' || process.env.HEADLESS === 'true';
   const apiUrl = process.env.API_URL || 'http://localhost:8080';
-  const dbUrl = process.env.DATABASE_URL || 'postgres://gastos:gastos_dev_password@localhost:5432/gastos?sslmode=disable';
+  const dbUrl = process.env.DATABASE_URL || 'postgres://conti:conti_dev_password@localhost:5432/conti?sslmode=disable';
   
   const browser = await chromium.launch({ headless });
   const context = await browser.newContext();
@@ -64,12 +64,17 @@ async function testHouseholdValidation() {
     await page.waitForTimeout(1000);
     
     await page.getByRole('button', { name: 'Crear hogar' }).click();
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(500);
     
-    await page.locator('#household-name').fill(householdName);
-    await page.getByRole('button', { name: 'Crear hogar' }).click();
+    await page.locator('#household-name-input').fill(householdName);
+    await page.locator('#household-create-btn').click();
+    await page.waitForTimeout(1000);
+    await page.locator('#modal-ok').click();
     await page.waitForTimeout(2000);
-    await page.waitForURL('**/hogar');
+    
+    // Navigate to household page
+    await page.goto(`${appUrl}/hogar`);
+    await page.waitForTimeout(1000);
     
     console.log('✅ Test environment ready');
 

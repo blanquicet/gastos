@@ -17,7 +17,7 @@ const { Pool } = pg;
 async function testAuthValidation() {
   const headless = process.env.CI === 'true' || process.env.HEADLESS === 'true';
   const apiUrl = process.env.API_URL || 'http://localhost:8080';
-  const dbUrl = process.env.DATABASE_URL || 'postgres://gastos:gastos_dev_password@localhost:5432/gastos?sslmode=disable';
+  const dbUrl = process.env.DATABASE_URL || 'postgres://conti:conti_dev_password@localhost:5432/conti?sslmode=disable';
   
   const browser = await chromium.launch({ headless });
   const context = await browser.newContext();

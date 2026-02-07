@@ -13,7 +13,6 @@ import * as ResetPasswordPage from './pages/reset-password.js';
 import * as HomePage from './pages/home.js';
 import * as RegistrarMovimientoPage from './pages/registrar-movimiento.js';
 import * as ProfilePage from './pages/profile.js';
-import * as HouseholdCreatePage from './pages/household-create.js';
 import * as HouseholdPage from './pages/household.js';
 import * as AdminAuditLogsPage from './pages/admin-audit-logs.js';
 
@@ -116,23 +115,6 @@ function initRouter() {
     const appEl = document.getElementById('app');
     appEl.innerHTML = ProfilePage.render(user);
     await ProfilePage.setup();
-    const loadingEl = document.getElementById('loading');
-    if (loadingEl) loadingEl.style.display = 'none';
-  });
-
-  router.route('/hogar/crear', async () => {
-    // Check if user is authenticated
-    const { authenticated, user } = await checkAuth();
-    
-    if (!authenticated) {
-      router.navigate('/login');
-      return;
-    }
-
-    currentUser = user;
-    const appEl = document.getElementById('app');
-    appEl.innerHTML = HouseholdCreatePage.render(user);
-    await HouseholdCreatePage.setup();
     const loadingEl = document.getElementById('loading');
     if (loadingEl) loadingEl.style.display = 'none';
   });
