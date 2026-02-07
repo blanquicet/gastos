@@ -1317,11 +1317,12 @@ function renderIngresoCuentaSelect(ownerId = null) {
     return;
   }
 
-  // Filter accounts by owner
-  const filteredAccounts = accounts.filter(account => account.owner_id === ownerId);
+  // Show all household accounts (not filtered by owner)
+  // Accounts are shared at the household level
+  const filteredAccounts = accounts;
 
   if (filteredAccounts.length === 0) {
-    base.textContent = 'Este miembro no tiene cuentas';
+    base.textContent = 'No hay cuentas disponibles';
     return;
   }
 
@@ -1354,14 +1355,14 @@ function renderCuentaReceptoraSelect(receiverId = null) {
     return;
   }
 
-  // Filter accounts by owner (receiver) - only savings and cash can receive income
+  // Show all household accounts that can receive income (savings and cash)
+  // Accounts are shared at the household level
   const filteredAccounts = accounts.filter(account => 
-    account.owner_id === receiverId && 
-    (account.type === 'savings' || account.type === 'cash')
+    account.type === 'savings' || account.type === 'cash'
   );
 
   if (filteredAccounts.length === 0) {
-    base.textContent = 'El receptor no tiene cuentas que puedan recibir ingresos';
+    base.textContent = 'No hay cuentas que puedan recibir ingresos';
     return;
   }
 
