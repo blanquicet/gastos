@@ -2257,7 +2257,22 @@ async function loadMovementForEdit(movementId) {
     
     if (descripcionEl) descripcionEl.value = movement.description || '';
     if (valorEl) valorEl.value = formatNumber(movement.amount);
-    if (categoriaEl) categoriaEl.value = movement.category_id || '';
+    if (categoriaEl) {
+      categoriaEl.value = movement.category_id || '';
+      
+      // Manually load templates for this category (since we're setting value programmatically,
+      // the change event listener won't fire automatically)
+      if (movement.category_id) {
+        recurringTemplates = recurringTemplatesMap[movement.category_id] || [];
+        renderRecurringTemplatesSelect();
+        
+        // Show template dropdown if templates exist (will be refined by onTipoChange later)
+        const templateWrap = document.getElementById('recurringTemplateWrap');
+        const templateWrap2 = document.getElementById('recurringTemplateWrap2');
+        if (templateWrap && recurringTemplates.length > 0) templateWrap.classList.remove('hidden');
+        if (templateWrap2 && recurringTemplates.length > 0) templateWrap2.classList.remove('hidden');
+      }
+    }
     
     // If movement was created from a template, set selectedTemplate
     if (movement.generated_from_template_id) {

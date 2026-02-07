@@ -3223,8 +3223,9 @@ function setupCategoryListeners() {
     // Get parent menu
     const menu = btn.closest('.three-dots-menu');
     
-    // Skip if this menu is for movements (has movement-menu-* id)
-    if (menu && menu.id.startsWith('movement-menu-')) return;
+    // Only handle income menus (has income-menu-* id)
+    // Skip all other menus (movement-menu-*, account-menu-*, etc.)
+    if (!menu || !menu.id.startsWith('income-menu-')) return;
     
     btn.addEventListener('click', async (e) => {
       e.preventDefault();
