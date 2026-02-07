@@ -2819,6 +2819,11 @@ async function onSubmit(e) {
           updatePayload.participants = payload.participants;
         }
         
+        // Add generated_from_template_id if movement was created/linked using a template
+        if (payload.generated_from_template_id) {
+          updatePayload.generated_from_template_id = payload.generated_from_template_id;
+        }
+        
         res = await fetch(`${API_URL}/movements/${currentEditMovement.id}${scopeParam ? `?scope=${scopeParam}` : ''}`, {
           method: 'PATCH',
           headers: {

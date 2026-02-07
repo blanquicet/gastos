@@ -270,6 +270,9 @@ type UpdateMovementInput struct {
 	CounterpartyUserID    *string `json:"counterparty_user_id,omitempty"`
 	CounterpartyContactID *string `json:"counterparty_contact_id,omitempty"`
 	
+	// Generated from template (can be updated when linking movement to a template)
+	GeneratedFromTemplateID *string `json:"generated_from_template_id,omitempty"`
+	
 	// Note: Cannot update type after creation
 }
 

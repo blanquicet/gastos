@@ -574,6 +574,13 @@ func (r *repository) Update(ctx context.Context, id string, input *UpdateMovemen
 		// Clear counterparty_user_id when setting counterparty_contact_id
 		setClauses = append(setClauses, "counterparty_user_id = NULL")
 	}
+	
+	// Generated from template ID (for linking movement to a recurring template)
+	if input.GeneratedFromTemplateID != nil {
+		setClauses = append(setClauses, fmt.Sprintf("generated_from_template_id = $%d", argNum))
+		args = append(args, *input.GeneratedFromTemplateID)
+		argNum++
+	}
 
 	if len(setClauses) > 0 {
 		// Always update updated_at
