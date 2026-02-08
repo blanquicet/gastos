@@ -597,6 +597,95 @@ func (h *Handler) PromoteContact(w http.ResponseWriter, r *http.Request) {
 
 // Invitation endpoints
 
+// InvitationInfoResponse is the public info for an invitation (no sensitive data)
+type InvitationInfoResponse struct {
+	HouseholdName string `json:"household_name"`
+	InviterName   string `json:"inviter_name"`
+	Email         string `json:"email"`
+	IsExpired     bool   `json:"is_expired"`
+	IsAccepted    bool   `json:"is_accepted"`
+}
+
+// GetInvitationInfo handles GET /invitations/{token}
+// This is a public endpoint (no auth required) to show invitation info before accepting
+func (h *Handler) GetInvitationInfo(w http.ResponseWriter, r *http.Request) {
+	token := r.PathValue("token")
+	if token == "" {
+		h.respondError(w, "token es requerido", http.StatusBadRequest)
+		return
+	}
+
+	invitation, err := h.service.repo.GetInvitationByToken(r.Context(), token)
+	if err != nil {
+		if errors.Is(err, ErrInvitationNotFound) {
+			h.respondError(w, "invitación no encontrada", http.StatusNotFound)
+			return
+		}
+		h.logger.Error("failed to get invitation", "error", err)
+		h.respondError(w, "error interno del servidor", http.StatusInternalServerError)
+		return
+	}
+
+	response := InvitationInfoResponse{
+		HouseholdName: invitation.HouseholdName,
+		InviterName:   invitation.InviterName,
+		Email:         invitation.Email,
+		IsExpired:     invitation.IsExpired(),
+		IsAccepted:    invitation.IsAccepted(),
+	}
+
+	h.respondJSON(w, response, http.StatusOK)
+}
+
+type AcceptInvitationRequest struct {
+	Token string `json:"token"`
+}
+
+// AcceptInvitation handles POST /invitations/accept
+func (h *Handler) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
+	user, err := h.getUserFromRequest(r)
+	if err != nil {
+		h.respondError(w, "no autorizado", http.StatusUnauthorized)
+		return
+	}
+
+	var req AcceptInvitationRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, "cuerpo de solicitud inválido", http.StatusBadRequest)
+		return
+	}
+
+	if req.Token == "" {
+		h.respondError(w, "token es requerido", http.StatusBadRequest)
+		return
+	}
+
+	member, err := h.service.AcceptInvitationByToken(r.Context(), &AcceptInvitationByTokenInput{
+		Token:  req.Token,
+		UserID: user.ID,
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrInvitationNotFound):
+			h.respondError(w, "invitación no encontrada", http.StatusNotFound)
+		case errors.Is(err, ErrNotAuthorized):
+			h.respondError(w, "tu correo no coincide con la invitación", http.StatusForbidden)
+		case errors.Is(err, ErrUserAlreadyMember):
+			h.respondError(w, "ya eres miembro de este hogar", http.StatusConflict)
+		case err.Error() == "invitation has already been accepted":
+			h.respondError(w, "esta invitación ya fue aceptada", http.StatusConflict)
+		case err.Error() == "invitation has expired":
+			h.respondError(w, "la invitación ha expirado", http.StatusGone)
+		default:
+			h.logger.Error("failed to accept invitation", "error", err)
+			h.respondError(w, "error interno del servidor", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.respondJSON(w, member, http.StatusOK)
+}
+
 // CreateInvitation handles POST /households/{id}/invitations
 func (h *Handler) CreateInvitation(w http.ResponseWriter, r *http.Request) {
 	user, err := h.getUserFromRequest(r)

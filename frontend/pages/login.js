@@ -262,8 +262,14 @@ async function handleLoginSubmit(e) {
   const result = await login(email, password);
 
   if (result.success) {
-    // Navigate to home page (mes a mes)
-    router.navigate('/');
+    // Check if there's a redirect URL saved (e.g., from invite link)
+    const redirectUrl = sessionStorage.getItem('redirectAfterLogin');
+    if (redirectUrl) {
+      sessionStorage.removeItem('redirectAfterLogin');
+      window.location.href = redirectUrl;
+    } else {
+      router.navigate('/');
+    }
   } else {
     showError(loginError, result.error);
   }
@@ -290,8 +296,14 @@ async function handleRegisterSubmit(e) {
   const result = await register(name, email, password, confirmPassword);
 
   if (result.success) {
-    // Navigate to home page (mes a mes)
-    router.navigate('/');
+    // Check if there's a redirect URL saved (e.g., from invite link)
+    const redirectUrl = sessionStorage.getItem('redirectAfterLogin');
+    if (redirectUrl) {
+      sessionStorage.removeItem('redirectAfterLogin');
+      window.location.href = redirectUrl;
+    } else {
+      router.navigate('/');
+    }
   } else {
     showError(registerError, result.error);
   }

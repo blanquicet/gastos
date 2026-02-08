@@ -9,6 +9,7 @@ import (
 
 	"github.com/blanquicet/conti/backend/internal/audit"
 	"github.com/blanquicet/conti/backend/internal/auth"
+	"github.com/blanquicet/conti/backend/internal/email"
 )
 
 // Service handles household business logic
@@ -16,14 +17,16 @@ type Service struct {
 	repo         HouseholdRepository
 	userRepo     auth.UserRepository
 	auditService audit.Service
+	emailSender  email.Sender
 }
 
 // NewService creates a new household service
-func NewService(repo HouseholdRepository, userRepo auth.UserRepository, auditService audit.Service) *Service {
+func NewService(repo HouseholdRepository, userRepo auth.UserRepository, auditService audit.Service, emailSender email.Sender) *Service {
 	return &Service{
 		repo:         repo,
 		userRepo:     userRepo,
 		auditService: auditService,
+		emailSender:  emailSender,
 	}
 }
 
@@ -768,6 +771,18 @@ func (s *Service) CreateInvitation(ctx context.Context, input *CreateInvitationI
 		return nil, ErrNotAuthorized
 	}
 
+	// Get household for name (needed for email)
+	household, err := s.repo.GetByID(ctx, input.HouseholdID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get inviter name for email
+	inviter, err := s.userRepo.GetByID(ctx, input.UserID)
+	if err != nil {
+		return nil, err
+	}
+
 	// Phase 2: Auto-accept for existing users
 	// Check if user exists with this email
 	invitedUser, err := s.userRepo.GetByEmail(ctx, input.Email)
@@ -793,12 +808,109 @@ func (s *Service) CreateInvitation(ctx context.Context, input *CreateInvitationI
 		}, nil
 	}
 
-	// User doesn't exist - create invitation for Phase 3 email flow
+	// User doesn't exist - create invitation and send email
 	// Generate token
 	token, err := GenerateInvitationToken()
 	if err != nil {
 		return nil, err
 	}
 
-	return s.repo.CreateInvitation(ctx, input.HouseholdID, input.Email, token, input.UserID)
+	invitation, err := s.repo.CreateInvitation(ctx, input.HouseholdID, input.Email, token, input.UserID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Send invitation email
+	if s.emailSender != nil {
+		inviterName := inviter.Name
+		if inviterName == "" {
+			inviterName = inviter.Email
+		}
+		if err := s.emailSender.SendHouseholdInvitation(ctx, input.Email, token, household.Name, inviterName); err != nil {
+			// Log the error but don't fail the invitation creation
+			// The token is still valid and can be shared manually
+			// TODO: Add proper logging here
+			_ = err
+		}
+	}
+
+	return invitation, nil
+}
+
+// AcceptInvitationByTokenInput contains the data needed to accept an invitation by token
+type AcceptInvitationByTokenInput struct {
+	Token  string
+	UserID string // User making the request
+}
+
+// Validate validates the input
+func (i *AcceptInvitationByTokenInput) Validate() error {
+	if i.Token == "" {
+		return errors.New("token is required")
+	}
+	if i.UserID == "" {
+		return errors.New("user ID is required")
+	}
+	return nil
+}
+
+// AcceptInvitationByToken accepts a household invitation using a token
+// The user's email must match the invitation email
+func (s *Service) AcceptInvitationByToken(ctx context.Context, input *AcceptInvitationByTokenInput) (*HouseholdMember, error) {
+	if err := input.Validate(); err != nil {
+		return nil, err
+	}
+
+	// Get the invitation by token
+	invitation, err := s.repo.GetInvitationByToken(ctx, input.Token)
+	if err != nil {
+		if errors.Is(err, ErrInvitationNotFound) {
+			return nil, ErrInvitationNotFound
+		}
+		return nil, err
+	}
+
+	// Check if invitation is still valid (not expired, not accepted)
+	if invitation.IsAccepted() {
+		return nil, errors.New("invitation has already been accepted")
+	}
+	if invitation.IsExpired() {
+		return nil, errors.New("invitation has expired")
+	}
+
+	// Get user to verify email matches
+	user, err := s.userRepo.GetByID(ctx, input.UserID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Verify user email matches invitation email
+	if strings.ToLower(user.Email) != strings.ToLower(invitation.Email) {
+		return nil, ErrNotAuthorized
+	}
+
+	// Add user as member directly (bypass AddMember which requires existing membership)
+	member, err := s.repo.AddMember(ctx, invitation.HouseholdID, input.UserID, RoleMember)
+	if err != nil {
+		return nil, err
+	}
+
+	// Mark invitation as accepted
+	if err := s.repo.AcceptInvitation(ctx, invitation.ID); err != nil {
+		// Log the error but don't fail - user is already added
+		_ = err
+	}
+
+	// Audit log
+	s.auditService.LogAsync(ctx, &audit.LogInput{
+		UserID:       audit.StringPtr(input.UserID),
+		Action:       audit.ActionHouseholdInvitationAccepted,
+		ResourceType: "household_invitation",
+		ResourceID:   audit.StringPtr(invitation.ID),
+		HouseholdID:  audit.StringPtr(invitation.HouseholdID),
+		Success:      true,
+		NewValues:    audit.StructToMap(member),
+	})
+
+	return member, nil
 }

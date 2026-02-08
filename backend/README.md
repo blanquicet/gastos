@@ -212,7 +212,7 @@ DELETE /movements/{id} # Delete movement
 | `SMTP_USERNAME` | SMTP authentication username | - |
 | `SMTP_PASSWORD` | SMTP authentication password | - |
 | **Email Provider API Key** | | |
-| `EMAIL_API_KEY` | Email service API key (Resend, SendGrid, etc.) | - |
+| `EMAIL_API_KEY` | API key for Resend | - |
 
 ## Testing
 
@@ -279,9 +279,8 @@ telnet $SMTP_HOST $SMTP_PORT
 # Verify API key is set
 echo $EMAIL_API_KEY | cut -c1-10
 # Resend keys start with: re_
-# SendGrid keys start with: SG.
 
-# Check Resend dashboard (if using Resend)
+# Check Resend dashboard
 https://resend.com/emails
 
 # Common issues:

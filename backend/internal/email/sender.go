@@ -9,6 +9,7 @@ import (
 // Sender defines the interface for sending emails.
 type Sender interface {
 	SendPasswordReset(ctx context.Context, to, token string) error
+	SendHouseholdInvitation(ctx context.Context, to, token, householdName, inviterName string) error
 }
 
 // NoOpSender is a no-op email sender for development.
@@ -31,9 +32,21 @@ func (s *NoOpSender) SendPasswordReset(ctx context.Context, to, token string) er
 	return nil
 }
 
+// SendHouseholdInvitation logs the household invitation email instead of sending.
+func (s *NoOpSender) SendHouseholdInvitation(ctx context.Context, to, token, householdName, inviterName string) error {
+	s.logger.Info("household invitation email (no-op)",
+		"to", to,
+		"token", token,
+		"household", householdName,
+		"inviter", inviterName,
+	)
+	fmt.Printf("\n=== HOUSEHOLD INVITATION EMAIL ===\nTo: %s\nHousehold: %s\nInvited by: %s\nToken: %s\n==================================\n\n", to, householdName, inviterName, token)
+	return nil
+}
+
 // Config holds email service configuration.
 type Config struct {
-	// Provider: "noop", "smtp", "sendgrid", or "resend"
+	// Provider: "noop", "smtp", or "resend"
 	Provider string
 
 	// SMTP configuration (for local development)
@@ -42,13 +55,13 @@ type Config struct {
 	SMTPUsername string
 	SMTPPassword string
 
-	// API key for email providers (SendGrid, Resend, etc.)
+	// API key for Resend
 	APIKey string
 
 	// Common configuration
 	FromAddress string
 	FromName    string
-	BaseURL     string // Frontend URL for reset links
+	BaseURL     string // Frontend URL for links
 }
 
 // NewSender creates an email sender based on the provider configuration.
@@ -65,13 +78,6 @@ func NewSender(cfg *Config, logger *slog.Logger) (Sender, error) {
 		logger.Info("using SMTP email sender", "host", cfg.SMTPHost, "port", cfg.SMTPPort)
 		return NewSMTPSender(cfg, logger), nil
 
-	case "sendgrid":
-		if cfg.APIKey == "" {
-			return nil, fmt.Errorf("email provider API key is required")
-		}
-		logger.Info("using SendGrid email sender")
-		return NewSendGridSender(cfg, logger), nil
-
 	case "resend":
 		if cfg.APIKey == "" {
 			return nil, fmt.Errorf("email provider API key is required")
@@ -80,8 +86,6 @@ func NewSender(cfg *Config, logger *slog.Logger) (Sender, error) {
 		return NewResendSender(cfg, logger), nil
 
 	default:
-		return nil, fmt.Errorf("unknown email provider: %s (valid: noop, smtp, sendgrid, resend)", cfg.Provider)
+		return nil, fmt.Errorf("unknown email provider: %s (valid: noop, smtp, resend)", cfg.Provider)
 	}
 }
-
-

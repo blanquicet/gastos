@@ -32,7 +32,7 @@ type Config struct {
 	EmailFromAddress string
 	EmailFromName    string
 	EmailBaseURL     string
-	EmailAPIKey      string // Generic API key for email providers (SendGrid, Resend, etc.)
+	EmailAPIKey      string // API key for Resend
 	SMTPHost         string
 	SMTPPort         int
 	SMTPUsername     string
@@ -107,7 +107,7 @@ func Load() (*Config, error) {
 	smtpUsername := os.Getenv("SMTP_USERNAME")
 	smtpPassword := os.Getenv("SMTP_PASSWORD")
 
-	// Email provider API key (generic for SendGrid, Resend, etc.)
+	// Email provider API key (for Resend)
 	emailAPIKey := os.Getenv("EMAIL_API_KEY")
 
 	// Static directory for serving frontend in development

@@ -91,7 +91,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 	)
 
 	// Create household service
-	householdService := households.NewService(householdRepo, userRepo, auditService)
+	householdService := households.NewService(householdRepo, userRepo, auditService, emailSender)
 
 	// Create auth handler
 	authHandler := auth.NewHandler(
@@ -337,6 +337,8 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 	
 	// Invitation endpoints
 	mux.HandleFunc("POST /households/{id}/invitations", householdHandler.CreateInvitation)
+	mux.HandleFunc("GET /invitations/{token}", householdHandler.GetInvitationInfo)
+	mux.HandleFunc("POST /invitations/accept", householdHandler.AcceptInvitation)
 
 	// Accounts endpoints
 	mux.HandleFunc("POST /accounts", accountsHandler.CreateAccount)

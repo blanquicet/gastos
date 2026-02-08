@@ -15,6 +15,7 @@ import * as RegistrarMovimientoPage from './pages/registrar-movimiento.js';
 import * as ProfilePage from './pages/profile.js';
 import * as HouseholdPage from './pages/household.js';
 import * as AdminAuditLogsPage from './pages/admin-audit-logs.js';
+import * as InvitePage from './pages/invite.js';
 
 // Store current user globally
 let currentUser = null;
@@ -159,17 +160,35 @@ function initRouter() {
     if (loadingEl) loadingEl.style.display = 'none';
   });
 
+  // /invite is a semi-public route - renders without auth, but accepting requires login
+  router.route('/invite', async () => {
+    // Check auth but don't redirect - we'll show invite info regardless
+    const { authenticated, user } = await checkAuth();
+    
+    if (authenticated) {
+      currentUser = user;
+    }
+    
+    const appEl = document.getElementById('app');
+    appEl.innerHTML = InvitePage.render();
+    await InvitePage.setup(authenticated);
+    const loadingEl = document.getElementById('loading');
+    if (loadingEl) loadingEl.style.display = 'none';
+  });
+
   // Auth guard - check before every route
   router.beforeEach(async (to) => {
     // Public routes that don't require authentication
-    const publicRoutes = ['/login', '/forgot-password', '/reset-password'];
-    const isPublicRoute = publicRoutes.includes(to);
+    const publicRoutes = ['/login', '/forgot-password', '/reset-password', '/invite'];
+    const isPublicRoute = publicRoutes.includes(to) || to.startsWith('/invite');
 
     // Check authentication status
     const { authenticated } = await checkAuth();
 
-    // If authenticated and trying to access public route, redirect to main page
-    if (authenticated && isPublicRoute) {
+    // If authenticated and trying to access login-type routes, redirect to main page
+    // But NOT for /invite - authenticated users can still view invites
+    const authOnlyPublicRoutes = ['/login', '/forgot-password', '/reset-password'];
+    if (authenticated && authOnlyPublicRoutes.includes(to)) {
       router.navigate('/');
       return false;
     }
