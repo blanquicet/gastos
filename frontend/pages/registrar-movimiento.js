@@ -176,7 +176,7 @@ export function render(user) {
           </label>
 
           <label class="field col-span-2 hidden" id="recurringTemplateWrap">
-            <span>¿Gasto predefinido?</span>
+            <span>¿Gasto presupuestado?</span>
             <select name="recurringTemplate" id="recurringTemplate">
               <option value="" selected>No</option>
             </select>
@@ -375,7 +375,7 @@ export function render(user) {
           </label>
 
           <label class="field col-span-2 hidden" id="recurringTemplateWrap2">
-            <span>¿Gasto predefinido?</span>
+            <span>¿Gasto presupuestado?</span>
             <select name="recurringTemplate" id="recurringTemplate2">
               <option value="" selected>No</option>
             </select>
