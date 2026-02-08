@@ -91,18 +91,23 @@ async function testHouseholdManagement() {
     console.log('✅ User 2 registered and logged in');
 
     // ==================================================================
-    // STEP 3: User 1 - Create Household
+    // STEP 3: User 1 - Create Household from Welcome Screen
     // ==================================================================
-    console.log('🏠 Step 3: User 1 creating household...');
+    console.log('🏠 Step 3: User 1 creating household from welcome screen...');
     
-    // Go to profile
-    await page1.locator('#hamburger-btn').click();
-    await page1.waitForTimeout(500);
-    await page1.getByRole('link', { name: 'Perfil' }).click();
-    await page1.waitForTimeout(1000);
+    // Navigate to home page - should show welcome state
+    await page1.goto(`${apiUrl}/`);
+    await page1.waitForTimeout(2000);
     
-    // Click "Crear hogar"
-    await page1.getByRole('button', { name: 'Crear hogar' }).click();
+    // Verify welcome message is shown
+    const welcomeTitle = await page1.locator('.no-household-title').textContent();
+    if (!welcomeTitle.includes('Bienvenido a Conti')) {
+      throw new Error('Welcome screen not shown: ' + welcomeTitle);
+    }
+    console.log('  ✓ Welcome screen displayed');
+    
+    // Click "Crear mi hogar" button from welcome screen
+    await page1.locator('#create-household-btn').click();
     await page1.waitForTimeout(500);
     
     // Fill household name in modal
@@ -121,7 +126,7 @@ async function testHouseholdManagement() {
     if (!householdTitle.includes(householdName)) {
       throw new Error('Household name not found on page');
     }
-    console.log('✅ Household created:', householdName);
+    console.log('✅ Household created from welcome screen:', householdName);
 
     // ==================================================================
     // STEP 4: User 1 - Add Contact
@@ -421,11 +426,46 @@ async function testHouseholdManagement() {
     console.log('✅ Household deleted successfully');
 
     // ==================================================================
+    // STEP 12: User 2 - Create Household from Profile Page
+    // ==================================================================
+    console.log('🏠 Step 12: User 2 creating household from profile page...');
+    
+    const household2Name = `User2 Household ${timestamp}`;
+    
+    // User 2 goes to profile
+    await page2.locator('#hamburger-btn').click();
+    await page2.waitForTimeout(500);
+    await page2.getByRole('link', { name: 'Perfil' }).click();
+    await page2.waitForTimeout(1000);
+    
+    // Click "Crear hogar" button from profile
+    await page2.getByRole('button', { name: 'Crear hogar' }).click();
+    await page2.waitForTimeout(500);
+    
+    // Fill household name in modal
+    await page2.locator('#household-name-input').fill(household2Name);
+    await page2.locator('#household-create-btn').click();
+    await page2.waitForTimeout(1000);
+    await page2.locator('#modal-ok').click();
+    await page2.waitForTimeout(2000);
+    
+    // Navigate to household page to verify
+    await page2.goto(`${apiUrl}/hogar`);
+    await page2.waitForTimeout(1000);
+    
+    // Verify household name appears
+    const household2Title = await page2.locator('.household-info-large h2').textContent();
+    if (!household2Title.includes(household2Name)) {
+      throw new Error('Household 2 name not found on page');
+    }
+    console.log('✅ Household created from profile page:', household2Name);
+
+    // ==================================================================
     // CLEANUP
     // ==================================================================
     console.log('🧹 Cleaning up test data...');
     
-    // Delete test users
+    // Delete test users (cascade deletes households)
     await pool.query('DELETE FROM users WHERE email IN ($1, $2)', [user1Email, user2Email]);
     console.log('✅ Test users deleted');
 

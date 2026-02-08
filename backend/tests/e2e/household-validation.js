@@ -73,7 +73,7 @@ async function testHouseholdValidation() {
     await page.waitForTimeout(2000);
     
     // Navigate to household page
-    await page.goto(`${appUrl}/hogar`);
+    await page.goto(`${apiUrl}/hogar`);
     await page.waitForTimeout(1000);
     
     console.log('✅ Test environment ready');
