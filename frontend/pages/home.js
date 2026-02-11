@@ -1808,7 +1808,8 @@ function renderCreditCards() {
           </div>
           <div class="expense-group-info">
             <div class="expense-group-name">${card.name}</div>
-            <div class="expense-group-amount ${isPaid ? 'paid-amount' : ''}">${isPaid ? '✓ Pagado' : formatCurrency(card.net_debt)}</div>
+            <div class="expense-group-subtitle">${card.owner_name}</div>
+            <div class="expense-group-amount ${isPaid ? 'paid-amount' : ''}">${isPaid ? '✓ Al día' : formatCurrency(card.net_debt)}</div>
           </div>
           <div class="card-period-badge">${billingPeriod}</div>
           <svg class="expense-group-chevron" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">

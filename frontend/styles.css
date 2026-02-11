@@ -3083,6 +3083,13 @@ button.loading::after {
   font-size: 17px;
   font-weight: 600;
   color: #111827;
+  margin-bottom: 2px;
+}
+
+.expense-group-subtitle {
+  font-size: 13px;
+  color: #6b7280;
+  font-weight: 400;
   margin-bottom: 4px;
 }
 
@@ -3277,8 +3284,9 @@ button.loading::after {
 }
 
 .credit-card-card.card-paid {
-  background: #f0fdf4;
-  border-color: #86efac;
+  background: #ffffff;
+  border-color: #10b981;
+  border-left: 4px solid #10b981;
 }
 
 .card-period-badge {
@@ -3300,7 +3308,7 @@ button.loading::after {
 }
 
 .expense-group-amount-sub.paid-amount {
-  color: #059669;
+  color: #10b981;
 }
 
 .debt-amount {
@@ -3308,7 +3316,7 @@ button.loading::after {
 }
 
 .paid-amount {
-  color: #059669 !important;
+  color: #10b981 !important;
 }
 
 .payment-amount {
