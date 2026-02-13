@@ -2662,7 +2662,8 @@ function renderMovementCategories() {
             const categoryData = groupData.categories[category];
             const categoryPercentage = ((categoryData.total / groupData.total) * 100).toFixed(1);
             const simplifiedName = getSimplifiedCategoryName(category, groupName);
-            const safeCategoryId = category.replace(/[^a-zA-Z0-9]/g, '_');
+            // Include group name in ID to avoid duplicates (e.g., "Gastos fijos" exists in multiple groups)
+            const safeCategoryId = `${safeGroupId}_${category.replace(/[^a-zA-Z0-9]/g, '_')}`;
             
             // Calculate category budget from budgetsData
             let categoryBudget = 0;
@@ -2703,7 +2704,7 @@ function renderMovementCategories() {
             );
 
             return `
-              <div class="expense-category-item" data-category="${category}">
+              <div class="expense-category-item" data-category-id="${safeCategoryId}">
                 <div class="expense-category-header">
                   <div class="expense-category-info">
                     <span class="expense-category-name">${simplifiedName}</span>
@@ -3198,10 +3199,10 @@ function setupCategoryListeners() {
   const categoryItems = document.querySelectorAll('.expense-category-item');
   categoryItems.forEach(item => {
     item.querySelector('.expense-category-header')?.addEventListener('click', () => {
-      const category = item.dataset.category;
-      if (category) {
-        const safeId = category.replace(/[^a-zA-Z0-9]/g, '_');
-        const details = document.getElementById(`category-details-${safeId}`);
+      // Use categoryId directly (already includes group prefix for uniqueness)
+      const categoryId = item.dataset.categoryId;
+      if (categoryId) {
+        const details = document.getElementById(`category-details-${categoryId}`);
         const chevron = item.querySelector('.category-chevron');
         if (details) {
           details.classList.toggle('hidden');

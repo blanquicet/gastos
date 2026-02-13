@@ -484,7 +484,8 @@ async function testMovementCompartido() {
     await page.waitForTimeout(500);
     
     // Then expand the "Mercado" category to see movements
-    const mercadoCategory = page.locator('.expense-category-item[data-category="Mercado"]');
+    // Note: data-category-id includes group prefix for uniqueness (e.g., "Casa_Mercado")
+    const mercadoCategory = page.locator('.expense-category-item[data-category-id="Casa_Mercado"]');
     const mercadoHeader = mercadoCategory.locator('.expense-category-header');
     await mercadoHeader.click();
     await page.waitForTimeout(500);
