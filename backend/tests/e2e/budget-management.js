@@ -1,5 +1,6 @@
 import { chromium } from 'playwright';
 import pg from 'pg';
+import { createGroupsAndCategoriesViaUI } from './helpers/category-helpers.js';
 const { Pool } = pg;
 
 /**
@@ -93,38 +94,13 @@ async function testBudgetManagement() {
     );
     const householdId = householdQuery.rows[0].id;
     
-    // Create category groups and categories via database
-    const categoryGroups = [
-      { name: 'Casa', icon: '🏠', display_order: 1 },
-      { name: 'Diversión', icon: '🎉', display_order: 2 }
-    ];
+    // Create category groups and categories via UI
+    await createGroupsAndCategoriesViaUI(page, appUrl, [
+      { name: 'Casa', icon: '🏠', categories: ['Mercado', 'Transporte'] },
+      { name: 'Diversión', icon: '🎉', categories: ['Restaurantes'] }
+    ]);
     
-    const categoryGroupIds = {};
-    for (const group of categoryGroups) {
-      const result = await pool.query(
-        `INSERT INTO category_groups (household_id, name, icon, display_order, is_active)
-         VALUES ($1, $2, $3, $4, true)
-         RETURNING id`,
-        [householdId, group.name, group.icon, group.display_order]
-      );
-      categoryGroupIds[group.name] = result.rows[0].id;
-    }
-    
-    const categories = [
-      { name: 'Mercado', category_group: 'Casa' },
-      { name: 'Transporte', category_group: 'Casa' },
-      { name: 'Restaurantes', category_group: 'Diversión' }
-    ];
-    
-    for (const cat of categories) {
-      await pool.query(
-        `INSERT INTO categories (household_id, name, category_group_id, display_order, is_active)
-         VALUES ($1, $2, $3, 1, true)`,
-        [householdId, cat.name, categoryGroupIds[cat.category_group]]
-      );
-    }
-    
-    console.log(`✅ Created ${categoryGroups.length} category groups and ${categories.length} test categories`);
+    console.log('✅ Created category groups and categories via UI');
 
     // ==================================================================
     // STEP 3: Navigate to Home Page and Presupuesto Tab

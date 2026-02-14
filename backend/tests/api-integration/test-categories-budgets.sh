@@ -95,6 +95,14 @@ echo -e "${BLUE}═════════════════════�
 echo -e "${BLUE}Categories API Tests${NC}"
 echo -e "${BLUE}═══════════════════════════════════════════════════════════${NC}\n"
 
+run_test "Create Category Group for category tests"
+TEST_GROUP_RESPONSE=$(api_call $CURL_FLAGS -X POST "$BASE_URL/category-groups" \
+  -H "Content-Type: application/json" \
+  -b $COOKIES_FILE \
+  -d '{"name":"Test Group Cat","icon":"🧪"}')
+TEST_GROUP_ID=$(echo "$TEST_GROUP_RESPONSE" | jq -r '.id')
+echo -e "${GREEN}✓ Group created (ID: $TEST_GROUP_ID)${NC}\n"
+
 run_test "List Categories (should have defaults from migration)"
 CATEGORIES_LIST=$(api_call $CURL_FLAGS -X GET $BASE_URL/categories \
   -b $COOKIES_FILE)
@@ -107,7 +115,7 @@ run_test "Create New Category"
 CREATE_CATEGORY=$(api_call $CURL_FLAGS -X POST $BASE_URL/categories \
   -H "Content-Type: application/json" \
   -b $COOKIES_FILE \
-  -d '{"name":"Test Category","category_group":"Test","icon":"🧪","color":"#FF5722"}')
+  -d "{\"name\":\"Test Category\",\"category_group_id\":\"$TEST_GROUP_ID\",\"color\":\"#FF5722\"}")
 NEW_CATEGORY_ID=$(echo "$CREATE_CATEGORY" | jq -r '.id')
 echo -e "${GREEN}✓ Category created (ID: $NEW_CATEGORY_ID)${NC}\n"
 
@@ -130,7 +138,7 @@ run_test "Update Category - Try Duplicate Name (should fail with 409)"
 CREATE_DUPLICATE=$(api_call $CURL_FLAGS -X POST $BASE_URL/categories \
   -H "Content-Type: application/json" \
   -b $COOKIES_FILE \
-  -d '{"name":"Duplicate Test"}')
+  -d "{\"name\":\"Duplicate Test\",\"category_group_id\":\"$TEST_GROUP_ID\"}")
 # Now try to rename our original category to the same name
 DUPLICATE_RESPONSE=$(api_call $CURL_FLAGS -w "\n%{http_code}" -X PATCH "$BASE_URL/categories/$NEW_CATEGORY_ID" \
   -H "Content-Type: application/json" \
@@ -425,6 +433,108 @@ CATEGORY_LOG_COUNT=$(echo "$CATEGORY_LOGS" | jq '.logs | length')
 echo -e "${GREEN}✓ Found $CATEGORY_LOG_COUNT category audit logs${NC}\n"
 
 # ═══════════════════════════════════════════════════════════
+# CATEGORY GROUPS CRUD
+# ═══════════════════════════════════════════════════════════
+
+echo -e "\n${BLUE}═══ 📂 Category Groups CRUD ═══${NC}\n"
+
+run_test "Create category group"
+GROUP_RESPONSE=$(api_call $CURL_FLAGS -X POST "$BASE_URL/category-groups" \
+  -H "Content-Type: application/json" \
+  -b $COOKIES_FILE \
+  -d '{"name":"Test Group","icon":"🏠"}')
+GROUP_ID=$(echo "$GROUP_RESPONSE" | jq -r '.id')
+[ "$GROUP_ID" != "null" ] && [ -n "$GROUP_ID" ]
+echo -e "${GREEN}✓ Group created (ID: $GROUP_ID)${NC}\n"
+
+run_test "Create second category group"
+GROUP2_RESPONSE=$(api_call $CURL_FLAGS -X POST "$BASE_URL/category-groups" \
+  -H "Content-Type: application/json" \
+  -b $COOKIES_FILE \
+  -d '{"name":"Second Group","icon":"🚗"}')
+GROUP2_ID=$(echo "$GROUP2_RESPONSE" | jq -r '.id')
+[ "$GROUP2_ID" != "null" ] && [ -n "$GROUP2_ID" ]
+echo -e "${GREEN}✓ Second group created (ID: $GROUP2_ID)${NC}\n"
+
+run_test "Create group with duplicate name fails (409)"
+DUP_STATUS=$(curl $CURL_FLAGS -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/category-groups" \
+  -H "Content-Type: application/json" \
+  -b $COOKIES_FILE \
+  -d '{"name":"Test Group","icon":"🔥"}')
+[ "$DUP_STATUS" = "409" ]
+echo -e "${GREEN}✓ Duplicate group name returns 409${NC}\n"
+
+run_test "Create group without name fails (400)"
+NONAME_STATUS=$(curl $CURL_FLAGS -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/category-groups" \
+  -H "Content-Type: application/json" \
+  -b $COOKIES_FILE \
+  -d '{"icon":"🔥"}')
+[ "$NONAME_STATUS" = "400" ]
+echo -e "${GREEN}✓ Missing name returns 400${NC}\n"
+
+run_test "List category groups"
+GROUPS_LIST=$(api_call $CURL_FLAGS "$BASE_URL/category-groups" -b $COOKIES_FILE)
+GROUPS_COUNT=$(echo "$GROUPS_LIST" | jq 'length')
+[ "$GROUPS_COUNT" -ge "2" ]
+echo -e "${GREEN}✓ Listed $GROUPS_COUNT groups${NC}\n"
+
+run_test "Update category group name"
+UPDATE_RESPONSE=$(api_call $CURL_FLAGS -X PATCH "$BASE_URL/category-groups/$GROUP_ID" \
+  -H "Content-Type: application/json" \
+  -b $COOKIES_FILE \
+  -d '{"name":"Renamed Group"}')
+UPDATED_NAME=$(echo "$UPDATE_RESPONSE" | jq -r '.name')
+[ "$UPDATED_NAME" = "Renamed Group" ]
+echo -e "${GREEN}✓ Group renamed to '$UPDATED_NAME'${NC}\n"
+
+run_test "Update category group icon"
+UPDATE_ICON_RESPONSE=$(api_call $CURL_FLAGS -X PATCH "$BASE_URL/category-groups/$GROUP_ID" \
+  -H "Content-Type: application/json" \
+  -b $COOKIES_FILE \
+  -d '{"icon":"🌟"}')
+UPDATED_ICON=$(echo "$UPDATE_ICON_RESPONSE" | jq -r '.icon')
+[ "$UPDATED_ICON" = "🌟" ]
+echo -e "${GREEN}✓ Group icon updated to '$UPDATED_ICON'${NC}\n"
+
+run_test "Delete empty category group"
+DELETE_STATUS=$(curl $CURL_FLAGS -o /dev/null -w "%{http_code}" -X DELETE "$BASE_URL/category-groups/$GROUP2_ID" \
+  -b $COOKIES_FILE)
+[ "$DELETE_STATUS" = "204" ]
+echo -e "${GREEN}✓ Empty group deleted (204)${NC}\n"
+
+run_test "Create category in group"
+CAT_IN_GROUP_RESPONSE=$(api_call $CURL_FLAGS -X POST "$BASE_URL/categories" \
+  -H "Content-Type: application/json" \
+  -b $COOKIES_FILE \
+  -d "{\"name\":\"Cat In Group\",\"category_group_id\":\"$GROUP_ID\"}")
+CAT_IN_GROUP_ID=$(echo "$CAT_IN_GROUP_RESPONSE" | jq -r '.id')
+[ "$CAT_IN_GROUP_ID" != "null" ] && [ -n "$CAT_IN_GROUP_ID" ]
+echo -e "${GREEN}✓ Category created in group (ID: $CAT_IN_GROUP_ID)${NC}\n"
+
+run_test "Delete group with categories fails (409)"
+DELETE_USED_STATUS=$(curl $CURL_FLAGS -o /dev/null -w "%{http_code}" -X DELETE "$BASE_URL/category-groups/$GROUP_ID" \
+  -b $COOKIES_FILE)
+[ "$DELETE_USED_STATUS" = "409" ]
+echo -e "${GREEN}✓ Group with categories cannot be deleted (409)${NC}\n"
+
+run_test "List groups includes categories"
+GROUPS_WITH_CATS=$(api_call $CURL_FLAGS "$BASE_URL/category-groups" -b $COOKIES_FILE)
+CATS_IN_GROUP=$(echo "$GROUPS_WITH_CATS" | jq --arg gid "$GROUP_ID" '[.[] | select(.id == $gid)] | .[0].categories | length')
+[ "$CATS_IN_GROUP" -ge "1" ]
+echo -e "${GREEN}✓ Group contains $CATS_IN_GROUP categories${NC}\n"
+
+run_test "Audit log created for group operations"
+AUDIT_COUNT=$(PAGER=cat psql "$DATABASE_URL" -t -c "
+  SELECT COUNT(*) FROM audit_logs
+  WHERE resource_type = 'category_group'
+    AND resource_id = '$GROUP_ID'
+    AND success = true
+")
+AUDIT_COUNT=$(echo "$AUDIT_COUNT" | xargs)
+[ "$AUDIT_COUNT" -ge "2" ]  # Create + update(s)
+echo -e "${GREEN}✓ Found $AUDIT_COUNT audit logs for group${NC}\n"
+
+# ═══════════════════════════════════════════════════════════
 # SUMMARY
 # ═══════════════════════════════════════════════════════════
 
@@ -437,9 +547,10 @@ echo -e "${NC}\n"
 echo -e "${CYAN}Test Summary:${NC}"
 echo "• Categories API: Create, Read, Update, Delete, Rename, Deactivate ✅"
 echo "• Budgets API: Set, Get, Update, Delete, Copy validation ✅"
+echo "• Category Groups API: Create, Update, Delete, Duplicate check ✅"
 echo "• Error Handling: 400, 409 responses validated ✅"
 echo "• Data Migration: Categories from movements migrated ✅"
-echo "• Audit Logging: 13 verification tests for categories & budgets ✅"
+echo "• Audit Logging: Verification tests for categories, budgets & groups ✅"
 
 # Clean up
 rm -f $COOKIES_FILE

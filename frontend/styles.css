@@ -1504,6 +1504,141 @@ button.loading::after {
   }
 }
 
+/* Categories & Groups Management */
+#categories-content {
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.cat-group-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  margin-bottom: 10px;
+  position: relative;
+}
+
+.cat-group-card:has(.three-dots-menu[style*="display: block"]) {
+  z-index: 100;
+}
+
+.cat-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  cursor: pointer;
+  user-select: none;
+  background: #f9fafb;
+  border-radius: 10px;
+}
+
+.cat-group-header:hover {
+  background: #f3f4f6;
+}
+
+.cat-group-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cat-group-icon {
+  font-size: 22px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.cat-group-name {
+  font-weight: 500;
+  font-size: 15px;
+  color: #111827;
+}
+
+.cat-group-count {
+  font-size: 12px;
+  color: #6b7280;
+  background: #e5e7eb;
+  border-radius: 10px;
+  padding: 1px 8px;
+}
+
+.cat-group-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  position: relative;
+}
+
+.cat-chevron {
+  color: #9ca3af;
+  transition: transform 0.2s ease;
+}
+
+.cat-chevron.rotated {
+  transform: rotate(180deg);
+}
+
+.cat-group-body {
+  padding: 0 16px 12px;
+}
+
+.cat-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.cat-item:last-of-type {
+  border-bottom: none;
+}
+
+.cat-item-name {
+  font-size: 14px;
+  color: #374151;
+}
+
+.cat-item-actions {
+  position: relative;
+}
+
+.cat-inactive {
+  opacity: 0.5;
+}
+
+.cat-empty {
+  text-align: center;
+  color: #9ca3af;
+  font-size: 13px;
+  padding: 12px;
+}
+
+.cat-add-btn {
+  display: block;
+  width: 100%;
+  text-align: center;
+  padding: 8px;
+  color: #6b7280;
+  font-size: 13px;
+  border: 1px dashed #d1d5db;
+  border-radius: 8px;
+  background: none;
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+.cat-add-btn:hover {
+  background: #f9fafb;
+  color: #374151;
+  border-color: #9ca3af;
+}
+
 /* Modal overlay and modal */
 .modal-overlay {
   position: fixed;

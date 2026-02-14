@@ -1,5 +1,6 @@
 import { chromium } from 'playwright';
 import pg from 'pg';
+import { createGroupsAndCategoriesViaUI } from './helpers/category-helpers.js';
 const { Pool } = pg;
 
 /**
@@ -155,19 +156,9 @@ async function testMovementFamiliar() {
     // ==================================================================
     console.log('📝 Step 2.5: Creating category groups and categories...');
     
-    // Create category group "Casa"
-    const categoryGroupResult = await pool.query(`
-      INSERT INTO category_groups (household_id, name, icon, display_order)
-      VALUES ($1, 'Casa', '🏠', 1)
-      RETURNING id
-    `, [householdId]);
-    const categoryGroupId = categoryGroupResult.rows[0].id;
-    
-    // Create "Mercado" category
-    await pool.query(`
-      INSERT INTO categories (household_id, name, category_group_id, display_order)
-      VALUES ($1, 'Mercado', $2, 1)
-    `, [householdId, categoryGroupId]);
+    await createGroupsAndCategoriesViaUI(page, appUrl, [
+      { name: 'Casa', icon: '🏠', categories: ['Mercado'] }
+    ]);
     
     console.log('✅ Category groups and categories created');
 

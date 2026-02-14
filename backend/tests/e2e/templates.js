@@ -6,6 +6,7 @@
 
 import { chromium } from 'playwright';
 import pg from 'pg';
+import { createGroupsAndCategoriesViaUI, getCategoryIds } from './helpers/category-helpers.js';
 const { Pool } = pg;
 
 const appUrl = process.env.APP_URL || 'http://localhost:8080';
@@ -72,37 +73,19 @@ async function testTemplates() {
     );
     const householdId = householdQuery.rows[0].id;
     
-    // Create test categories via database
-    const categoryGroups = [
-      { name: 'Casa', icon: '🏠', order: 1 }
+    // Create test categories via UI
+    await createGroupsAndCategoriesViaUI(page, appUrl, [
+      { name: 'Casa', icon: '🏠', categories: ['Mercado', 'Gastos fijos'] }
+    ]);
+    
+    // Get category IDs from DB (needed for template creation)
+    const categoryIdMap = await getCategoryIds(pool, householdId, ['Mercado', 'Gastos fijos']);
+    const categoryIds = [
+      { id: categoryIdMap['Mercado'], name: 'Mercado' },
+      { id: categoryIdMap['Gastos fijos'], name: 'Gastos fijos' }
     ];
     
-    const categoryGroupIds = {};
-    for (const group of categoryGroups) {
-      const result = await pool.query(
-        `INSERT INTO category_groups (household_id, name, icon, display_order, is_active)
-         VALUES ($1, $2, $3, $4, true) RETURNING id`,
-        [householdId, group.name, group.icon, group.order]
-      );
-      categoryGroupIds[group.name] = result.rows[0].id;
-    }
-    
-    const categories = [
-      { name: 'Mercado', group: 'Casa' },
-      { name: 'Gastos fijos', group: 'Casa' }
-    ];
-    
-    const categoryIds = [];
-    for (const cat of categories) {
-      const result = await pool.query(
-        `INSERT INTO categories (household_id, name, category_group_id, display_order, is_active)
-         VALUES ($1, $2, $3, 1, true) RETURNING id`,
-        [householdId, cat.name, categoryGroupIds[cat.group]]
-      );
-      categoryIds.push({ id: result.rows[0].id, name: cat.name });
-    }
-    
-    console.log(`✅ Created ${categories.length} test categories`);
+    console.log(`✅ Created ${categoryIds.length} test categories via UI`);
     
     // Get user ID for payment method
     const userQuery = await pool.query(

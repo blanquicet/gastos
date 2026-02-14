@@ -22,8 +22,8 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 
 // Create creates a new category
 func (r *PostgresRepository) Create(ctx context.Context, householdID string, input *CreateCategoryInput) (*Category, error) {
-	// Check if name already exists
-	exists, err := r.CheckNameExists(ctx, householdID, input.Name, "")
+	// Check if name already exists in the same group
+	exists, err := r.CheckNameExists(ctx, householdID, input.Name, *input.CategoryGroupID, "")
 	if err != nil {
 		return nil, err
 	}
@@ -145,9 +145,9 @@ func (r *PostgresRepository) Update(ctx context.Context, id string, input *Updat
 	}
 	defer tx.Rollback(ctx)
 
-	// Get current category to access household_id
-	var householdID string
-	err = tx.QueryRow(ctx, `SELECT household_id FROM categories WHERE id = $1`, id).Scan(&householdID)
+	// Get current category to access household_id and group_id
+	var householdID, currentGroupID string
+	err = tx.QueryRow(ctx, `SELECT household_id, category_group_id FROM categories WHERE id = $1`, id).Scan(&householdID, &currentGroupID)
 	if err == pgx.ErrNoRows {
 		return nil, ErrCategoryNotFound
 	}
@@ -157,7 +157,12 @@ func (r *PostgresRepository) Update(ctx context.Context, id string, input *Updat
 
 	// Check name uniqueness if name is being updated
 	if input.Name != nil {
-		exists, err := r.CheckNameExists(ctx, householdID, *input.Name, id)
+		// Use new group if being changed, otherwise current group
+		targetGroupID := currentGroupID
+		if input.CategoryGroupID != nil {
+			targetGroupID = *input.CategoryGroupID
+		}
+		exists, err := r.CheckNameExists(ctx, householdID, *input.Name, targetGroupID, id)
 		if err != nil {
 			return nil, err
 		}
@@ -243,6 +248,11 @@ func (r *PostgresRepository) Delete(ctx context.Context, id string) error {
 
 	result, err := r.pool.Exec(ctx, `DELETE FROM categories WHERE id = $1`, id)
 	if err != nil {
+		// Check for FK constraint violations (e.g., recurring_movement_templates, budgets)
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23503" {
+			return ErrCategoryInUse
+		}
 		return err
 	}
 
@@ -253,14 +263,14 @@ func (r *PostgresRepository) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
-// CheckNameExists checks if a category name already exists in a household
-func (r *PostgresRepository) CheckNameExists(ctx context.Context, householdID, name, excludeID string) (bool, error) {
+// CheckNameExists checks if a category name already exists in the same group within a household
+func (r *PostgresRepository) CheckNameExists(ctx context.Context, householdID, name, groupID, excludeID string) (bool, error) {
 	var count int
-	query := `SELECT COUNT(*) FROM categories WHERE household_id = $1 AND name = $2`
-	args := []interface{}{householdID, name}
+	query := `SELECT COUNT(*) FROM categories WHERE household_id = $1 AND name = $2 AND category_group_id = $3`
+	args := []interface{}{householdID, name, groupID}
 
 	if excludeID != "" {
-		query += " AND id != $3"
+		query += " AND id != $4"
 		args = append(args, excludeID)
 	}
 

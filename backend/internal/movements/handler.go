@@ -582,7 +582,7 @@ func (h *FormConfigHandler) GetFormConfig(w http.ResponseWriter, r *http.Request
 	}
 
 	// Get category groups from database
-	categoryGroups, err := h.categoryGroupsRepo.ListByHousehold(r.Context(), household.ID)
+	categoryGroups, err := h.categoryGroupsRepo.ListByHousehold(r.Context(), household.ID, false)
 	if err != nil {
 		h.logger.Error("failed to list category groups", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)

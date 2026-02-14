@@ -7,6 +7,7 @@
 
 import { chromium } from 'playwright';
 import pg from 'pg';
+import { createGroupsAndCategoriesViaUI, getCategoryIds } from './helpers/category-helpers.js';
 const { Pool } = pg;
 
 const appUrl = process.env.APP_URL || 'http://localhost:8080';
@@ -94,21 +95,14 @@ async function testTemplatePrefill() {
     // ==================================================================
     console.log('\n📦 Creating test data...');
     
-    // Create category group
-    const groupResult = await pool.query(
-      `INSERT INTO category_groups (household_id, name, icon, display_order, is_active)
-       VALUES ($1, 'Casa', '🏠', 1, true) RETURNING id`,
-      [householdId]
-    );
-    const groupId = groupResult.rows[0].id;
+    // Create category group and category via UI
+    await createGroupsAndCategoriesViaUI(page, appUrl, [
+      { name: 'Casa', icon: '🏠', categories: ['Gastos fijos'] }
+    ]);
     
-    // Create category
-    const categoryResult = await pool.query(
-      `INSERT INTO categories (household_id, name, category_group_id, display_order, is_active)
-       VALUES ($1, 'Gastos fijos', $2, 1, true) RETURNING id`,
-      [householdId, groupId]
-    );
-    const categoryId = categoryResult.rows[0].id;
+    // Get category ID from DB (needed for template creation)
+    const categoryIdMap = await getCategoryIds(pool, householdId, ['Gastos fijos']);
+    const categoryId = categoryIdMap['Gastos fijos'];
     console.log('  ✅ Created category: Gastos fijos (ID:', categoryId, ')');
     
     // Create payment method

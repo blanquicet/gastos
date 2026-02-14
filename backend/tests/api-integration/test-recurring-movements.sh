@@ -92,25 +92,21 @@ HOUSEHOLD_RESPONSE=$(api_call $CURL_FLAGS -X POST $BASE_URL/households \
 HOUSEHOLD_ID=$(echo "$HOUSEHOLD_RESPONSE" | jq -r '.id')
 echo -e "${GREEN}✓ Household created (ID: $HOUSEHOLD_ID)${NC}\n"
 
-run_test "Get Categories (need category_id for templates)"
-CATEGORIES_LIST=$(api_call $CURL_FLAGS -X GET $BASE_URL/categories -b $COOKIES_FILE)
-CATEGORY_COUNT=$(echo "$CATEGORIES_LIST" | jq -r '.categories | length')
+run_test "Create Category Group for testing"
+GROUP_RESPONSE=$(api_call $CURL_FLAGS -X POST "$BASE_URL/category-groups" \
+  -H "Content-Type: application/json" \
+  -b $COOKIES_FILE \
+  -d '{"name":"Casa","icon":"🏠"}')
+GROUP_ID=$(echo "$GROUP_RESPONSE" | jq -r '.id')
+echo -e "${GREEN}✓ Category group created (ID: $GROUP_ID)${NC}\n"
 
-# If no categories exist, create one
-if [ "$CATEGORY_COUNT" -eq 0 ]; then
-  run_test "Create Category for testing"
-  CREATE_CATEGORY=$(api_call $CURL_FLAGS -X POST $BASE_URL/categories \
-    -H "Content-Type: application/json" \
-    -b $COOKIES_FILE \
-    -d '{"name":"Gastos fijos","category_group":"Casa","icon":"🏠"}')
-  CATEGORY_ID=$(echo "$CREATE_CATEGORY" | jq -r '.id')
-  CATEGORY_NAME=$(echo "$CREATE_CATEGORY" | jq -r '.name')
-else
-  # Use first existing category
-  CATEGORY_ID=$(echo "$CATEGORIES_LIST" | jq -r '.categories[0].id')
-  CATEGORY_NAME=$(echo "$CATEGORIES_LIST" | jq -r '.categories[0].name')
-fi
-
+run_test "Create Category for testing"
+CREATE_CATEGORY=$(api_call $CURL_FLAGS -X POST $BASE_URL/categories \
+  -H "Content-Type: application/json" \
+  -b $COOKIES_FILE \
+  -d "{\"name\":\"Gastos fijos\",\"category_group_id\":\"$GROUP_ID\"}")
+CATEGORY_ID=$(echo "$CREATE_CATEGORY" | jq -r '.id')
+CATEGORY_NAME=$(echo "$CREATE_CATEGORY" | jq -r '.name')
 echo -e "${GREEN}✓ Using category: $CATEGORY_NAME (ID: $CATEGORY_ID)${NC}\n"
 
 run_test "Create Contact (for templates with contact payer)"

@@ -22,6 +22,8 @@ let household = null;
 let members = [];
 let contacts = [];
 let sharedPaymentMethods = [];
+let categoryGroups = [];
+let categories = [];
 
 /**
  * Render household page
@@ -109,6 +111,19 @@ async function loadHousehold() {
     contacts = details.contacts || [];
     sharedPaymentMethods = details.shared_payment_methods || [];
 
+    // Fetch category groups and categories
+    const [groupsRes, catsRes] = await Promise.all([
+      fetch(`${API_URL}/category-groups?include_inactive=true`, { credentials: 'include' }),
+      fetch(`${API_URL}/categories?include_inactive=true`, { credentials: 'include' }),
+    ]);
+    if (groupsRes.ok) {
+      categoryGroups = await groupsRes.json();
+    }
+    if (catsRes.ok) {
+      const catsData = await catsRes.json();
+      categories = catsData.categories || [];
+    }
+
     // Render content
     contentEl.innerHTML = renderHouseholdContent();
     setupEventHandlers();
@@ -155,7 +170,7 @@ function renderHouseholdContent() {
 
     <div class="household-section">
       <div class="section-header">
-        <h3 class="section-title">Miembros (${members.length})</h3>
+        <h3 class="section-title">Miembros</h3>
         ${isOwner ? '<button id="invite-member-btn" class="btn-secondary btn-small">+ Invitar miembro</button>' : ''}
       </div>
       <p class="section-description">Personas que viven en este hogar con acceso a todos los movimientos.</p>
@@ -167,7 +182,7 @@ function renderHouseholdContent() {
 
     <div class="household-section">
       <div class="section-header">
-        <h3 class="section-title">Contactos (${contacts.length})</h3>
+        <h3 class="section-title">Contactos</h3>
         <button id="add-contact-btn" class="btn-secondary btn-small">+ Agregar contacto</button>
       </div>
       <p class="section-description">Personas con las que tienes transacciones ocasionales (amigos, familia externa, etc.). Solo ven movimientos donde participan.</p>
@@ -179,10 +194,21 @@ function renderHouseholdContent() {
 
     <div class="household-section">
       <div class="section-header">
-        <h3 class="section-title">Métodos de Pago Compartidos (${sharedPaymentMethods.length})</h3>
+        <h3 class="section-title">Métodos de Pago Compartidos</h3>
       </div>
       <p class="section-description">Métodos de pago que todos los miembros del hogar pueden usar para registrar movimientos. Gestiona tus métodos de pago desde tu perfil.</p>
       ${renderSharedPaymentMethods()}
+    </div>
+
+    <div class="household-section">
+      <div class="section-header">
+        <h3 class="section-title">Grupos y Categorías</h3>
+        <button id="add-group-btn" class="btn-secondary btn-small">+ Agregar grupo</button>
+      </div>
+      <p class="section-description">Organiza tus gastos en grupos y categorías.</p>
+      <div id="categories-content">
+        ${renderCategoriesSection()}
+      </div>
     </div>
   `;
 }
@@ -512,7 +538,9 @@ function setupEventHandlers() {
   document.addEventListener('click', (e) => {
     if (!e.target.closest('.contact-actions') && 
         !e.target.closest('.household-header-actions') && 
-        !e.target.closest('.member-actions')) {
+        !e.target.closest('.member-actions') &&
+        !e.target.closest('.cat-group-right') &&
+        !e.target.closest('.cat-item-actions')) {
       document.querySelectorAll('.three-dots-menu').forEach(m => m.style.display = 'none');
     }
   });
@@ -584,6 +612,7 @@ function setupEventHandlers() {
   });
 
   setupContactFormHandlers();
+  setupCategoriesHandlers();
 }
 
 /**
@@ -1164,5 +1193,461 @@ async function handleDeleteHousehold() {
     router.navigate('/perfil');
   } catch (error) {
     await showError('Error', error.message);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// CATEGORIES & GROUPS
+// ═══════════════════════════════════════════════════════════
+
+function renderCategoriesSection() {
+  const sorted = [...categoryGroups].sort((a, b) => a.name.localeCompare(b.name, 'es'));
+
+  if (sorted.length === 0) {
+    return `<div class="empty-state"><p>No hay categorías configuradas aún.</p></div>`;
+  }
+
+  let html = '';
+  sorted.forEach(group => {
+    const cats = (group.categories || []).sort((a, b) => {
+      if (a.is_active !== false && b.is_active === false) return -1;
+      if (a.is_active === false && b.is_active !== false) return 1;
+      return a.name.localeCompare(b.name, 'es');
+    });
+    const inactiveClass = group.is_active === false ? ' cat-inactive' : '';
+    html += `
+      <div class="cat-group-card${inactiveClass}" data-group-id="${group.id}">
+        <div class="cat-group-header" data-toggle-group="${group.id}">
+          <div class="cat-group-left">
+            ${group.icon ? `<span class="cat-group-icon">${group.icon}</span>` : '<span class="cat-group-icon">📦</span>'}
+            <span class="cat-group-name">${group.name}</span>
+            <span class="cat-group-count">${cats.length}</span>
+          </div>
+          <div class="cat-group-right">
+            <button class="three-dots-btn" data-group-menu="${group.id}">⋮</button>
+            <div class="three-dots-menu" id="group-menu-${group.id}">
+              ${group.is_active !== false ? `
+                <button class="menu-item" data-action="edit-group" data-group-id="${group.id}">Editar</button>
+                <button class="menu-item" data-action="add-category" data-group-id="${group.id}">Agregar categoría</button>
+                <button class="menu-item" data-action="deactivate-group" data-group-id="${group.id}">Desactivar</button>
+                <button class="menu-item menu-item-danger" data-action="delete-group" data-group-id="${group.id}">Eliminar</button>
+              ` : `
+                <button class="menu-item" data-action="reactivate-group" data-group-id="${group.id}">Reactivar</button>
+                <button class="menu-item menu-item-danger" data-action="delete-group" data-group-id="${group.id}">Eliminar</button>
+              `}
+            </div>
+            <svg class="cat-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+        </div>
+        <div class="cat-group-body hidden" id="group-body-${group.id}">
+          ${cats.length === 0
+            ? '<div class="cat-empty">Sin categorías en este grupo.</div>'
+            : cats.map(c => renderCategoryItem(c)).join('')}
+          ${group.is_active !== false ? `
+            <button class="cat-add-btn" data-action="add-category" data-group-id="${group.id}">+ Agregar categoría</button>
+          ` : ''}
+        </div>
+      </div>`;
+  });
+
+  return html;
+}
+
+function renderCategoryItem(cat) {
+  const inactiveClass = !cat.is_active ? ' cat-inactive' : '';
+  return `
+    <div class="cat-item${inactiveClass}" data-cat-id="${cat.id}">
+      <span class="cat-item-name">${cat.name}</span>
+      <div class="cat-item-actions">
+        <button class="three-dots-btn" data-cat-menu="${cat.id}">⋮</button>
+        <div class="three-dots-menu" id="cat-menu-${cat.id}">
+          ${cat.is_active ? `
+            <button class="menu-item" data-action="edit-category" data-cat-id="${cat.id}">Editar</button>
+            <button class="menu-item" data-action="deactivate-category" data-cat-id="${cat.id}">Desactivar</button>
+            <button class="menu-item menu-item-danger" data-action="delete-category" data-cat-id="${cat.id}">Eliminar</button>
+          ` : `
+            <button class="menu-item" data-action="reactivate-category" data-cat-id="${cat.id}">Reactivar</button>
+            <button class="menu-item menu-item-danger" data-action="delete-category" data-cat-id="${cat.id}">Eliminar</button>
+          `}
+        </div>
+      </div>
+    </div>`;
+}
+
+function setupCategoriesHandlers() {
+  // Toggle group expand/collapse
+  document.querySelectorAll('[data-toggle-group]').forEach(header => {
+    header.addEventListener('click', (e) => {
+      if (e.target.closest('.three-dots-btn') || e.target.closest('.three-dots-menu')) return;
+      const groupId = header.dataset.toggleGroup;
+      const body = document.getElementById(`group-body-${groupId}`);
+      const chevron = header.querySelector('.cat-chevron');
+      body?.classList.toggle('hidden');
+      chevron?.classList.toggle('rotated');
+    });
+  });
+
+  // Group three-dots menu toggle
+  document.querySelectorAll('[data-group-menu]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const gid = btn.dataset.groupMenu;
+      const menu = document.getElementById(`group-menu-${gid}`);
+      const isOpen = menu.style.display === 'block';
+      document.querySelectorAll('.three-dots-menu').forEach(m => m.style.display = 'none');
+      if (!isOpen) menu.style.display = 'block';
+    });
+  });
+
+  // Category three-dots menu toggle
+  document.querySelectorAll('[data-cat-menu]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const cid = btn.dataset.catMenu;
+      const menu = document.getElementById(`cat-menu-${cid}`);
+      const isOpen = menu.style.display === 'block';
+      document.querySelectorAll('.three-dots-menu').forEach(m => m.style.display = 'none');
+      if (!isOpen) menu.style.display = 'block';
+    });
+  });
+
+  // Action buttons
+  document.querySelectorAll('#categories-content [data-action]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      document.querySelectorAll('.three-dots-menu').forEach(m => m.style.display = 'none');
+      const action = e.currentTarget.dataset.action;
+      const groupId = e.currentTarget.dataset.groupId;
+      const catId = e.currentTarget.dataset.catId;
+
+      if (action === 'edit-group') showGroupModal(groupId);
+      else if (action === 'delete-group') await handleDeleteGroup(groupId);
+      else if (action === 'deactivate-group') await handleDeactivateGroup(groupId);
+      else if (action === 'reactivate-group') await handleReactivateGroup(groupId);
+      else if (action === 'add-category') showCategoryModal(null, groupId);
+      else if (action === 'edit-category') showCategoryModal(catId);
+      else if (action === 'deactivate-category') await handleDeactivateCategory(catId);
+      else if (action === 'delete-category') await handleDeleteCategory(catId);
+      else if (action === 'reactivate-category') await handleReactivateCategory(catId);
+    });
+  });
+
+  // Add group button
+  document.getElementById('add-group-btn')?.addEventListener('click', () => showGroupModal(null));
+}
+
+async function refreshCategories() {
+  const [groupsRes, catsRes] = await Promise.all([
+    fetch(`${API_URL}/category-groups?include_inactive=true`, { credentials: 'include' }),
+    fetch(`${API_URL}/categories?include_inactive=true`, { credentials: 'include' }),
+  ]);
+  if (groupsRes.ok) categoryGroups = await groupsRes.json();
+  if (catsRes.ok) { const d = await catsRes.json(); categories = d.categories || []; }
+  const el = document.getElementById('categories-content');
+  if (el) { el.innerHTML = renderCategoriesSection(); setupCategoriesHandlers(); }
+}
+
+// ── Group Modal ──
+
+function showGroupModal(groupId) {
+  const existing = groupId ? categoryGroups.find(g => g.id === groupId) : null;
+  const title = existing ? 'Editar grupo' : 'Crear grupo';
+
+  // Remove any previous group modal
+  document.getElementById('group-modal')?.remove();
+
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.id = 'group-modal';
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width: 420px;">
+      <h3 style="margin: 0 0 20px 0; font-size: 18px; font-weight: 600;">${title}</h3>
+      <form id="group-form" style="display: flex; flex-direction: column; gap: 16px;">
+        <label class="field">
+          <span>Nombre *</span>
+          <input type="text" id="group-name" required maxlength="100" value="${existing?.name || ''}" placeholder="ej. Hogar, Transporte">
+        </label>
+        <div class="field">
+          <span>Icono</span>
+          <div id="icon-grid" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">
+            ${['🏠','🚗','🏎️','👨','👩','👸','🤴','🏦','📈','🎉','💊','🛒','🎁','💡','🐾','👶','✈️','🍽️','📚','💳','⚕️','🏋️','🎮','💼','🔧','📱','🌐','💰','🏫','💸','📦'].map(e =>
+              `<button type="button" class="icon-pick${(existing?.icon || '').startsWith(e) ? ' selected' : ''}" data-icon="${e}"
+                 style="width:36px;height:36px;font-size:20px;border:2px solid ${(existing?.icon || '').startsWith(e) ? '#10b981' : '#e5e7eb'};border-radius:8px;background:${(existing?.icon || '').startsWith(e) ? '#ecfdf5' : '#fff'};cursor:pointer;display:flex;align-items:center;justify-content:center;">${e}</button>`
+            ).join('')}
+          </div>
+          <input type="hidden" id="group-icon" value="${existing?.icon || ''}">
+        </div>
+        <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 8px;">
+          <button type="button" class="btn-secondary" id="group-cancel">Cancelar</button>
+          <button type="submit" class="btn-primary">${existing ? 'Guardar' : 'Crear'}</button>
+        </div>
+      </form>
+    </div>`;
+  document.body.appendChild(modal);
+
+  modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+  document.getElementById('group-cancel').addEventListener('click', () => modal.remove());
+  document.getElementById('group-name').focus();
+
+  document.getElementById('icon-grid').addEventListener('click', (e) => {
+    const btn = e.target.closest('.icon-pick');
+    if (!btn) return;
+    document.querySelectorAll('#icon-grid .icon-pick').forEach(b => {
+      b.style.borderColor = '#e5e7eb'; b.style.background = '#fff'; b.classList.remove('selected');
+    });
+    btn.style.borderColor = '#10b981'; btn.style.background = '#ecfdf5'; btn.classList.add('selected');
+    document.getElementById('group-icon').value = btn.dataset.icon;
+  });
+
+  document.getElementById('group-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = document.getElementById('group-name').value.trim();
+    const icon = document.getElementById('group-icon').value.trim();
+    if (!name) return;
+    if (!icon) { showError('Campo requerido', 'Selecciona un ícono para el grupo'); return; }
+
+    try {
+      const url = existing ? `${API_URL}/category-groups/${groupId}` : `${API_URL}/category-groups`;
+      const method = existing ? 'PATCH' : 'POST';
+      const body = existing ? {} : { name };
+      if (existing) body.name = name;
+      body.icon = icon;
+
+      const res = await fetch(url, {
+        method, credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        let msg;
+        try { msg = JSON.parse(text).error; } catch { msg = text; }
+        throw new Error(msg || 'Error al guardar grupo');
+      }
+      modal.remove();
+      await refreshCategories();
+    } catch (err) {
+      await showError('Error', err.message);
+    }
+  });
+}
+
+// ── Category Modal ──
+
+function showCategoryModal(catId, preselectedGroupId) {
+  const existing = catId ? categories.find(c => c.id === catId) : null;
+  const title = existing ? 'Editar categoría' : 'Crear categoría';
+  const activeGroups = categoryGroups.filter(g => g.is_active !== false).sort((a, b) => a.name.localeCompare(b.name, 'es'));
+  const selectedGroupId = existing?.category_group_id || preselectedGroupId || '';
+
+  // Remove any previous category modal
+  document.getElementById('category-modal')?.remove();
+
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.id = 'category-modal';
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width: 420px;">
+      <h3 style="margin: 0 0 20px 0; font-size: 18px; font-weight: 600;">${title}</h3>
+      <form id="category-form" style="display: flex; flex-direction: column; gap: 16px;">
+        <label class="field">
+          <span>Nombre *</span>
+          <input type="text" id="cat-name" required maxlength="100" value="${existing?.name || ''}" placeholder="ej. Mercado, Servicios">
+        </label>
+        <label class="field">
+          <span>Grupo *</span>
+          <select id="cat-group" required>
+            <option value="" disabled ${!selectedGroupId ? 'selected' : ''}>Selecciona un grupo</option>
+            ${activeGroups.map(g => `<option value="${g.id}" ${g.id === selectedGroupId ? 'selected' : ''}>${g.icon || ''} ${g.name}</option>`).join('')}
+          </select>
+        </label>
+        <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 8px;">
+          <button type="button" class="btn-secondary" id="cat-cancel">Cancelar</button>
+          <button type="submit" class="btn-primary">${existing ? 'Guardar' : 'Crear'}</button>
+        </div>
+      </form>
+    </div>`;
+  document.body.appendChild(modal);
+
+  modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+  document.getElementById('cat-cancel').addEventListener('click', () => modal.remove());
+  document.getElementById('cat-name').focus();
+
+  document.getElementById('category-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = document.getElementById('cat-name').value.trim();
+    const groupIdVal = document.getElementById('cat-group').value || null;
+    if (!name) return;
+
+    try {
+      const url = existing ? `${API_URL}/categories/${catId}` : `${API_URL}/categories`;
+      const method = existing ? 'PATCH' : 'POST';
+      const body = { name };
+      if (groupIdVal) body.category_group_id = groupIdVal;
+
+      const res = await fetch(url, {
+        method, credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        let msg; try { msg = JSON.parse(text).error; } catch { msg = text; }
+        throw new Error(msg || 'Error al guardar categoría');
+      }
+      modal.remove();
+      await refreshCategories();
+    } catch (err) {
+      await showError('Error', err.message);
+    }
+  });
+}
+
+// ── Delete/Deactivate Handlers ──
+
+async function handleDeleteGroup(groupId) {
+  const group = categoryGroups.find(g => g.id === groupId);
+  if (!group) return;
+
+  const confirmed = await showConfirmation(
+    'Eliminar grupo',
+    `¿Eliminar el grupo "${group.name}"?\n\nEsto eliminará el grupo permanentemente. Solo es posible si no tiene categorías.`,
+    'Eliminar', 'eliminar'
+  );
+  if (!confirmed) return;
+
+  try {
+    const res = await fetch(`${API_URL}/category-groups/${groupId}`, {
+      method: 'DELETE', credentials: 'include',
+    });
+    if (res.status === 409) {
+      await showError('No se puede eliminar', 'Este grupo tiene categorías. Mueve o elimina las categorías primero, o desactiva el grupo.');
+    } else if (!res.ok) {
+      const text = await res.text();
+      let msg; try { msg = JSON.parse(text).error; } catch { msg = text; }
+      throw new Error(msg || 'Error al eliminar grupo');
+    }
+    await refreshCategories();
+  } catch (err) {
+    await showError('Error', err.message);
+  }
+}
+
+async function handleDeactivateGroup(groupId) {
+  const group = categoryGroups.find(g => g.id === groupId);
+  if (!group) return;
+
+  const confirmed = await showConfirmation(
+    'Desactivar grupo',
+    `¿Desactivar el grupo "${group.name}"?\n\nEl grupo y sus categorías dejarán de aparecer en formularios y presupuestos, pero los movimientos existentes se conservarán.`,
+    'Desactivar'
+  );
+  if (!confirmed) return;
+
+  try {
+    await fetch(`${API_URL}/category-groups/${groupId}`, {
+      method: 'PATCH', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_active: false }),
+    });
+    await refreshCategories();
+  } catch (err) {
+    await showError('Error', err.message);
+  }
+}
+
+async function handleReactivateGroup(groupId) {
+  try {
+    await fetch(`${API_URL}/category-groups/${groupId}`, {
+      method: 'PATCH', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_active: true }),
+    });
+    await refreshCategories();
+  } catch (err) {
+    await showError('Error', err.message);
+  }
+}
+
+async function handleDeactivateCategory(catId) {
+  const cat = categories.find(c => c.id === catId);
+  if (!cat) return;
+
+  const confirmed = await showConfirmation(
+    'Desactivar categoría',
+    `¿Desactivar la categoría "${cat.name}"?\n\nLa categoría dejará de aparecer en formularios y presupuestos, pero los movimientos existentes se conservarán.`,
+    'Desactivar'
+  );
+  if (!confirmed) return;
+
+  try {
+    const res = await fetch(`${API_URL}/categories/${catId}`, {
+      method: 'PATCH', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_active: false }),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      let msg; try { msg = JSON.parse(text).error; } catch { msg = text; }
+      throw new Error(msg || 'Error al desactivar categoría');
+    }
+    await refreshCategories();
+  } catch (err) {
+    await showError('Error', err.message);
+  }
+}
+
+async function handleDeleteCategory(catId) {
+  const cat = categories.find(c => c.id === catId);
+  if (!cat) return;
+
+  const confirmed = await showConfirmation(
+    'Eliminar categoría',
+    `¿Eliminar la categoría "${cat.name}"?\n\nEsta acción es permanente. Solo se puede eliminar si no tiene movimientos asociados.`,
+    'Eliminar', 'eliminar'
+  );
+  if (!confirmed) return;
+
+  try {
+    const res = await fetch(`${API_URL}/categories/${catId}`, {
+      method: 'DELETE', credentials: 'include',
+    });
+    if (res.status === 409) {
+      const deactivate = await showConfirmation(
+        'No se puede eliminar',
+        'Esta categoría tiene movimientos o gastos presupuestados asociados y no se puede eliminar.\n\nSi la desactivas, dejará de aparecer en formularios y presupuestos, pero los movimientos existentes se conservarán.',
+        'Desactivar'
+      );
+      if (deactivate) {
+        await fetch(`${API_URL}/categories/${catId}`, {
+          method: 'PATCH', credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ is_active: false }),
+        });
+      }
+    } else if (!res.ok) {
+      const text = await res.text();
+      let msg; try { msg = JSON.parse(text).error; } catch { msg = text; }
+      throw new Error(msg || 'Error al eliminar categoría');
+    }
+    await refreshCategories();
+  } catch (err) {
+    await showError('Error', err.message);
+  }
+}
+
+async function handleReactivateCategory(catId) {
+  try {
+    await fetch(`${API_URL}/categories/${catId}`, {
+      method: 'PATCH', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_active: true }),
+    });
+    await refreshCategories();
+  } catch (err) {
+    await showError('Error', err.message);
   }
 }

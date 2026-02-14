@@ -104,10 +104,12 @@ delete(m.categories, id)
 return nil
 }
 
-func (m *MockRepository) CheckNameExists(ctx context.Context, householdID, name, excludeID string) (bool, error) {
+func (m *MockRepository) CheckNameExists(ctx context.Context, householdID, name, groupID, excludeID string) (bool, error) {
 for _, cat := range m.categories {
 if cat.HouseholdID == householdID && cat.Name == name && cat.ID != excludeID && cat.IsActive {
-return true, nil
+	if cat.CategoryGroupID != nil && *cat.CategoryGroupID == groupID {
+		return true, nil
+	}
 }
 }
 return false, nil
@@ -231,7 +233,7 @@ svc := NewService(repo, householdRepo, auditSvc)
 
 cat, err := svc.Create(context.Background(), "user1", &CreateCategoryInput{
 Name:          "Groceries",
-CategoryGroupID: nil,
+CategoryGroupID: strPtr("group1"),
 })
 
 if err != nil {
@@ -250,7 +252,7 @@ auditSvc := &MockAuditService{}
 
 cat, _ := repo.Create(context.Background(), "household1", &CreateCategoryInput{
 Name:          "Groceries",
-CategoryGroupID: nil,
+CategoryGroupID: strPtr("group1"),
 })
 
 svc := NewService(repo, householdRepo, auditSvc)
@@ -275,11 +277,11 @@ auditSvc := &MockAuditService{}
 
 repo.Create(context.Background(), "household1", &CreateCategoryInput{
 Name:          "Groceries",
-CategoryGroupID: nil,
+CategoryGroupID: strPtr("group1"),
 })
 repo.Create(context.Background(), "household1", &CreateCategoryInput{
 Name:          "Utilities",
-CategoryGroupID: nil,
+CategoryGroupID: strPtr("group1"),
 })
 
 svc := NewService(repo, householdRepo, auditSvc)

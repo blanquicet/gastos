@@ -1004,22 +1004,6 @@ function renderCategorySelect() {
       
       categoriaEl.appendChild(optgroup);
     });
-    
-    // Add ungrouped categories (like "Gastos médicos", "Préstamo" if still in categories list)
-    const ungroupedCategories = categories.filter(c => !groupedCategories.has(c));
-    if (ungroupedCategories.length > 0) {
-      const optgroup = document.createElement('optgroup');
-      optgroup.label = 'OTROS';
-      
-      ungroupedCategories.forEach(category => {
-        const opt = document.createElement('option');
-        opt.value = category;
-        opt.textContent = category;
-        optgroup.appendChild(opt);
-      });
-      
-      categoriaEl.appendChild(optgroup);
-    }
   } else {
     // Fallback: render flat list if no groups
     for (const c of categories) {

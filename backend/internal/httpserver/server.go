@@ -190,7 +190,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 	)
 
 	// Create category groups service and handler (repo already created above)
-	categoryGroupsService := categorygroups.NewService(categoryGroupsRepo, householdRepo)
+	categoryGroupsService := categorygroups.NewService(categoryGroupsRepo, householdRepo, auditService)
 	categoryGroupsHandler := categorygroups.NewHandler(
 		categoryGroupsService,
 		authService,
@@ -400,6 +400,9 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 
 	// Category groups endpoints
 	mux.HandleFunc("GET /category-groups", categoryGroupsHandler.ListCategoryGroups)
+	mux.HandleFunc("POST /category-groups", categoryGroupsHandler.CreateCategoryGroup)
+	mux.HandleFunc("PATCH /category-groups/{id}", categoryGroupsHandler.UpdateCategoryGroup)
+	mux.HandleFunc("DELETE /category-groups/{id}", categoryGroupsHandler.DeleteCategoryGroup)
 
 	// Credit card payments endpoints
 	mux.HandleFunc("POST /credit-card-payments", ccPaymentsHandler.HandleCreate)

@@ -26,11 +26,11 @@ export function render(user, activeRoute = '/') {
     </button>
 
     <div id="dropdown-menu" class="dropdown-menu">
-      <a href="/" class="dropdown-item ${activeRoute === '/' ? 'active' : ''}" data-route="/">
-        Mes a Mes
-      </a>
       <a href="/perfil" class="dropdown-item ${activeRoute === '/perfil' ? 'active' : ''}" data-route="/perfil">
         Perfil
+      </a>
+      <a href="/" class="dropdown-item ${activeRoute === '/' ? 'active' : ''}" data-route="/">
+        Mes a Mes
       </a>
       ${isAdmin ? `
       <a href="/admin/audit-logs" class="dropdown-item ${activeRoute === '/admin/audit-logs' ? 'active' : ''}" data-route="/admin/audit-logs">

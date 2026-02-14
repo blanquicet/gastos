@@ -551,17 +551,13 @@ function renderBudgets() {
 
   // Group budgets by category_group_name
   const grouped = {};
-  const ungrouped = [];
 
   budgets.forEach(budget => {
-    if (budget.category_group_name) {
-      if (!grouped[budget.category_group_name]) {
-        grouped[budget.category_group_name] = [];
-      }
-      grouped[budget.category_group_name].push(budget);
-    } else {
-      ungrouped.push(budget);
+    const groupName = budget.category_group_name || 'Sin grupo';
+    if (!grouped[groupName]) {
+      grouped[groupName] = [];
     }
+    grouped[groupName].push(budget);
   });
 
   // Render budget item (reusing expense-category-item structure)
@@ -593,20 +589,20 @@ function renderBudgets() {
         </div>
         <div class="expense-category-details hidden" id="budget-category-details-${safeCategoryId}">
           
-          <!-- Card: Gastos recurrentes -->
+          <!-- Card: Gastos presupuestados -->
           <div class="budget-templates-card">
-            <div class="budget-card-title">Gastos recurrentes</div>
+            <div class="budget-card-title">Gastos presupuestados</div>
             <div class="budget-templates-list">
               ${templates.length > 0 ? `
                 ${templates.map(template => renderTemplateItem(template)).join('')}
               ` : `
                 <div class="empty-templates-message">
-                  No hay gastos recurrentes definidos
+                  No hay gastos presupuestados definidos
                 </div>
               `}
             </div>
             <button class="budget-add-template-btn" data-action="add-template" data-category-id="${budget.category_id}" data-category-name="${simplifiedName}">
-              + Agregar gasto recurrente
+              + Agregar gasto presupuestado
             </button>
           </div>
           
@@ -615,7 +611,7 @@ function renderBudgets() {
             <div class="budget-card-title">Resumen</div>
             <div class="budget-summary-rows">
               <div class="budget-summary-row">
-                <span class="budget-summary-label">Gastos recurrentes</span>
+                <span class="budget-summary-label">Gastos presupuestados</span>
                 <span class="budget-summary-value">${formatCurrency(templatesSum)}</span>
               </div>
               ${additionalBudget > 0 ? `
@@ -646,7 +642,7 @@ function renderBudgets() {
     const groupPercentage = totalBudget > 0 ? ((groupTotal / totalBudget) * 100).toFixed(1) : '0.0';
     
     // Get group icon from first budget's category_group_icon
-    const groupIcon = groupBudgets[0]?.category_group_icon || '📁';
+    const groupIcon = groupBudgets[0]?.category_group_icon || '📦';
     
     return `
       <div class="expense-group-card" data-group="${groupName}">
@@ -684,18 +680,10 @@ function renderBudgets() {
     grouped[groupName].sort((a, b) => (b.amount || 0) - (a.amount || 0));
   });
 
-  // Sort ungrouped categories too
-  ungrouped.sort((a, b) => (b.amount || 0) - (a.amount || 0));
-
   // Render all groups
   const groupsHtml = sortedGroupNames
     .map(groupName => renderGroupCard(groupName, grouped[groupName], totals.total_budget))
     .join('');
-
-  // Render ungrouped
-  const ungroupedHtml = ungrouped.length > 0 
-    ? renderGroupCard('Otros', ungrouped, totals.total_budget)
-    : '';
 
   return `
     <!-- Action buttons - same style as registrar-movimiento -->
@@ -716,7 +704,6 @@ function renderBudgets() {
 
     <div class="categories-grid">
       ${groupsHtml}
-      ${ungroupedHtml}
     </div>
   `;
 }
@@ -3146,7 +3133,7 @@ function showScopeModal(action, movementId) {
     // Extra confirmation for scope=ALL delete
     if (action === 'delete' && selectedScope === 'ALL') {
       const confirmed = confirm(
-        '⚠️ ADVERTENCIA: Estás a punto de eliminar TODAS las instancias de este gasto recurrente.\n\n' +
+        '⚠️ ADVERTENCIA: Estás a punto de eliminar TODAS las instancias de este gasto presupuestado.\n\n' +
         'Esto incluirá:\n' +
         '• El template original\n' +
         '• Todos los movimientos pasados generados automáticamente\n' +
@@ -3612,7 +3599,7 @@ function setupBudgetListeners() {
               <div style="width: 48px; height: 48px; background: #fee2e2; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px;">
                 <span style="font-size: 24px;">🗑️</span>
               </div>
-              <h3 style="margin: 0; font-size: 18px; font-weight: 600; color: #111827;">Eliminar gasto recurrente</h3>
+              <h3 style="margin: 0; font-size: 18px; font-weight: 600; color: #111827;">Eliminar gasto presupuestado</h3>
             </div>
             
             <p style="margin: 0 0 16px 0; color: #4b5563; text-align: center; font-size: 14px;">
@@ -3900,7 +3887,7 @@ async function handleAddBudget(categoryId, categoryName) {
   // Build modal message with hint if templates exist
   let message = `Ingrese el presupuesto para <strong>${categoryName}</strong>:`;
   if (templatesSum > 0) {
-    message += `<br><br><small style="color: #666;">💡 Gastos predefinidos: ${formatCurrency(templatesSum)}<br>El presupuesto debe ser al menos este monto.</small>`;
+    message += `<br><br><small style="color: #666;">💡 Gastos presupuestados: ${formatCurrency(templatesSum)}<br>El presupuesto debe ser al menos este monto.</small>`;
   }
   
   const amount = await showInputModal(
@@ -3926,7 +3913,7 @@ async function handleAddBudget(categoryId, categoryName) {
   if (parsedAmount < templatesSum) {
     showError(
       'Presupuesto insuficiente', 
-      `El presupuesto no puede ser menor que la suma de gastos predefinidos (${formatCurrency(templatesSum)})`
+      `El presupuesto no puede ser menor que la suma de gastos presupuestados (${formatCurrency(templatesSum)})`
     );
     return;
   }
@@ -3950,7 +3937,7 @@ async function handleEditBudget(categoryId, budgetId, currentAmount, categoryNam
   // Build modal message with hint if templates exist
   let message = `Editar presupuesto para <strong>${categoryName}</strong>:`;
   if (templatesSum > 0) {
-    message += `<br><br><small style="color: #666;">💡 Gastos predefinidos: ${formatCurrency(templatesSum)}<br>El presupuesto debe ser al menos este monto.</small>`;
+    message += `<br><br><small style="color: #666;">💡 Gastos presupuestados: ${formatCurrency(templatesSum)}<br>El presupuesto debe ser al menos este monto.</small>`;
   }
   
   const amount = await showInputModal(
@@ -3972,7 +3959,7 @@ async function handleEditBudget(categoryId, budgetId, currentAmount, categoryNam
   if (parsedAmount > 0 && parsedAmount < templatesSum) {
     showError(
       'Presupuesto insuficiente', 
-      `El presupuesto no puede ser menor que la suma de gastos predefinidos (${formatCurrency(templatesSum)})`
+      `El presupuesto no puede ser menor que la suma de gastos presupuestados (${formatCurrency(templatesSum)})`
     );
     return;
   }
@@ -4030,7 +4017,7 @@ async function handleAddTemplate(categoryId = null, categoryName = null) {
 async function showTemplateModal(categoryId, categoryName, existingTemplate = null) {
   const isEdit = !!existingTemplate;
   const hasCategoryPreselected = !!categoryId;
-  const title = isEdit ? 'Editar gasto recurrente' : 'Agregar gasto recurrente';
+  const title = isEdit ? 'Editar gasto presupuestado' : 'Agregar gasto presupuestado';
   
   // Get form config data from global state
   const users = window.formConfigCache?.users || [];

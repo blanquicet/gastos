@@ -8,14 +8,14 @@ import (
 
 // Errors for category operations
 var (
-	ErrCategoryNotFound      = errors.New("category not found")
-	ErrNotAuthorized         = errors.New("not authorized")
-	ErrCategoryNameRequired  = errors.New("category name is required")
-	ErrCategoryNameTooLong   = errors.New("category name must be at most 100 characters")
-	ErrCategoryNameExists    = errors.New("category with this name already exists in household")
-	ErrCategoryInUse         = errors.New("category cannot be deleted because it is used in movements")
-	ErrNoHousehold           = errors.New("user does not belong to a household")
-	ErrInvalidDisplayOrder   = errors.New("invalid display order")
+	ErrCategoryNotFound      = errors.New("Categoría no encontrada")
+	ErrNotAuthorized         = errors.New("No autorizado")
+	ErrCategoryNameRequired  = errors.New("El nombre de la categoría es obligatorio")
+	ErrCategoryNameTooLong   = errors.New("El nombre de la categoría debe tener máximo 100 caracteres")
+	ErrCategoryNameExists    = errors.New("Ya existe una categoría con este nombre en este grupo")
+	ErrCategoryInUse         = errors.New("No se puede eliminar la categoría porque se usa en movimientos")
+	ErrNoHousehold           = errors.New("El usuario no pertenece a un hogar")
+	ErrInvalidDisplayOrder   = errors.New("Orden de visualización inválido")
 )
 
 // Category represents an expense category
@@ -46,8 +46,11 @@ func (i *CreateCategoryInput) Validate() error {
 	if len(i.Name) > 100 {
 		return ErrCategoryNameTooLong
 	}
+	if i.CategoryGroupID == nil || *i.CategoryGroupID == "" {
+		return errors.New("El grupo es obligatorio")
+	}
 	if i.Color != nil && len(*i.Color) > 20 {
-		return errors.New("color must be at most 20 characters")
+		return errors.New("El color debe tener máximo 20 caracteres")
 	}
 	return nil
 }
@@ -72,7 +75,7 @@ func (i *UpdateCategoryInput) Validate() error {
 		}
 	}
 	if i.Color != nil && len(*i.Color) > 20 {
-		return errors.New("color must be at most 20 characters")
+		return errors.New("El color debe tener máximo 20 caracteres")
 	}
 	if i.DisplayOrder != nil && *i.DisplayOrder < 0 {
 		return ErrInvalidDisplayOrder
@@ -94,7 +97,7 @@ type ReorderCategoriesInput struct {
 // Validate validates the reorder input
 func (i *ReorderCategoriesInput) Validate() error {
 	if len(i.CategoryIDs) == 0 {
-		return errors.New("category_ids is required")
+		return errors.New("Los IDs de categorías son obligatorios")
 	}
 	return nil
 }
@@ -106,7 +109,7 @@ type Repository interface {
 	ListByHousehold(ctx context.Context, householdID string, includeInactive bool) ([]*Category, error)
 	Update(ctx context.Context, id string, input *UpdateCategoryInput) (*Category, error)
 	Delete(ctx context.Context, id string) error
-	CheckNameExists(ctx context.Context, householdID, name, excludeID string) (bool, error)
+	CheckNameExists(ctx context.Context, householdID, name, groupID, excludeID string) (bool, error)
 	IsUsedInMovements(ctx context.Context, categoryID string) (bool, error)
 	Reorder(ctx context.Context, householdID string, categoryIDs []string) error
 	CreateDefaultCategories(ctx context.Context, householdID string) error
@@ -171,9 +174,7 @@ func GetDefaultCategories() []DefaultCategory {
 		{"Vacaciones", "Diversión", 60},
 		{"Salidas juntos", "Diversión", 61},
 		
-		// Ungrouped
-		{"Regalos", "", 100},
-		{"Gastos médicos", "", 101},
-		{"Préstamo", "", 102},
+		// Ungrouped — assign to a suitable group or remove
+		// (All categories now require a group)
 	}
 }
