@@ -972,7 +972,7 @@ function renderLoansCards() {
             ${debtorInitials}
           </div>
           <div class="expense-group-info loan-center-info">
-            <div class="expense-group-name">${isSettled ? `${balance.debtor_name} y ${balance.creditor_name} a paz y salvo` : `${balance.debtor_name} debe a ${balance.creditor_name}`}</div>
+            <div class="expense-group-name">${isSettled ? `${balance.debtor_name} y ${balance.creditor_name} a paz y salvo` : `${balance.debtor_name} debe a ${balance.creditor_name}`}${balance.is_cross_household ? ' <span class="cross-household-badge">🔗</span>' : ''}</div>
             <div class="expense-group-amount ${isSettled ? 'settled-amount' : ''}">${isSettled ? '✓' : formatCurrency(balance.amount)}</div>
           </div>
           <div class="loan-avatar" style="background-color: ${creditorColor}">
@@ -1167,14 +1167,16 @@ function renderLoanMovements(debtorId, creditorId, direction) {
 
   const movementsHtml = relevantMovements.map(movement => {
     const typeLabel = movement.type === 'SPLIT' ? 'Gasto compartido' : 'Pago de deuda';
+    const isCross = movement.is_cross_household;
     
     return `
-      <div class="movement-detail-entry">
+      <div class="movement-detail-entry${isCross ? ' cross-household-entry' : ''}">
         <div class="entry-info">
           <span class="entry-description">${movement.description || typeLabel}</span>
           <span class="entry-amount">${formatCurrency(movement.amount)}</span>
-          <div class="entry-date">${formatDate(movement.movement_date)}</div>
+          <div class="entry-date">${formatDate(movement.movement_date)}${isCross && movement.source_household_name ? ` · <span class="cross-household-source">🔗 ${movement.source_household_name}</span>` : ''}</div>
         </div>
+        ${isCross ? '' : `
         <div class="entry-actions">
           <button class="three-dots-btn" data-movement-id="${movement.movement_id}">⋮</button>
           <div class="three-dots-menu" id="movement-menu-${movement.movement_id}">
@@ -1182,6 +1184,7 @@ function renderLoanMovements(debtorId, creditorId, direction) {
             <button class="menu-item" data-action="delete" data-id="${movement.movement_id}">Eliminar</button>
           </div>
         </div>
+        `}
       </div>
     `;
   }).join('');

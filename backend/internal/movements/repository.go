@@ -381,6 +381,122 @@ func (r *repository) ListByHousehold(ctx context.Context, householdID string, fi
 	return movements, nil
 }
 
+// ListMovementsByContactIDs retrieves SPLIT and DEBT_PAYMENT movements involving any of the given contact IDs.
+// Used for cross-household debt visibility.
+func (r *repository) ListMovementsByContactIDs(ctx context.Context, contactIDs []string, month *string) ([]*Movement, error) {
+	if len(contactIDs) == 0 {
+		return nil, nil
+	}
+
+	query := `
+		SELECT 
+			m.id, m.household_id, m.type, m.description, m.amount,
+			m.movement_date, m.currency,
+			m.payer_user_id, m.payer_contact_id,
+			m.counterparty_user_id, m.counterparty_contact_id,
+			m.payment_method_id, m.receiver_account_id,
+			m.generated_from_template_id,
+			m.created_at, m.updated_at,
+			COALESCE(payer_user.name, payer_contact.name) as payer_name,
+			COALESCE(counterparty_user.name, counterparty_contact.name) as counterparty_name,
+			pm.name as payment_method_name,
+			ra.name as receiver_account_name,
+			c.id as category_id,
+			c.name as category_name,
+			cg.id as category_group_id,
+			cg.name as category_group_name,
+			cg.icon as category_group_icon
+		FROM movements m
+		LEFT JOIN users payer_user ON m.payer_user_id = payer_user.id
+		LEFT JOIN contacts payer_contact ON m.payer_contact_id = payer_contact.id
+		LEFT JOIN users counterparty_user ON m.counterparty_user_id = counterparty_user.id
+		LEFT JOIN contacts counterparty_contact ON m.counterparty_contact_id = counterparty_contact.id
+		LEFT JOIN payment_methods pm ON m.payment_method_id = pm.id
+		LEFT JOIN accounts ra ON m.receiver_account_id = ra.id
+		LEFT JOIN categories c ON m.category_id = c.id
+		LEFT JOIN category_groups cg ON c.category_group_id = cg.id
+		WHERE m.type IN ('SPLIT', 'DEBT_PAYMENT')
+		  AND (
+			m.payer_contact_id = ANY($1)
+			OR m.counterparty_contact_id = ANY($1)
+			OR EXISTS (
+				SELECT 1 FROM movement_participants mp
+				WHERE mp.movement_id = m.id
+				  AND mp.participant_contact_id = ANY($1)
+			)
+		  )
+	`
+
+	args := []interface{}{contactIDs}
+	argNum := 2
+
+	if month != nil {
+		query += fmt.Sprintf(" AND TO_CHAR(m.movement_date, 'YYYY-MM') = $%d", argNum)
+		args = append(args, *month)
+		argNum++
+	}
+	_ = argNum
+
+	query += " ORDER BY m.movement_date DESC, m.created_at DESC"
+
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	movements := make([]*Movement, 0)
+	for rows.Next() {
+		var m Movement
+		err := rows.Scan(
+			&m.ID,
+			&m.HouseholdID,
+			&m.Type,
+			&m.Description,
+			&m.Amount,
+			&m.MovementDate,
+			&m.Currency,
+			&m.PayerUserID,
+			&m.PayerContactID,
+			&m.CounterpartyUserID,
+			&m.CounterpartyContactID,
+			&m.PaymentMethodID,
+			&m.ReceiverAccountID,
+			&m.GeneratedFromTemplateID,
+			&m.CreatedAt,
+			&m.UpdatedAt,
+			&m.PayerName,
+			&m.CounterpartyName,
+			&m.PaymentMethodName,
+			&m.ReceiverAccountName,
+			&m.CategoryID,
+			&m.CategoryName,
+			&m.CategoryGroupID,
+			&m.CategoryGroupName,
+			&m.CategoryGroupIcon,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if m.Type == TypeSplit {
+			participants, err := r.getParticipants(ctx, m.ID)
+			if err != nil {
+				return nil, err
+			}
+			m.Participants = participants
+		}
+
+		movements = append(movements, &m)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return movements, nil
+}
+
 // GetTotals calculates totals for movements
 func (r *repository) GetTotals(ctx context.Context, householdID string, filters *ListMovementsFilters) (*MovementTotals, error) {
 	// Build WHERE clause

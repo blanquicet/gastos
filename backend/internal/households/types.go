@@ -135,6 +135,14 @@ func (i *HouseholdInvitation) IsAccepted() bool {
 	return i.AcceptedAt != nil
 }
 
+// LinkedContact represents a contact in another household that is linked to a user
+type LinkedContact struct {
+	ContactID     string `json:"contact_id"`
+	HouseholdID   string `json:"household_id"`
+	HouseholdName string `json:"household_name"`
+	ContactName   string `json:"contact_name"`
+}
+
 // HouseholdRepository defines the interface for household persistence
 type HouseholdRepository interface {
 	// Household CRUD
@@ -159,6 +167,7 @@ type HouseholdRepository interface {
 	DeleteContact(ctx context.Context, id string) error
 	ListContacts(ctx context.Context, householdID string) ([]*Contact, error)
 	FindContactByEmail(ctx context.Context, householdID, email string) (*Contact, error)
+	FindContactsByLinkedUserID(ctx context.Context, userID, excludeHouseholdID string) ([]LinkedContact, error)
 	
 	// Invitation management
 	CreateInvitation(ctx context.Context, householdID, email, token, invitedBy string) (*HouseholdInvitation, error)

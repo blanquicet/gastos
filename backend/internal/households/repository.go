@@ -498,6 +498,35 @@ func (r *Repository) FindContactByEmail(ctx context.Context, householdID, email 
 	return &c, nil
 }
 
+// FindContactsByLinkedUserID finds all contacts across households linked to a specific user,
+// excluding contacts from the user's own household.
+func (r *Repository) FindContactsByLinkedUserID(ctx context.Context, userID, excludeHouseholdID string) ([]LinkedContact, error) {
+	query := `
+		SELECT c.id, c.household_id, h.name, c.name
+		FROM contacts c
+		JOIN households h ON c.household_id = h.id
+		WHERE c.linked_user_id = $1
+		  AND c.household_id != $2
+		  AND c.is_active = true
+	`
+	rows, err := r.pool.Query(ctx, query, userID, excludeHouseholdID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var contacts []LinkedContact
+	for rows.Next() {
+		var lc LinkedContact
+		err := rows.Scan(&lc.ContactID, &lc.HouseholdID, &lc.HouseholdName, &lc.ContactName)
+		if err != nil {
+			return nil, err
+		}
+		contacts = append(contacts, lc)
+	}
+	return contacts, rows.Err()
+}
+
 // CreateInvitation creates a new household invitation
 func (r *Repository) CreateInvitation(ctx context.Context, householdID, email, token, invitedBy string) (*HouseholdInvitation, error) {
 	var inv HouseholdInvitation

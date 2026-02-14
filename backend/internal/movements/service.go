@@ -379,6 +379,210 @@ func (s *service) GetDebtConsolidation(ctx context.Context, userID string, month
 		}
 	}
 
+	// Get household members (needed for cross-household name resolution and summary)
+	members, err := s.householdsRepo.GetMembers(ctx, householdID)
+	if err != nil {
+		s.logger.Warn("failed to get household members", "error", err)
+		members = nil
+	}
+
+	// --- Cross-household debt visibility ---
+	// Find contacts in OTHER households linked to the current user
+	linkedContacts, err := s.householdsRepo.FindContactsByLinkedUserID(ctx, userID, householdID)
+	if err != nil {
+		s.logger.Warn("failed to find linked contacts for cross-household debts", "error", err)
+		// Non-fatal: continue with household-only debts
+		linkedContacts = nil
+	}
+
+	if len(linkedContacts) > 0 {
+		// Build contact ID list and mapping: contactID → {userID, householdName}
+		contactIDs := make([]string, len(linkedContacts))
+		contactToHousehold := make(map[string]string) // contactID → householdName
+		for i, lc := range linkedContacts {
+			contactIDs[i] = lc.ContactID
+			contactToHousehold[lc.ContactID] = lc.HouseholdName
+		}
+
+		// Query movements from other households involving these contacts
+		crossMovements, err := s.repo.ListMovementsByContactIDs(ctx, contactIDs, month)
+		if err != nil {
+			s.logger.Warn("failed to list cross-household movements", "error", err)
+		} else {
+			// Process cross-household movements using the same balance logic,
+			// but translate the user's contact_id to their real user_id
+			for _, m := range crossMovements {
+				// Determine which household this movement belongs to
+				sourceHouseholdName := ""
+				for _, lc := range linkedContacts {
+					if lc.HouseholdID == m.HouseholdID {
+						sourceHouseholdName = lc.HouseholdName
+						break
+					}
+				}
+
+				// Get the user's own name for display
+				userName := ""
+				if members != nil {
+					for _, member := range members {
+						if member.UserID == userID {
+							userName = member.UserName
+							break
+						}
+					}
+				}
+				if userName == "" {
+					// Fallback: use the contact name from the other household
+					for _, lc := range linkedContacts {
+						if lc.HouseholdID == m.HouseholdID {
+							userName = lc.ContactName
+							break
+						}
+					}
+				}
+
+				// Helper to translate a contact ID to user ID if it's the current user's contact
+				translateID := func(contactID *string) (string, bool) {
+					if contactID == nil {
+						return "", false
+					}
+					if _, ok := contactToHousehold[*contactID]; ok {
+						return userID, true // This contact is the current user
+					}
+					return *contactID, false
+				}
+
+				if m.Type == TypeSplit && len(m.Participants) > 0 {
+					payerID := ""
+					payerName := m.PayerName
+
+					if m.PayerUserID != nil {
+						payerID = *m.PayerUserID
+					} else if m.PayerContactID != nil {
+						if id, translated := translateID(m.PayerContactID); translated {
+							payerID = id
+							payerName = userName
+						} else {
+							payerID = id
+						}
+					}
+
+					if payerID != "" {
+						balanceNames[payerID] = payerName
+
+						for _, p := range m.Participants {
+							participantID := ""
+							participantName := p.ParticipantName
+
+							if p.ParticipantUserID != nil {
+								participantID = *p.ParticipantUserID
+							} else if p.ParticipantContactID != nil {
+								if id, translated := translateID(p.ParticipantContactID); translated {
+									participantID = id
+									participantName = userName
+								} else {
+									participantID = id
+								}
+							}
+
+							if participantID == "" || participantID == payerID {
+								continue
+							}
+
+							balanceNames[participantID] = participantName
+
+							share := m.Amount * p.Percentage
+
+							if balanceMap[participantID] == nil {
+								balanceMap[participantID] = make(map[string]float64)
+							}
+							balanceMap[participantID][payerID] += share
+
+							if movementDetails[participantID] == nil {
+								movementDetails[participantID] = make(map[string][]DebtMovementDetail)
+							}
+							movementDetails[participantID][payerID] = append(
+								movementDetails[participantID][payerID],
+								DebtMovementDetail{
+									MovementID:          m.ID,
+									Description:         m.Description,
+									Amount:              share,
+									MovementDate:        m.MovementDate.Format("2006-01-02T15:04:05Z07:00"),
+									Type:                string(TypeSplit),
+									PayerID:             payerID,
+									PayerName:           payerName,
+									IsCrossHousehold:    true,
+									SourceHouseholdName: sourceHouseholdName,
+								},
+							)
+						}
+					}
+				}
+
+				if m.Type == TypeDebtPayment {
+					payerID := ""
+					payerName := m.PayerName
+					counterpartyID := ""
+					counterpartyName := ""
+
+					if m.PayerUserID != nil {
+						payerID = *m.PayerUserID
+					} else if m.PayerContactID != nil {
+						if id, translated := translateID(m.PayerContactID); translated {
+							payerID = id
+							payerName = userName
+						} else {
+							payerID = id
+						}
+					}
+
+					if m.CounterpartyUserID != nil {
+						counterpartyID = *m.CounterpartyUserID
+					} else if m.CounterpartyContactID != nil {
+						if id, translated := translateID(m.CounterpartyContactID); translated {
+							counterpartyID = id
+							counterpartyName = userName
+						} else {
+							counterpartyID = id
+						}
+					}
+
+					if m.CounterpartyName != nil && counterpartyName == "" {
+						counterpartyName = *m.CounterpartyName
+					}
+
+					if payerID != "" && counterpartyID != "" {
+						balanceNames[payerID] = payerName
+						balanceNames[counterpartyID] = counterpartyName
+
+						if balanceMap[payerID] == nil {
+							balanceMap[payerID] = make(map[string]float64)
+						}
+						balanceMap[payerID][counterpartyID] -= m.Amount
+
+						if movementDetails[payerID] == nil {
+							movementDetails[payerID] = make(map[string][]DebtMovementDetail)
+						}
+						movementDetails[payerID][counterpartyID] = append(
+							movementDetails[payerID][counterpartyID],
+							DebtMovementDetail{
+								MovementID:          m.ID,
+								Description:         m.Description,
+								Amount:              -m.Amount,
+								MovementDate:        m.MovementDate.Format("2006-01-02T15:04:05Z07:00"),
+								Type:                string(TypeDebtPayment),
+								PayerID:             payerID,
+								PayerName:           payerName,
+								IsCrossHousehold:    true,
+								SourceHouseholdName: sourceHouseholdName,
+							},
+						)
+					}
+				}
+			}
+		}
+	}
+
 	// Convert balance map to list of DebtBalance, netting out negative amounts
 	var balances []DebtBalance
 	processed := make(map[string]bool) // Track processed pairs to avoid duplicates
@@ -405,6 +609,15 @@ func (s *service) GetDebtConsolidation(ctx context.Context, userID string, month
 			if movementDetails[creditorID] != nil {
 				movements = append(movements, movementDetails[creditorID][debtorID]...)
 			}
+
+			// Check if any movement in this pair is cross-household
+			hasCrossHousehold := false
+			for _, md := range movements {
+				if md.IsCrossHousehold {
+					hasCrossHousehold = true
+					break
+				}
+			}
 			
 			// Include balance if:
 			// 1. Net amount is positive (debtor owes creditor)
@@ -412,25 +625,27 @@ func (s *service) GetDebtConsolidation(ctx context.Context, userID string, month
 			// 3. Net amount is zero BUT there are movements (debt was settled this month)
 			if netAmount > 0.01 { // Small tolerance for floating point
 				balances = append(balances, DebtBalance{
-					DebtorID:     debtorID,
-					DebtorName:   balanceNames[debtorID],
-					CreditorID:   creditorID,
-					CreditorName: balanceNames[creditorID],
-					Amount:       netAmount,
-					Currency:     "COP", // TODO: handle multi-currency
-					Movements:    movements,
+					DebtorID:         debtorID,
+					DebtorName:       balanceNames[debtorID],
+					CreditorID:       creditorID,
+					CreditorName:     balanceNames[creditorID],
+					Amount:           netAmount,
+					Currency:         "COP", // TODO: handle multi-currency
+					IsCrossHousehold: hasCrossHousehold,
+					Movements:        movements,
 				})
 				processed[pairKey] = true
 			} else if netAmount < -0.01 {
 				// Reverse direction
 				balances = append(balances, DebtBalance{
-					DebtorID:     creditorID,
-					DebtorName:   balanceNames[creditorID],
-					CreditorID:   debtorID,
-					CreditorName: balanceNames[debtorID],
-					Amount:       -netAmount,
-					Currency:     "COP",
-					Movements:    movements,
+					DebtorID:         creditorID,
+					DebtorName:       balanceNames[creditorID],
+					CreditorID:       debtorID,
+					CreditorName:     balanceNames[debtorID],
+					Amount:           -netAmount,
+					Currency:         "COP",
+					IsCrossHousehold: hasCrossHousehold,
+					Movements:        movements,
 				})
 				processed[reversePairKey] = true
 			} else if len(movements) > 0 {
@@ -444,13 +659,14 @@ func (s *service) GetDebtConsolidation(ctx context.Context, userID string, month
 				}
 				
 				balances = append(balances, DebtBalance{
-					DebtorID:     debtorID,
-					DebtorName:   balanceNames[debtorID],
-					CreditorID:   creditorID,
-					CreditorName: balanceNames[creditorID],
-					Amount:       0,
-					Currency:     "COP",
-					Movements:    movements,
+					DebtorID:         debtorID,
+					DebtorName:       balanceNames[debtorID],
+					CreditorID:       creditorID,
+					CreditorName:     balanceNames[creditorID],
+					Amount:           0,
+					Currency:         "COP",
+					IsCrossHousehold: hasCrossHousehold,
+					Movements:        movements,
 				})
 				processed[pairKey] = true
 				processed[reversePairKey] = true
@@ -463,12 +679,7 @@ func (s *service) GetDebtConsolidation(ctx context.Context, userID string, month
 	}
 
 	// Calculate summary for household members
-	// Get household members to identify internal vs external debts
-	members, err := s.householdsRepo.GetMembers(ctx, householdID)
-	if err != nil {
-		// If we can't get members, skip summary calculation
-		members = nil
-	}
+	// Use the members fetched earlier to identify internal vs external debts
 
 	var summary *DebtSummary
 	if members != nil {

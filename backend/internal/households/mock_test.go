@@ -231,6 +231,10 @@ func (m *MockHouseholdRepository) FindContactByEmail(ctx context.Context, househ
 	return nil, ErrContactNotFound
 }
 
+func (m *MockHouseholdRepository) FindContactsByLinkedUserID(ctx context.Context, userID, excludeHouseholdID string) ([]LinkedContact, error) {
+	return nil, nil
+}
+
 func (m *MockHouseholdRepository) CreateInvitation(ctx context.Context, householdID, email, token, invitedBy string) (*HouseholdInvitation, error) {
 	inv := &HouseholdInvitation{
 		ID:          "invitation-new",

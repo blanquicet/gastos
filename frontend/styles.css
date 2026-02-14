@@ -3366,6 +3366,22 @@ button.loading::after {
   font-weight: 500 !important;
 }
 
+/* Cross-household debt indicators */
+.cross-household-badge {
+  font-size: 12px;
+  vertical-align: middle;
+}
+
+.cross-household-source {
+  font-size: 11px;
+  color: #6366f1;
+  font-weight: 500;
+}
+
+.cross-household-entry {
+  border-left: 3px solid #6366f1;
+}
+
 /* Loans Summary */
 .loans-summary {
   display: flex;

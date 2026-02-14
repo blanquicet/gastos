@@ -321,24 +321,27 @@ type MovementTotals struct {
 
 // DebtMovementDetail represents a single movement contributing to a debt
 type DebtMovementDetail struct {
-	MovementID   string  `json:"movement_id"`
-	Description  string  `json:"description"`
-	Amount       float64 `json:"amount"`      // Amount contributed to this debt (positive) or payment (negative)
-	MovementDate string  `json:"movement_date"`
-	Type         string  `json:"type"` // "SPLIT" or "DEBT_PAYMENT"
-	PayerID      string  `json:"payer_id,omitempty"` // ID of who paid (for SPLIT movements)
-	PayerName    string  `json:"payer_name,omitempty"` // Name of who paid (for SPLIT movements)
+	MovementID          string  `json:"movement_id"`
+	Description         string  `json:"description"`
+	Amount              float64 `json:"amount"`      // Amount contributed to this debt (positive) or payment (negative)
+	MovementDate        string  `json:"movement_date"`
+	Type                string  `json:"type"` // "SPLIT" or "DEBT_PAYMENT"
+	PayerID             string  `json:"payer_id,omitempty"` // ID of who paid (for SPLIT movements)
+	PayerName           string  `json:"payer_name,omitempty"` // Name of who paid (for SPLIT movements)
+	IsCrossHousehold    bool    `json:"is_cross_household,omitempty"`
+	SourceHouseholdName string  `json:"source_household_name,omitempty"`
 }
 
 // DebtBalance represents who owes whom and how much
 type DebtBalance struct {
-	DebtorID   string  `json:"debtor_id"`   // ID of person who owes
-	DebtorName string  `json:"debtor_name"` // Name of person who owes
-	CreditorID string  `json:"creditor_id"` // ID of person who is owed
-	CreditorName string `json:"creditor_name"` // Name of person who is owed
-	Amount     float64 `json:"amount"`      // Amount owed
-	Currency   string  `json:"currency"`
-	Movements  []DebtMovementDetail `json:"movements,omitempty"` // Breakdown of movements contributing to this debt
+	DebtorID         string  `json:"debtor_id"`   // ID of person who owes
+	DebtorName       string  `json:"debtor_name"` // Name of person who owes
+	CreditorID       string  `json:"creditor_id"` // ID of person who is owed
+	CreditorName     string  `json:"creditor_name"` // Name of person who is owed
+	Amount           float64 `json:"amount"`      // Amount owed
+	Currency         string  `json:"currency"`
+	IsCrossHousehold bool    `json:"is_cross_household,omitempty"` // True if any movement is from another household
+	Movements        []DebtMovementDetail `json:"movements,omitempty"` // Breakdown of movements contributing to this debt
 }
 
 // DebtConsolidationResponse represents consolidated debts for a household
@@ -366,6 +369,7 @@ type Repository interface {
 	GetByID(ctx context.Context, id string) (*Movement, error)
 	GetCategoryIDByName(ctx context.Context, householdID string, categoryName string) (string, error)
 	ListByHousehold(ctx context.Context, householdID string, filters *ListMovementsFilters) ([]*Movement, error)
+	ListMovementsByContactIDs(ctx context.Context, contactIDs []string, month *string) ([]*Movement, error)
 	GetTotals(ctx context.Context, householdID string, filters *ListMovementsFilters) (*MovementTotals, error)
 	Update(ctx context.Context, id string, input *UpdateMovementInput) (*Movement, error)
 	Delete(ctx context.Context, id string) error
