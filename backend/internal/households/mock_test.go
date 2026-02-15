@@ -299,6 +299,22 @@ func (m *MockHouseholdRepository) IsUserMember(ctx context.Context, householdID,
 	return false, nil
 }
 
+func (m *MockHouseholdRepository) ListPendingLinkRequests(ctx context.Context, userID string) ([]LinkRequest, error) {
+	return nil, nil
+}
+
+func (m *MockHouseholdRepository) CountPendingLinkRequests(ctx context.Context, userID string) (int, error) {
+	return 0, nil
+}
+
+func (m *MockHouseholdRepository) UpdateContactLinkStatus(ctx context.Context, contactID string, status string) error {
+	return nil
+}
+
+func (m *MockHouseholdRepository) UpdateContactLinkedUser(ctx context.Context, contactID string, linkedUserID string, linkStatus string) error {
+	return nil
+}
+
 
 // MockUserRepository is a mock implementation for testing
 type MockUserRepository struct {
@@ -387,3 +403,4 @@ type MockEmailSender struct{}
 
 func (m *MockEmailSender) SendPasswordReset(ctx context.Context, to, token string) error { return nil }
 func (m *MockEmailSender) SendHouseholdInvitation(ctx context.Context, to, token, householdName, inviterName string) error { return nil }
+func (m *MockEmailSender) SendLinkRequest(ctx context.Context, to, requesterName, householdName, appURL string) error { return nil }

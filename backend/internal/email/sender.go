@@ -10,6 +10,7 @@ import (
 type Sender interface {
 	SendPasswordReset(ctx context.Context, to, token string) error
 	SendHouseholdInvitation(ctx context.Context, to, token, householdName, inviterName string) error
+	SendLinkRequest(ctx context.Context, to, requesterName, householdName, appURL string) error
 }
 
 // NoOpSender is a no-op email sender for development.
@@ -41,6 +42,17 @@ func (s *NoOpSender) SendHouseholdInvitation(ctx context.Context, to, token, hou
 		"inviter", inviterName,
 	)
 	fmt.Printf("\n=== HOUSEHOLD INVITATION EMAIL ===\nTo: %s\nHousehold: %s\nInvited by: %s\nToken: %s\n==================================\n\n", to, householdName, inviterName, token)
+	return nil
+}
+
+// SendLinkRequest logs the link request email instead of sending.
+func (s *NoOpSender) SendLinkRequest(ctx context.Context, to, requesterName, householdName, appURL string) error {
+	s.logger.Info("link request email (no-op)",
+		"to", to,
+		"requester", requesterName,
+		"household", householdName,
+	)
+	fmt.Printf("\n=== LINK REQUEST EMAIL ===\nTo: %s\nRequester: %s\nHousehold: %s\nApp URL: %s\n==========================\n\n", to, requesterName, householdName, appURL)
 	return nil
 }
 

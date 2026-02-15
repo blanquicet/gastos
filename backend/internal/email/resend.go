@@ -111,3 +111,44 @@ func (s *ResendSender) SendHouseholdInvitation(ctx context.Context, to, token, h
 	)
 	return nil
 }
+
+// SendLinkRequest sends a contact link request email via Resend.
+func (s *ResendSender) SendLinkRequest(ctx context.Context, to, requesterName, householdName, appURL string) error {
+	subject := fmt.Sprintf("%s quiere vincular su contacto contigo - Conti", requesterName)
+	htmlContent := formatLinkRequestEmail(to, requesterName, householdName, appURL)
+
+	client := resend.NewClient(s.apiKey)
+
+	from := s.from
+	if s.fromName != "" {
+		from = fmt.Sprintf("%s <%s>", s.fromName, s.from)
+	}
+
+	s.logger.Info("sending link request email via Resend",
+		"to", to,
+		"requester", requesterName,
+	)
+
+	params := &resend.SendEmailRequest{
+		From:    from,
+		To:      []string{to},
+		Subject: subject,
+		Html:    htmlContent,
+	}
+
+	sent, err := client.Emails.SendWithContext(ctx, params)
+	if err != nil {
+		s.logger.Error("failed to send email via Resend",
+			"error", err,
+			"to", to,
+		)
+		return fmt.Errorf("failed to send email: %w", err)
+	}
+
+	s.logger.Info("link request email sent successfully",
+		"to", to,
+		"requester", requesterName,
+		"email_id", sent.Id,
+	)
+	return nil
+}

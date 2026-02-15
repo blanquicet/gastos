@@ -3,6 +3,7 @@ package households
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -314,10 +315,11 @@ func (r *Repository) CountOwners(ctx context.Context, householdID string) (int, 
 func (r *Repository) CreateContact(ctx context.Context, contact *Contact) (*Contact, error) {
 	var c Contact
 	err := r.pool.QueryRow(ctx, `
-		INSERT INTO contacts (household_id, name, email, phone, linked_user_id, notes, is_active)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-		RETURNING id, household_id, name, email, phone, linked_user_id, notes, is_active, created_at, updated_at
-	`, contact.HouseholdID, contact.Name, contact.Email, contact.Phone, contact.LinkedUserID, contact.Notes, contact.IsActive).Scan(
+		INSERT INTO contacts (household_id, name, email, phone, linked_user_id, notes, is_active, link_status, link_requested_at, link_responded_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		RETURNING id, household_id, name, email, phone, linked_user_id, notes, link_status, link_requested_at, link_responded_at, is_active, created_at, updated_at
+	`, contact.HouseholdID, contact.Name, contact.Email, contact.Phone, contact.LinkedUserID, contact.Notes, contact.IsActive,
+		contact.LinkStatus, contact.LinkRequestedAt, contact.LinkRespondedAt).Scan(
 		&c.ID,
 		&c.HouseholdID,
 		&c.Name,
@@ -325,6 +327,9 @@ func (r *Repository) CreateContact(ctx context.Context, contact *Contact) (*Cont
 		&c.Phone,
 		&c.LinkedUserID,
 		&c.Notes,
+		&c.LinkStatus,
+		&c.LinkRequestedAt,
+		&c.LinkRespondedAt,
 		&c.IsActive,
 		&c.CreatedAt,
 		&c.UpdatedAt,
@@ -340,7 +345,7 @@ func (r *Repository) CreateContact(ctx context.Context, contact *Contact) (*Cont
 func (r *Repository) GetContact(ctx context.Context, id string) (*Contact, error) {
 	var c Contact
 	err := r.pool.QueryRow(ctx, `
-		SELECT id, household_id, name, email, phone, linked_user_id, notes, is_active, created_at, updated_at
+		SELECT id, household_id, name, email, phone, linked_user_id, notes, link_status, link_requested_at, link_responded_at, is_active, created_at, updated_at
 		FROM contacts
 		WHERE id = $1
 	`, id).Scan(
@@ -351,6 +356,9 @@ func (r *Repository) GetContact(ctx context.Context, id string) (*Contact, error
 		&c.Phone,
 		&c.LinkedUserID,
 		&c.Notes,
+		&c.LinkStatus,
+		&c.LinkRequestedAt,
+		&c.LinkRespondedAt,
 		&c.IsActive,
 		&c.CreatedAt,
 		&c.UpdatedAt,
@@ -376,7 +384,7 @@ func (r *Repository) UpdateContact(ctx context.Context, contact *Contact, isActi
 			UPDATE contacts
 			SET name = $2, email = $3, phone = $4, linked_user_id = $5, notes = $6, is_active = $7, updated_at = NOW()
 			WHERE id = $1
-			RETURNING id, household_id, name, email, phone, linked_user_id, notes, is_active, created_at, updated_at
+			RETURNING id, household_id, name, email, phone, linked_user_id, notes, link_status, link_requested_at, link_responded_at, is_active, created_at, updated_at
 		`
 		args = []interface{}{contact.ID, contact.Name, contact.Email, contact.Phone, contact.LinkedUserID, contact.Notes, *isActive}
 	} else {
@@ -385,7 +393,7 @@ func (r *Repository) UpdateContact(ctx context.Context, contact *Contact, isActi
 			UPDATE contacts
 			SET name = $2, email = $3, phone = $4, linked_user_id = $5, notes = $6, updated_at = NOW()
 			WHERE id = $1
-			RETURNING id, household_id, name, email, phone, linked_user_id, notes, is_active, created_at, updated_at
+			RETURNING id, household_id, name, email, phone, linked_user_id, notes, link_status, link_requested_at, link_responded_at, is_active, created_at, updated_at
 		`
 		args = []interface{}{contact.ID, contact.Name, contact.Email, contact.Phone, contact.LinkedUserID, contact.Notes}
 	}
@@ -400,6 +408,9 @@ func (r *Repository) UpdateContact(ctx context.Context, contact *Contact, isActi
 		&c.Phone,
 		&c.LinkedUserID,
 		&c.Notes,
+		&c.LinkStatus,
+		&c.LinkRequestedAt,
+		&c.LinkRespondedAt,
 		&isActiveFromDB,
 		&c.CreatedAt,
 		&c.UpdatedAt,
@@ -430,7 +441,7 @@ func (r *Repository) DeleteContact(ctx context.Context, id string) error {
 // ListContacts retrieves all contacts for a household
 func (r *Repository) ListContacts(ctx context.Context, householdID string) ([]*Contact, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT id, household_id, name, email, phone, linked_user_id, notes, is_active, created_at, updated_at
+		SELECT id, household_id, name, email, phone, linked_user_id, notes, link_status, link_requested_at, link_responded_at, is_active, created_at, updated_at
 		FROM contacts
 		WHERE household_id = $1
 		ORDER BY name ASC
@@ -451,6 +462,9 @@ func (r *Repository) ListContacts(ctx context.Context, householdID string) ([]*C
 			&c.Phone,
 			&c.LinkedUserID,
 			&c.Notes,
+			&c.LinkStatus,
+			&c.LinkRequestedAt,
+			&c.LinkRespondedAt,
 			&c.IsActive,
 			&c.CreatedAt,
 			&c.UpdatedAt,
@@ -473,7 +487,7 @@ func (r *Repository) ListContacts(ctx context.Context, householdID string) ([]*C
 func (r *Repository) FindContactByEmail(ctx context.Context, householdID, email string) (*Contact, error) {
 	var c Contact
 	err := r.pool.QueryRow(ctx, `
-		SELECT id, household_id, name, email, phone, linked_user_id, notes, is_active, created_at, updated_at
+		SELECT id, household_id, name, email, phone, linked_user_id, notes, link_status, link_requested_at, link_responded_at, is_active, created_at, updated_at
 		FROM contacts
 		WHERE household_id = $1 AND email = $2
 	`, householdID, email).Scan(
@@ -484,6 +498,9 @@ func (r *Repository) FindContactByEmail(ctx context.Context, householdID, email 
 		&c.Phone,
 		&c.LinkedUserID,
 		&c.Notes,
+		&c.LinkStatus,
+		&c.LinkRequestedAt,
+		&c.LinkRespondedAt,
 		&c.IsActive,
 		&c.CreatedAt,
 		&c.UpdatedAt,
@@ -508,6 +525,7 @@ func (r *Repository) FindContactsByLinkedUserID(ctx context.Context, userID, exc
 		WHERE c.linked_user_id = $1
 		  AND c.household_id != $2
 		  AND c.is_active = true
+		  AND c.link_status = 'ACCEPTED'
 	`
 	rows, err := r.pool.Query(ctx, query, userID, excludeHouseholdID)
 	if err != nil {
@@ -525,6 +543,82 @@ func (r *Repository) FindContactsByLinkedUserID(ctx context.Context, userID, exc
 		contacts = append(contacts, lc)
 	}
 	return contacts, rows.Err()
+}
+
+// ListPendingLinkRequests lists all pending link requests for a user
+func (r *Repository) ListPendingLinkRequests(ctx context.Context, userID string) ([]LinkRequest, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT c.id, c.name, u.name, h.name, c.household_id, c.link_requested_at
+		FROM contacts c
+		JOIN households h ON c.household_id = h.id
+		JOIN household_members hm ON hm.household_id = h.id AND hm.role = 'owner'
+		JOIN users u ON u.id = hm.user_id
+		WHERE c.linked_user_id = $1
+		  AND c.link_status = 'PENDING'
+		ORDER BY c.link_requested_at DESC
+	`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var requests []LinkRequest
+	for rows.Next() {
+		var lr LinkRequest
+		err := rows.Scan(&lr.ContactID, &lr.ContactName, &lr.RequesterName, &lr.HouseholdName, &lr.HouseholdID, &lr.RequestedAt)
+		if err != nil {
+			return nil, err
+		}
+		requests = append(requests, lr)
+	}
+	return requests, rows.Err()
+}
+
+// CountPendingLinkRequests counts pending link requests for a user
+func (r *Repository) CountPendingLinkRequests(ctx context.Context, userID string) (int, error) {
+	var count int
+	err := r.pool.QueryRow(ctx, `
+		SELECT COUNT(*)
+		FROM contacts
+		WHERE linked_user_id = $1 AND link_status = 'PENDING'
+	`, userID).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+// UpdateContactLinkStatus updates the link_status and link_responded_at of a contact
+func (r *Repository) UpdateContactLinkStatus(ctx context.Context, contactID string, status string) error {
+	result, err := r.pool.Exec(ctx, `
+		UPDATE contacts
+		SET link_status = $2, link_responded_at = NOW(), updated_at = NOW()
+		WHERE id = $1 AND link_status = 'PENDING'
+	`, contactID, status)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() == 0 {
+		return ErrLinkRequestNotPending
+	}
+	return nil
+}
+
+// UpdateContactLinkedUser sets linked_user_id and link_status on a contact
+func (r *Repository) UpdateContactLinkedUser(ctx context.Context, contactID string, linkedUserID string, linkStatus string) error {
+	now := time.Now()
+	result, err := r.pool.Exec(ctx, `
+		UPDATE contacts
+		SET linked_user_id = $2, link_status = $3, link_requested_at = $4, updated_at = NOW()
+		WHERE id = $1
+	`, contactID, linkedUserID, linkStatus, now)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() == 0 {
+		return ErrContactNotFound
+	}
+	return nil
 }
 
 // CreateInvitation creates a new household invitation

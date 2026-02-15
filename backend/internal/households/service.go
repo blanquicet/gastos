@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/blanquicet/conti/backend/internal/audit"
 	"github.com/blanquicet/conti/backend/internal/auth"
@@ -530,19 +531,41 @@ func (s *Service) CreateContact(ctx context.Context, input *CreateContactInput) 
 		Phone:       input.Phone,
 		Notes:       input.Notes,
 		IsActive:    true, // New contacts are active by default
+		LinkStatus:  "NONE",
 	}
 
 	// Auto-link if email matches a registered user
 	if input.Email != nil && *input.Email != "" {
 		user, err := s.userRepo.GetByEmail(ctx, *input.Email)
 		if err == nil {
-			// User found, link to contact
+			// User found, set linked_user_id and PENDING status
 			contact.LinkedUserID = &user.ID
+			contact.LinkStatus = "PENDING"
+			now := time.Now()
+			contact.LinkRequestedAt = &now
 		}
 		// Ignore error if user not found - contact will be unlinked
 	}
 
-	return s.repo.CreateContact(ctx, contact)
+	created, err := s.repo.CreateContact(ctx, contact)
+	if err != nil {
+		return nil, err
+	}
+
+	// Send link request email if we auto-linked
+	if created.LinkStatus == "PENDING" && created.Email != nil {
+		// Get household name for email
+		household, hErr := s.repo.GetByID(ctx, input.HouseholdID)
+		if hErr == nil {
+			// Get requester name
+			requester, rErr := s.userRepo.GetByID(ctx, input.UserID)
+			if rErr == nil {
+				_ = s.emailSender.SendLinkRequest(ctx, *created.Email, requester.Name, household.Name, "")
+			}
+		}
+	}
+
+	return created, nil
 }
 
 // UpdateContactInput contains the data needed to update a contact
@@ -899,4 +922,66 @@ func (s *Service) AcceptInvitationByToken(ctx context.Context, input *AcceptInvi
 	})
 
 	return member, nil
+}
+
+// ListLinkRequests returns all pending link requests for a user
+func (s *Service) ListLinkRequests(ctx context.Context, userID string) ([]LinkRequest, error) {
+	return s.repo.ListPendingLinkRequests(ctx, userID)
+}
+
+// CountLinkRequests returns the count of pending link requests for a user
+func (s *Service) CountLinkRequests(ctx context.Context, userID string) (int, error) {
+	return s.repo.CountPendingLinkRequests(ctx, userID)
+}
+
+// AcceptLinkRequest accepts a pending link request
+func (s *Service) AcceptLinkRequest(ctx context.Context, userID, contactID string) error {
+	// Verify the contact exists and is linked to this user
+	contact, err := s.repo.GetContact(ctx, contactID)
+	if err != nil {
+		return err
+	}
+
+	if contact.LinkedUserID == nil || *contact.LinkedUserID != userID {
+		return ErrNotAuthorized
+	}
+
+	if contact.LinkStatus != "PENDING" {
+		return ErrLinkRequestNotPending
+	}
+
+	return s.repo.UpdateContactLinkStatus(ctx, contactID, "ACCEPTED")
+}
+
+// RejectLinkRequest rejects a pending link request and removes the linked user
+func (s *Service) RejectLinkRequest(ctx context.Context, userID, contactID string) error {
+	// Verify the contact exists and is linked to this user
+	contact, err := s.repo.GetContact(ctx, contactID)
+	if err != nil {
+		return err
+	}
+
+	if contact.LinkedUserID == nil || *contact.LinkedUserID != userID {
+		return ErrNotAuthorized
+	}
+
+	if contact.LinkStatus != "PENDING" {
+		return ErrLinkRequestNotPending
+	}
+
+	// Set status to REJECTED and clear linked_user_id
+	if err := s.repo.UpdateContactLinkStatus(ctx, contactID, "REJECTED"); err != nil {
+		return err
+	}
+
+	// Clear linked_user_id so the contact is unlinked
+	_, err = s.repo.UpdateContact(ctx, &Contact{
+		ID:           contact.ID,
+		Name:         contact.Name,
+		Email:        contact.Email,
+		Phone:        contact.Phone,
+		LinkedUserID: nil,
+		Notes:        contact.Notes,
+	}, nil)
+	return err
 }

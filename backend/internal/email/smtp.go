@@ -92,6 +92,34 @@ func (s *SMTPSender) SendHouseholdInvitation(ctx context.Context, to, token, hou
 	return nil
 }
 
+// SendLinkRequest sends a contact link request email via SMTP.
+func (s *SMTPSender) SendLinkRequest(ctx context.Context, to, requesterName, householdName, appURL string) error {
+	subject := fmt.Sprintf("%s quiere vincular su contacto contigo - Conti", requesterName)
+	body := formatLinkRequestEmail(to, requesterName, householdName, appURL)
+
+	msg := formatEmailMessage(s.from, s.fromName, to, subject, body)
+
+	auth := smtp.PlainAuth("", s.username, s.password, s.host)
+	addr := fmt.Sprintf("%s:%d", s.host, s.port)
+
+	s.logger.Info("sending link request email via SMTP",
+		"to", to,
+		"requester", requesterName,
+		"smtp_host", s.host,
+	)
+
+	if err := smtp.SendMail(addr, auth, s.from, []string{to}, []byte(msg)); err != nil {
+		s.logger.Error("failed to send email via SMTP",
+			"error", err,
+			"to", to,
+		)
+		return fmt.Errorf("failed to send email: %w", err)
+	}
+
+	s.logger.Info("link request email sent successfully", "to", to)
+	return nil
+}
+
 // formatEmailMessage formats an email message with headers.
 func formatEmailMessage(from, fromName, to, subject, htmlBody string) string {
 	fromHeader := from
@@ -200,4 +228,42 @@ func formatHouseholdInvitationEmail(to, inviteLink, householdName, inviterName s
     </div>
 </body>
 </html>`, householdName, inviterName, householdName, inviteLink, inviteLink, to)
+}
+
+// formatLinkRequestEmail creates the HTML body for link request email.
+func formatLinkRequestEmail(to, requesterName, householdName, appURL string) string {
+	return fmt.Sprintf(`<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solicitud de vinculación</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+    <div style="background-color: #f8f9fa; border-radius: 10px; padding: 30px; margin: 20px 0;">
+        <h1 style="color: #2c3e50; margin-top: 0;">🤝 Solicitud de vinculación</h1>
+        
+        <p>Hola,</p>
+        
+        <p><strong>%s</strong> del hogar <strong>"%s"</strong> te ha agregado como contacto en <strong>Conti</strong> y quiere vincular su contacto con tu cuenta.</p>
+        
+        <p>Si aceptas, podrán ver las deudas compartidas entre hogares.</p>
+        
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="%s" 
+               style="background-color: #27ae60; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                Revisar Solicitud
+            </a>
+        </div>
+        
+        <p>Puedes aceptar o rechazar esta solicitud desde la sección de notificaciones en Conti.</p>
+        
+        <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
+        
+        <p style="font-size: 12px; color: #7f8c8d;">
+            <em>Este correo fue enviado a: %s</em>
+        </p>
+    </div>
+</body>
+</html>`, requesterName, householdName, appURL, to)
 }

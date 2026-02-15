@@ -130,6 +130,8 @@ func (h *Handler) handleServiceError(w http.ResponseWriter, err error) {
 		h.respondError(w, "no autorizado", http.StatusForbidden)
 	case errors.Is(err, ErrContactNotLinked):
 		h.respondError(w, "el contacto no está vinculado a una cuenta de usuario", http.StatusBadRequest)
+	case errors.Is(err, ErrLinkRequestNotPending):
+		h.respondError(w, "la solicitud de vinculación no está pendiente", http.StatusBadRequest)
 	case errors.Is(err, ErrInvalidRole):
 		h.respondError(w, "rol inválido", http.StatusBadRequest)
 	case err.Error() == "user not found":
@@ -717,4 +719,88 @@ func (h *Handler) CreateInvitation(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.respondJSON(w, invitation, http.StatusCreated)
+}
+
+// Link request endpoints
+
+// ListLinkRequests handles GET /link-requests
+func (h *Handler) ListLinkRequests(w http.ResponseWriter, r *http.Request) {
+	user, err := h.getUserFromRequest(r)
+	if err != nil {
+		h.respondError(w, "no autorizado", http.StatusUnauthorized)
+		return
+	}
+
+	requests, err := h.service.ListLinkRequests(r.Context(), user.ID)
+	if err != nil {
+		h.handleServiceError(w, err)
+		return
+	}
+
+	if requests == nil {
+		requests = []LinkRequest{}
+	}
+
+	h.respondJSON(w, requests, http.StatusOK)
+}
+
+// CountLinkRequests handles GET /link-requests/count
+func (h *Handler) CountLinkRequests(w http.ResponseWriter, r *http.Request) {
+	user, err := h.getUserFromRequest(r)
+	if err != nil {
+		h.respondError(w, "no autorizado", http.StatusUnauthorized)
+		return
+	}
+
+	count, err := h.service.CountLinkRequests(r.Context(), user.ID)
+	if err != nil {
+		h.handleServiceError(w, err)
+		return
+	}
+
+	h.respondJSON(w, map[string]int{"count": count}, http.StatusOK)
+}
+
+// AcceptLinkRequest handles POST /link-requests/{contact_id}/accept
+func (h *Handler) AcceptLinkRequest(w http.ResponseWriter, r *http.Request) {
+	user, err := h.getUserFromRequest(r)
+	if err != nil {
+		h.respondError(w, "no autorizado", http.StatusUnauthorized)
+		return
+	}
+
+	contactID := r.PathValue("contact_id")
+	if contactID == "" {
+		h.respondError(w, "contact_id es requerido", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.service.AcceptLinkRequest(r.Context(), user.ID, contactID); err != nil {
+		h.handleServiceError(w, err)
+		return
+	}
+
+	h.respondJSON(w, map[string]string{"status": "accepted"}, http.StatusOK)
+}
+
+// RejectLinkRequest handles POST /link-requests/{contact_id}/reject
+func (h *Handler) RejectLinkRequest(w http.ResponseWriter, r *http.Request) {
+	user, err := h.getUserFromRequest(r)
+	if err != nil {
+		h.respondError(w, "no autorizado", http.StatusUnauthorized)
+		return
+	}
+
+	contactID := r.PathValue("contact_id")
+	if contactID == "" {
+		h.respondError(w, "contact_id es requerido", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.service.RejectLinkRequest(r.Context(), user.ID, contactID); err != nil {
+		h.handleServiceError(w, err)
+		return
+	}
+
+	h.respondJSON(w, map[string]string{"status": "rejected"}, http.StatusOK)
 }

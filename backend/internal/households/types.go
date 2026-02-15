@@ -17,6 +17,7 @@ var (
 	ErrNotAuthorized          = errors.New("not authorized")
 	ErrContactNotLinked       = errors.New("contact is not linked to a user account")
 	ErrInvalidRole            = errors.New("invalid role")
+	ErrLinkRequestNotPending  = errors.New("link request is not pending")
 )
 
 // HouseholdRole represents the role of a user in a household
@@ -74,19 +75,32 @@ type HouseholdMember struct {
 
 // Contact represents an external person with whom the household has transactions
 type Contact struct {
-	ID           string     `json:"id"`
-	HouseholdID  string     `json:"household_id"`
-	Name         string     `json:"name"`
-	Email        *string    `json:"email,omitempty"`
-	Phone        *string    `json:"phone,omitempty"`
-	LinkedUserID *string    `json:"linked_user_id,omitempty"`
-	Notes        *string    `json:"notes,omitempty"`
-	IsActive     bool       `json:"is_active"`
-	CreatedAt    time.Time  `json:"created_at"`
-	UpdatedAt    time.Time  `json:"updated_at"`
+	ID              string     `json:"id"`
+	HouseholdID     string     `json:"household_id"`
+	Name            string     `json:"name"`
+	Email           *string    `json:"email,omitempty"`
+	Phone           *string    `json:"phone,omitempty"`
+	LinkedUserID    *string    `json:"linked_user_id,omitempty"`
+	Notes           *string    `json:"notes,omitempty"`
+	LinkStatus      string     `json:"link_status"`
+	LinkRequestedAt *time.Time `json:"link_requested_at,omitempty"`
+	LinkRespondedAt *time.Time `json:"link_responded_at,omitempty"`
+	IsActive        bool       `json:"is_active"`
+	CreatedAt       time.Time  `json:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at"`
 	
 	// Computed field - not in DB
 	IsRegistered bool `json:"is_registered"`
+}
+
+// LinkRequest represents a pending contact link request for a user
+type LinkRequest struct {
+	ContactID     string    `json:"contact_id"`
+	ContactName   string    `json:"contact_name"`
+	RequesterName string    `json:"requester_name"`
+	HouseholdName string    `json:"household_name"`
+	HouseholdID   string    `json:"household_id"`
+	RequestedAt   time.Time `json:"requested_at"`
 }
 
 // Validate validates contact fields
@@ -168,6 +182,12 @@ type HouseholdRepository interface {
 	ListContacts(ctx context.Context, householdID string) ([]*Contact, error)
 	FindContactByEmail(ctx context.Context, householdID, email string) (*Contact, error)
 	FindContactsByLinkedUserID(ctx context.Context, userID, excludeHouseholdID string) ([]LinkedContact, error)
+	
+	// Link request management
+	ListPendingLinkRequests(ctx context.Context, userID string) ([]LinkRequest, error)
+	CountPendingLinkRequests(ctx context.Context, userID string) (int, error)
+	UpdateContactLinkStatus(ctx context.Context, contactID string, status string) error
+	UpdateContactLinkedUser(ctx context.Context, contactID string, linkedUserID string, linkStatus string) error
 	
 	// Invitation management
 	CreateInvitation(ctx context.Context, householdID, email, token, invitedBy string) (*HouseholdInvitation, error)

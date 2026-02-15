@@ -340,6 +340,12 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 	mux.HandleFunc("GET /invitations/{token}", householdHandler.GetInvitationInfo)
 	mux.HandleFunc("POST /invitations/accept", householdHandler.AcceptInvitation)
 
+	// Link request endpoints
+	mux.HandleFunc("GET /link-requests", householdHandler.ListLinkRequests)
+	mux.HandleFunc("GET /link-requests/count", householdHandler.CountLinkRequests)
+	mux.HandleFunc("POST /link-requests/{contact_id}/accept", householdHandler.AcceptLinkRequest)
+	mux.HandleFunc("POST /link-requests/{contact_id}/reject", householdHandler.RejectLinkRequest)
+
 	// Accounts endpoints
 	mux.HandleFunc("POST /accounts", accountsHandler.CreateAccount)
 	mux.HandleFunc("GET /accounts", accountsHandler.ListAccounts)
