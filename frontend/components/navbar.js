@@ -23,11 +23,15 @@ export function render(user, activeRoute = '/') {
   return `
     <button id="hamburger-btn" class="hamburger-btn" aria-label="Menú">
       ☰
+      <span id="hamburger-badge" class="hamburger-badge" style="display:none;"></span>
     </button>
 
     <div id="dropdown-menu" class="dropdown-menu">
       <a href="/perfil" class="dropdown-item ${activeRoute === '/perfil' ? 'active' : ''}" data-route="/perfil">
         Perfil
+      </a>
+      <a href="/hogar" class="dropdown-item ${activeRoute === '/hogar' ? 'active' : ''}" data-route="/hogar">
+        Hogar <span id="link-request-badge" class="nav-badge" style="display:none;"></span>
       </a>
       <a href="/" class="dropdown-item ${activeRoute === '/' ? 'active' : ''}" data-route="/">
         Mes a Mes
@@ -99,4 +103,34 @@ export function setup() {
       closeMenu();
     }
   });
+
+  // Fetch pending link request count for badge
+  fetchLinkRequestCount();
+}
+
+async function fetchLinkRequestCount() {
+  try {
+    const resp = await fetch('/link-requests/count', { credentials: 'include' });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const count = data.count || 0;
+
+    const badge = document.getElementById('link-request-badge');
+    const hamburgerBadge = document.getElementById('hamburger-badge');
+
+    if (count > 0) {
+      if (badge) {
+        badge.textContent = count;
+        badge.style.display = 'inline-block';
+      }
+      if (hamburgerBadge) {
+        hamburgerBadge.style.display = 'block';
+      }
+    } else {
+      if (badge) badge.style.display = 'none';
+      if (hamburgerBadge) hamburgerBadge.style.display = 'none';
+    }
+  } catch (e) {
+    // silently ignore
+  }
 }
