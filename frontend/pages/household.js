@@ -339,7 +339,6 @@ function renderContactsList() {
               <button class="menu-item" data-action="toggle-active" data-contact-id="${contact.id}" data-is-active="${contact.is_active}">
                 ${contact.is_active ? 'Desactivar' : 'Activar'}
               </button>
-              ${isOwner && contact.is_registered ? `<button class="menu-item" data-action="promote-contact" data-contact-id="${contact.id}">Promover a miembro</button>` : ''}
               <button class="menu-item" data-action="edit-contact" data-contact-id="${contact.id}">Editar</button>
               <button class="menu-item menu-item-danger" data-action="delete-contact" data-contact-id="${contact.id}">Eliminar</button>
             </div>
@@ -620,7 +619,6 @@ function setupEventHandlers() {
       else if (action === 'promote') await handlePromoteMember(userId);
       else if (action === 'demote') await handleDemoteMember(userId);
       else if (action === 'toggle-active') await handleToggleContactActive(contactId, e.target.dataset.isActive === 'true');
-      else if (action === 'promote-contact') await handlePromoteContact(contactId);
       else if (action === 'edit-contact') handleEditContact(contactId);
       else if (action === 'delete-contact') await handleDeleteContact(contactId);
     });
@@ -1005,29 +1003,6 @@ async function handleDemoteMember(userId) {
     if (!response.ok) {
       const data = await response.json();
       throw new Error(data.error || 'Error al cambiar rol');
-    }
-
-    await loadHousehold();
-  } catch (error) {
-    await showError('Error', error.message);
-  }
-}
-
-/**
- * Handle promote contact to member
- */
-async function handlePromoteContact(contactId) {
-  if (!await showConfirmation('Promover contacto', '¿Promover este contacto a miembro del hogar?', 'Promover')) return;
-
-  try {
-    const response = await fetch(`${API_URL}/households/${household.id}/contacts/${contactId}/promote`, {
-      method: 'POST',
-      credentials: 'include'
-    });
-
-    if (!response.ok) {
-      const data = await response.json();
-      throw new Error(data.error || 'Error al promover contacto');
     }
 
     await loadHousehold();
