@@ -1712,13 +1712,13 @@ async function loadAndRenderLinkRequests() {
         <p class="section-description">Otros hogares quieren compartir gastos contigo.</p>
         <div class="link-requests-list">
           ${requests.map(req => `
-            <div class="link-request-card" data-contact-id="${req.contact_id}">
-              <div class="link-request-avatar">🔗</div>
-              <div class="link-request-info">
-                <strong>${req.requester_name}</strong>
-                <span class="link-request-detail">${req.household_name} · quiere compartir gastos contigo</span>
+            <div class="member-item link-request-card" data-action="view-link" data-contact-id="${req.contact_id}" data-requester-name="${req.requester_name}" data-household-name="${req.household_name}" style="cursor:pointer;position:relative;">
+              <div class="member-avatar">${req.requester_name?.charAt(0).toUpperCase() || '?'}</div>
+              <div class="member-info">
+                <div class="member-name">${req.requester_name}</div>
+                <div class="member-email">${req.household_name}</div>
               </div>
-              <button class="link-request-view-btn" data-action="view-link" data-contact-id="${req.contact_id}" data-requester-name="${req.requester_name}" data-household-name="${req.household_name}">Ver</button>
+              <span class="link-request-dot"></span>
             </div>
           `).join('')}
         </div>
