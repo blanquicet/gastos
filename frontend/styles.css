@@ -1330,12 +1330,13 @@ button.loading::after {
   background: #fff3cd;
   border: 1px solid #ffeeba;
   border-radius: 12px;
-  padding: 16px;
+  padding: 12px 14px;
   margin-bottom: 12px;
+  font-size: 14px;
 }
 
 .link-request-info {
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .link-request-info strong {
@@ -1345,6 +1346,12 @@ button.loading::after {
 .link-request-actions {
   display: flex;
   gap: 8px;
+}
+
+.link-request-actions .btn-primary,
+.link-request-actions .btn-secondary {
+  font-size: 13px;
+  padding: 6px 14px;
 }
 
 .link-request-accept-form {
