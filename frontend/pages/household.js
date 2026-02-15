@@ -1716,29 +1716,9 @@ async function loadAndRenderLinkRequests() {
               <div class="link-request-info">
                 <strong>${req.requester_name}</strong> (${req.household_name}) quiere compartir gastos contigo
               </div>
-              <div class="link-request-actions" id="link-actions-${req.contact_id}">
-                <button class="btn-primary btn-small" data-action="accept-link" data-contact-id="${req.contact_id}" data-requester-name="${req.requester_name}">Aceptar</button>
+              <div class="link-request-actions">
+                <button class="btn-primary btn-small" data-action="accept-link" data-contact-id="${req.contact_id}" data-requester-name="${req.requester_name}" data-household-name="${req.household_name}">Aceptar</button>
                 <button class="btn-secondary btn-small" data-action="reject-link" data-contact-id="${req.contact_id}">Rechazar</button>
-              </div>
-              <div class="link-request-accept-form" id="accept-form-${req.contact_id}" style="display: none;">
-                <p class="link-request-explanation">Al aceptar, las personas del hogar <strong>${req.household_name}</strong> podrán ver <em>solo</em> los gastos en los que ellos participen. No tendrán acceso a todos tus movimientos.</p>
-                <div class="form-group">
-                  <label>¿Con qué nombre quieres guardar a este contacto?</label>
-                  <input type="text" id="accept-name-${req.contact_id}" value="${req.requester_name}" />
-                </div>
-                <div class="form-group">
-                  <label>O vincular con contacto existente</label>
-                  <select id="accept-existing-${req.contact_id}">
-                    <option value="">Crear nuevo contacto</option>
-                    ${contacts.filter(c => !c.linked_user_id && c.is_active).map(c =>
-                      `<option value="${c.id}">${c.name}</option>`
-                    ).join('')}
-                  </select>
-                </div>
-                <div class="link-request-actions">
-                  <button class="btn-primary btn-small" data-action="confirm-accept" data-contact-id="${req.contact_id}">Confirmar</button>
-                  <button class="btn-secondary btn-small" data-action="cancel-accept" data-contact-id="${req.contact_id}">Cancelar</button>
-                </div>
               </div>
             </div>
           `).join('')}
@@ -1753,59 +1733,13 @@ async function loadAndRenderLinkRequests() {
 }
 
 function setupLinkRequestHandlers() {
-  // Accept button - show inline form
+  // Accept button - open modal
   document.querySelectorAll('[data-action="accept-link"]').forEach(btn => {
     btn.addEventListener('click', () => {
       const contactId = btn.dataset.contactId;
-      document.getElementById(`link-actions-${contactId}`).style.display = 'none';
-      document.getElementById(`accept-form-${contactId}`).style.display = 'block';
-    });
-  });
-
-  // Cancel accept
-  document.querySelectorAll('[data-action="cancel-accept"]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const contactId = btn.dataset.contactId;
-      document.getElementById(`link-actions-${contactId}`).style.display = 'flex';
-      document.getElementById(`accept-form-${contactId}`).style.display = 'none';
-    });
-  });
-
-  // Confirm accept
-  document.querySelectorAll('[data-action="confirm-accept"]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const contactId = btn.dataset.contactId;
-      const nameInput = document.getElementById(`accept-name-${contactId}`);
-      const existingSelect = document.getElementById(`accept-existing-${contactId}`);
-      const contactName = nameInput.value.trim();
-      const existingContactId = existingSelect.value || null;
-
-      if (!contactName && !existingContactId) {
-        await showError('Error', 'Debes ingresar un nombre o seleccionar un contacto existente.');
-        return;
-      }
-
-      try {
-        const res = await fetch(`${API_URL}/link-requests/${contactId}/accept`, {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contact_name: contactName,
-            existing_contact_id: existingContactId,
-          }),
-        });
-
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error || 'Error al aceptar la solicitud');
-        }
-
-        await showSuccess('Solicitud aceptada', 'El contacto ha sido vinculado.');
-        await loadHousehold();
-      } catch (err) {
-        await showError('Error', err.message);
-      }
+      const requesterName = btn.dataset.requesterName;
+      const householdName = btn.dataset.householdName;
+      showAcceptLinkModal(contactId, requesterName, householdName);
     });
   });
 
@@ -1836,5 +1770,81 @@ function setupLinkRequestHandlers() {
         await showError('Error', err.message);
       }
     });
+  });
+}
+
+function showAcceptLinkModal(contactId, requesterName, householdName) {
+  const existingOptions = contacts.filter(c => !c.linked_user_id && c.is_active)
+    .map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Aceptar solicitud de vinculación</h3>
+      </div>
+      <div class="modal-body">
+        <p class="link-request-explanation">Al aceptar, las personas del hogar <strong>${householdName}</strong> podrán ver <em>solo</em> los gastos en los que ellos participen. No tendrán acceso a todos tus movimientos.</p>
+        <div class="form-group">
+          <label>¿Con qué nombre quieres guardar a este contacto?</label>
+          <input type="text" id="modal-accept-name" value="${requesterName}" />
+        </div>
+        <div class="form-group">
+          <label>O vincular con contacto existente</label>
+          <select id="modal-accept-existing">
+            <option value="">Crear nuevo contacto</option>
+            ${existingOptions}
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="modal-cancel-btn">Cancelar</button>
+        <button class="btn-primary" id="modal-confirm-btn">Confirmar</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  // Close on overlay click
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.remove();
+  });
+
+  document.getElementById('modal-cancel-btn').addEventListener('click', () => overlay.remove());
+
+  document.getElementById('modal-confirm-btn').addEventListener('click', async () => {
+    const nameInput = document.getElementById('modal-accept-name');
+    const existingSelect = document.getElementById('modal-accept-existing');
+    const contactName = nameInput.value.trim();
+    const existingContactId = existingSelect.value || null;
+
+    if (!contactName && !existingContactId) {
+      await showError('Error', 'Debes ingresar un nombre o seleccionar un contacto existente.');
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_URL}/link-requests/${contactId}/accept`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contact_name: contactName,
+          existing_contact_id: existingContactId,
+        }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Error al aceptar la solicitud');
+      }
+
+      overlay.remove();
+      await showSuccess('Solicitud aceptada', 'El contacto ha sido vinculado.');
+      await loadHousehold();
+    } catch (err) {
+      await showError('Error', err.message);
+    }
   });
 }
