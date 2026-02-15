@@ -1852,4 +1852,3 @@ function showLinkRequestModal(contactId, requesterName, householdName) {
     }
   });
 }
-}
