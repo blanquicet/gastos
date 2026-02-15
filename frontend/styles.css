@@ -1334,12 +1334,6 @@ button.loading::after {
   box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
 }
 
-.link-request-ver {
-  background: #6366f1;
-  color: white;
-  cursor: pointer;
-}
-
 .link-request-dot {
   position: absolute;
   top: -4px;
