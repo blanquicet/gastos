@@ -1129,6 +1129,23 @@ button.loading::after {
   margin: 0;
 }
 
+/* Scroll fade indicator for long lists */
+.scroll-fade-container {
+  position: relative;
+}
+
+.scroll-fade-container.has-overflow::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 48px;
+  background: linear-gradient(to bottom, transparent, white);
+  pointer-events: none;
+  border-radius: 0 0 12px 12px;
+}
+
 /* Members List */
 .members-list {
   display: flex;

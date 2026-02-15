@@ -177,7 +177,9 @@ function renderHouseholdContent() {
       <div id="invite-form-container" style="display: none;">
         ${renderInviteForm()}
       </div>
-      ${renderMembersList(isOwner)}
+      <div class="scroll-fade-container">
+        ${renderMembersList(isOwner)}
+      </div>
     </div>
 
     <div class="household-section">
@@ -189,7 +191,9 @@ function renderHouseholdContent() {
       <div id="contact-form-container" style="display: none;">
         ${renderContactForm()}
       </div>
-      ${renderContactsList()}
+      <div class="scroll-fade-container">
+        ${renderContactsList()}
+      </div>
     </div>
 
     <div class="household-section">
@@ -197,7 +201,9 @@ function renderHouseholdContent() {
         <h3 class="section-title">Métodos de Pago Compartidos</h3>
       </div>
       <p class="section-description">Métodos de pago que todos los miembros del hogar pueden usar para registrar movimientos. Gestiona tus métodos de pago desde tu perfil.</p>
-      ${renderSharedPaymentMethods()}
+      <div class="scroll-fade-container">
+        ${renderSharedPaymentMethods()}
+      </div>
     </div>
 
     <div class="household-section">
@@ -206,8 +212,10 @@ function renderHouseholdContent() {
         <button id="add-group-btn" class="btn-secondary btn-small">+ Agregar grupo</button>
       </div>
       <p class="section-description">Organiza tus gastos en grupos y categorías.</p>
-      <div id="categories-content">
-        ${renderCategoriesSection()}
+      <div class="scroll-fade-container">
+        <div id="categories-content">
+          ${renderCategoriesSection()}
+        </div>
       </div>
     </div>
   `;
@@ -476,9 +484,30 @@ function renderContactForm(contact = null) {
 }
 
 /**
+ * Setup scroll fade indicators on scrollable list containers.
+ * Shows a bottom gradient when the list can be scrolled further down.
+ */
+function setupScrollFadeIndicators() {
+  document.querySelectorAll('.scroll-fade-container').forEach(container => {
+    const scrollable = container.querySelector('.members-list, .contacts-list, #categories-content');
+    if (!scrollable) return;
+
+    const update = () => {
+      const canScrollDown = scrollable.scrollHeight - scrollable.scrollTop - scrollable.clientHeight > 2;
+      container.classList.toggle('has-overflow', canScrollDown);
+    };
+
+    scrollable.addEventListener('scroll', update);
+    update();
+  });
+}
+
+/**
  * Setup event handlers
  */
 function setupEventHandlers() {
+  setupScrollFadeIndicators();
+
   // Household three-dots menu toggle
   const householdMenuBtn = document.getElementById('household-menu-btn');
   householdMenuBtn?.addEventListener('click', (e) => {
@@ -1348,6 +1377,7 @@ async function refreshCategories() {
   if (catsRes.ok) { const d = await catsRes.json(); categories = d.categories || []; }
   const el = document.getElementById('categories-content');
   if (el) { el.innerHTML = renderCategoriesSection(); setupCategoriesHandlers(); }
+  setupScrollFadeIndicators();
 }
 
 // ── Group Modal ──
