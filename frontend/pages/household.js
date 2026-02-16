@@ -327,7 +327,7 @@ function renderContactsList() {
           <div class="contact-badges">
             ${contact.link_status === 'ACCEPTED' ? '<span class="linked-badge linked-accepted">Vinculado</span>' : ''}
             ${contact.link_status === 'PENDING' ? '<span class="linked-badge linked-pending">Pendiente</span>' : ''}
-            ${contact.link_status === 'REJECTED' ? '<span class="linked-badge linked-rejected">Rechazado</span>' : ''}
+            ${contact.link_status === 'REJECTED' ? '<span class="linked-badge linked-rejected">Vinculación rechazada</span>' : ''}
             ${!contact.is_active ? '<span class="inactive-badge">Inactivo</span>' : ''}
           </div>
           <div class="contact-actions">
@@ -596,12 +596,13 @@ function showLinkConfirmation(modal, displayName) {
     confirm.innerHTML = `
       <div style="margin-bottom: 16px;">
         <div style="text-align: center; font-size: 32px; margin-bottom: 8px;">🔓</div>
-        <p style="font-weight: 600; margin: 0 0 12px; text-align: center;">Este correo pertenece a <strong>${displayName}</strong></p>
-        <p style="font-weight: 600; margin: 0 0 6px;">¿Qué significa vincular?</p>
+        <p style="font-weight: 600; margin: 0 0 12px; text-align: center;">El correo <strong>${contact.email}</strong> pertenece al usuario <strong>${displayName}</strong></p>
+        <p style="color: #374151; font-size: 14px; margin: 0 0 12px;">Vincular permite que ambos hogares vean los gastos compartidos entre ustedes.</p>
+        <p style="font-weight: 600; margin: 0 0 6px;">¿Qué significa esto?</p>
         <ul style="color: #374151; font-size: 14px; margin: 0 0 4px; padding-left: 20px; line-height: 1.6;">
-          <li>Podrán ver <em>solo</em> los gastos en los que participen contigo.</li>
-          <li>No tendrán acceso a todos tus movimientos.</li>
-          <li>Se enviará una solicitud que el otro hogar debe aceptar.</li>
+          <li>Todos en el hogar de <strong>${displayName}</strong> podrán ver los gastos de tu hogar en los que ellos participen (cuando usas "Dividir gasto"), y viceversa.</li>
+          <li>Ellos no tendrán acceso a ninguna otra información de tu hogar (ni otros gastos, ni ingresos, ni presupuesto).</li>
+          <li>Después de enviar la solicitud, tendrás que esperar a que <strong>${displayName}</strong> la acepte para empezar a ver los gastos compartidos.</li>
         </ul>
       </div>
       <div style="display: flex; flex-direction: column; gap: 10px;">
@@ -1043,12 +1044,13 @@ async function handleRequestLink(contactId) {
     // Confirm linking
     const confirmed = await showConfirmation(
       '¿Vincular contacto?',
-      `<strong>${contact.email}</strong> pertenece a <strong>${checkData.display_name}</strong>.
-      <p style="font-weight: 600; margin: 12px 0 6px;">¿Qué significa vincular?</p>
+      `El correo <strong>${contact.email}</strong> pertenece al usuario <strong>${checkData.display_name}</strong>.
+      <p style="color: #374151; font-size: 14px; margin: 12px 0 8px;">Vincular permite que ambos hogares vean los gastos compartidos entre ustedes.</p>
+      <p style="font-weight: 600; margin: 0 0 6px;">¿Qué significa esto?</p>
       <ul style="color: #374151; font-size: 14px; margin: 0; padding-left: 20px; line-height: 1.6;">
-        <li>Podrán ver <em>solo</em> los gastos en los que participen contigo.</li>
-        <li>No tendrán acceso a todos tus movimientos.</li>
-        <li>Se enviará una solicitud que el otro hogar debe aceptar.</li>
+        <li>Todos en el hogar de <strong>${checkData.display_name}</strong> podrán ver los gastos de tu hogar en los que ellos participen (cuando usas "Dividir gasto"), y viceversa.</li>
+        <li>Ellos no tendrán acceso a ninguna otra información de tu hogar (ni otros gastos, ni ingresos, ni presupuesto).</li>
+        <li>Después de enviar la solicitud, tendrás que esperar a que <strong>${checkData.display_name}</strong> la acepte para empezar a ver los gastos compartidos.</li>
       </ul>`,
       'Enviar solicitud'
     );
@@ -1761,11 +1763,12 @@ function showLinkRequestModal(contactId, requesterName, householdName) {
       <div class="modal-body">
         <p><strong>${requesterName}</strong> del hogar <strong>${householdName}</strong> quiere compartir gastos contigo.</p>
 
-        <p><strong>¿Qué significa aceptar?</strong></p>
+        <p style="color: #374151; font-size: 14px; margin: 12px 0 8px;">Al aceptar, ambos hogares podrán ver los gastos compartidos entre ustedes.</p>
+        <p><strong>¿Qué significa esto?</strong></p>
         <ul>
-          <li>Las personas de ese hogar podrán ver <em>solo</em> los gastos en los que ellos participen.</li>
-          <li>No tendrán acceso a todos tus movimientos.</li>
-          <li>Se creará un contacto vinculado en tu hogar.</li>
+          <li>Todos en el hogar de <strong>${requesterName}</strong> podrán ver los gastos de tu hogar en los que ellos participen (cuando usas "Dividir gasto"), y viceversa.</li>
+          <li>Ellos no tendrán acceso a ninguna otra información de tu hogar (ni otros gastos, ni ingresos, ni presupuesto).</li>
+          <li>Se creará un contacto vinculado en tu hogar para representar a <strong>${requesterName}</strong>.</li>
         </ul>
 
         <p><strong>¿Cómo quieres guardar este contacto?</strong></p>

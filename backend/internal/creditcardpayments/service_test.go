@@ -159,7 +159,7 @@ func (m *MockHouseholdRepository) ListPendingInvitations(ctx context.Context, ho
 func (m *MockHouseholdRepository) IsUserMember(ctx context.Context, householdID, userID string) (bool, error) {
 	return false, nil
 }
-func (m *MockHouseholdRepository) FindContactsByLinkedUserID(ctx context.Context, userID, excludeHouseholdID string) ([]households.LinkedContact, error) {
+func (m *MockHouseholdRepository) FindLinkedContactsByHousehold(ctx context.Context, householdID string) ([]households.LinkedContact, error) {
 	return nil, nil
 }
 func (m *MockHouseholdRepository) ListPendingLinkRequests(ctx context.Context, userID string) ([]households.LinkRequest, error) {

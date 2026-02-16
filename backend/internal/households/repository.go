@@ -520,19 +520,22 @@ func (r *Repository) FindContactByEmail(ctx context.Context, householdID, email 
 	return &c, nil
 }
 
-// FindContactsByLinkedUserID finds all contacts across households linked to a specific user,
-// excluding contacts from the user's own household.
-func (r *Repository) FindContactsByLinkedUserID(ctx context.Context, userID, excludeHouseholdID string) ([]LinkedContact, error) {
+// FindLinkedContactsByHousehold finds all contacts across other households
+// that are linked to ANY member of the given household.
+// This enables household-wide visibility: if Jose links with Maria,
+// Caro (Jose's household member) also sees cross-household movements.
+func (r *Repository) FindLinkedContactsByHousehold(ctx context.Context, householdID string) ([]LinkedContact, error) {
 	query := `
-		SELECT c.id, c.household_id, h.name, c.name
+		SELECT DISTINCT c.id, c.household_id, h.name, c.name
 		FROM contacts c
 		JOIN households h ON c.household_id = h.id
-		WHERE c.linked_user_id = $1
-		  AND c.household_id != $2
+		JOIN household_members hm ON hm.household_id = $1
+		WHERE c.linked_user_id = hm.user_id
+		  AND c.household_id != $1
 		  AND c.is_active = true
 		  AND c.link_status = 'ACCEPTED'
 	`
-	rows, err := r.pool.Query(ctx, query, userID, excludeHouseholdID)
+	rows, err := r.pool.Query(ctx, query, householdID)
 	if err != nil {
 		return nil, err
 	}

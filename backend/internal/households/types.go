@@ -185,7 +185,7 @@ type HouseholdRepository interface {
 	DeleteContact(ctx context.Context, id string) error
 	ListContacts(ctx context.Context, householdID string) ([]*Contact, error)
 	FindContactByEmail(ctx context.Context, householdID, email string) (*Contact, error)
-	FindContactsByLinkedUserID(ctx context.Context, userID, excludeHouseholdID string) ([]LinkedContact, error)
+	FindLinkedContactsByHousehold(ctx context.Context, householdID string) ([]LinkedContact, error)
 	
 	// Link request management
 	ListPendingLinkRequests(ctx context.Context, userID string) ([]LinkRequest, error)

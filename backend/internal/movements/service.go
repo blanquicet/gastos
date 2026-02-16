@@ -428,8 +428,8 @@ func (s *service) GetDebtConsolidation(ctx context.Context, userID string, month
 	}
 
 	// --- Cross-household debt visibility ---
-	// Find contacts in OTHER households linked to the current user
-	linkedContacts, err := s.householdsRepo.FindContactsByLinkedUserID(ctx, userID, householdID)
+	// Find contacts in OTHER households linked to ANY member of this household
+	linkedContacts, err := s.householdsRepo.FindLinkedContactsByHousehold(ctx, householdID)
 	if err != nil {
 		s.logger.Warn("failed to find linked contacts for cross-household debts", "error", err)
 		// Non-fatal: continue with household-only debts
