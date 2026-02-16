@@ -594,15 +594,18 @@ function showLinkConfirmation(modal, displayName) {
     const confirm = document.createElement('div');
     confirm.id = 'link-confirm';
     confirm.innerHTML = `
-      <div style="text-align: center; margin-bottom: 16px;">
-        <div style="font-size: 32px; margin-bottom: 8px;">🔗</div>
-        <p style="font-weight: 600; margin: 0 0 8px;">Este correo pertenece a <strong>${displayName}</strong></p>
-        <p style="color: #6b7280; font-size: 14px; margin: 0;">
-          Vincular permite ver gastos compartidos entre hogares en la sección de Préstamos.
-        </p>
+      <div style="margin-bottom: 16px;">
+        <div style="text-align: center; font-size: 32px; margin-bottom: 8px;">🔓</div>
+        <p style="font-weight: 600; margin: 0 0 12px; text-align: center;">Este correo pertenece a <strong>${displayName}</strong></p>
+        <p style="font-weight: 600; margin: 0 0 6px;">¿Qué significa vincular?</p>
+        <ul style="color: #374151; font-size: 14px; margin: 0 0 4px; padding-left: 20px; line-height: 1.6;">
+          <li>Podrán ver <em>solo</em> los gastos en los que participen contigo.</li>
+          <li>No tendrán acceso a todos tus movimientos.</li>
+          <li>Se enviará una solicitud que el otro hogar debe aceptar.</li>
+        </ul>
       </div>
       <div style="display: flex; flex-direction: column; gap: 10px;">
-        <button type="button" class="btn-primary" id="link-yes" style="width: 100%;">Sí, enviar solicitud de vinculación</button>
+        <button type="button" class="btn-primary" id="link-yes" style="width: 100%;">Sí, enviar solicitud</button>
         <button type="button" class="btn-secondary" id="link-no" style="width: 100%;">No, solo guardar contacto</button>
         <button type="button" style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 8px; font-size: 13px;" id="link-back">← Volver al formulario</button>
       </div>`;
@@ -1040,7 +1043,14 @@ async function handleRequestLink(contactId) {
     // Confirm linking
     const confirmed = await showConfirmation(
       '¿Vincular contacto?',
-      `El correo ${contact.email} pertenece a ${checkData.display_name}. Se enviará una solicitud de vinculación. Esto permitirá ver gastos compartidos entre hogares.`
+      `<strong>${contact.email}</strong> pertenece a <strong>${checkData.display_name}</strong>.
+      <p style="font-weight: 600; margin: 12px 0 6px;">¿Qué significa vincular?</p>
+      <ul style="color: #374151; font-size: 14px; margin: 0; padding-left: 20px; line-height: 1.6;">
+        <li>Podrán ver <em>solo</em> los gastos en los que participen contigo.</li>
+        <li>No tendrán acceso a todos tus movimientos.</li>
+        <li>Se enviará una solicitud que el otro hogar debe aceptar.</li>
+      </ul>`,
+      'Enviar solicitud'
     );
     if (!confirmed) return;
 
