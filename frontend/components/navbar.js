@@ -106,6 +106,9 @@ export function setup() {
 
   // Fetch pending link request count for badge
   fetchLinkRequestCount();
+
+  // Expose so household page can refresh badge after actions
+  window.updateNavbarBadge = fetchLinkRequestCount;
 }
 
 async function fetchLinkRequestCount() {

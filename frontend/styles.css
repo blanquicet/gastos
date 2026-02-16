@@ -1328,10 +1328,10 @@ button.loading::after {
 /* Link requests section */
 /* Link request banner cards */
 .link-request-banner-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  position: relative;
   margin-bottom: 20px;
+  /* Height of one banner + room for peeking cards behind */
+  min-height: 76px;
 }
 
 .link-request-banner {
@@ -1339,19 +1339,51 @@ button.loading::after {
   align-items: center;
   gap: 14px;
   padding: 16px 18px;
-  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  background: linear-gradient(135deg, #374151, #4b5563);
   border-radius: 14px;
   cursor: pointer;
   transition: transform 0.15s, box-shadow 0.15s;
   animation: banner-slide-in 0.35s ease-out;
+  /* Stacking: position absolute so cards overlap */
+  position: absolute;
+  left: 0;
+  right: 0;
 }
 
-.link-request-banner:hover {
+/* First card (top) is fully visible */
+.link-request-banner:first-child {
+  position: relative;
+  z-index: 3;
+}
+
+/* Cards behind peek out slightly below */
+.link-request-banner:nth-child(2) {
+  position: absolute;
+  top: 8px;
+  z-index: 2;
+  opacity: 0.7;
+  transform: scale(0.97);
+}
+
+.link-request-banner:nth-child(3) {
+  position: absolute;
+  top: 16px;
+  z-index: 1;
+  opacity: 0.45;
+  transform: scale(0.94);
+}
+
+/* Hide 4th+ cards */
+.link-request-banner:nth-child(n+4) {
+  display: none;
+}
+
+.link-request-banner:first-child:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
 }
 
-.link-request-banner:active {
+.link-request-banner:first-child:active {
   transform: scale(0.98);
 }
 
@@ -1406,14 +1438,6 @@ button.loading::after {
     opacity: 1;
     transform: translateY(0);
   }
-}
-
-.unlink-banner {
-  background: linear-gradient(135deg, #374151, #4b5563);
-}
-
-.unlink-banner:hover {
-  background: linear-gradient(135deg, #4b5563, #6b7280);
 }
 
 .unlink-banner .link-request-banner-arrow {

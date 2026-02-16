@@ -579,13 +579,18 @@ func (r *Repository) ListPendingLinkRequests(ctx context.Context, userID string)
 	return requests, rows.Err()
 }
 
-// CountPendingLinkRequests counts pending link requests for a user
+// CountPendingLinkRequests counts pending link requests AND unlink notifications for a user
 func (r *Repository) CountPendingLinkRequests(ctx context.Context, userID string) (int, error) {
 	var count int
 	err := r.pool.QueryRow(ctx, `
-		SELECT COUNT(*)
-		FROM contacts
-		WHERE linked_user_id = $1 AND link_status = 'PENDING'
+		SELECT (
+			SELECT COUNT(*) FROM contacts
+			WHERE linked_user_id = $1 AND link_status = 'PENDING'
+		) + (
+			SELECT COUNT(*) FROM contacts c
+			JOIN household_members hm ON hm.household_id = c.household_id
+			WHERE hm.user_id = $1 AND c.was_unlinked_at IS NOT NULL
+		)
 	`, userID).Scan(&count)
 	if err != nil {
 		return 0, err

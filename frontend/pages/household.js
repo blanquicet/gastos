@@ -1685,7 +1685,7 @@ async function loadAndRenderLinkRequests() {
         `).join('')}
         ${requests.map(req => `
           <div class="link-request-banner" data-action="view-link" data-contact-id="${req.contact_id}" data-requester-name="${req.requester_name}" data-household-name="${req.household_name}">
-            <div class="link-request-banner-icon">🔗</div>
+            <div class="link-request-banner-icon">🔓</div>
             <div class="link-request-banner-content">
               <div class="link-request-banner-title">${req.requester_name} quiere compartir gastos contigo</div>
               <div class="link-request-banner-subtitle">${req.household_name}</div>
@@ -1728,6 +1728,8 @@ function setupLinkRequestHandlers() {
         if (stack && stack.children.length === 0) {
           document.getElementById('link-requests-section').innerHTML = '';
         }
+        // Update navbar badge count
+        if (typeof window.updateNavbarBadge === 'function') window.updateNavbarBadge();
       } catch (e) {
         // Silently fail
       }
@@ -1813,6 +1815,7 @@ function showLinkRequestModal(contactId, requesterName, householdName) {
       overlay.remove();
       await showSuccess('Solicitud aceptada', 'El contacto ha sido vinculado.');
       await loadHousehold();
+      if (typeof window.updateNavbarBadge === 'function') window.updateNavbarBadge();
     } catch (err) {
       await showError('Error', err.message);
     }
@@ -1840,6 +1843,7 @@ function showLinkRequestModal(contactId, requesterName, householdName) {
       overlay.remove();
       await showSuccess('Solicitud rechazada', '');
       await loadHousehold();
+      if (typeof window.updateNavbarBadge === 'function') window.updateNavbarBadge();
     } catch (err) {
       await showError('Error', err.message);
     }
