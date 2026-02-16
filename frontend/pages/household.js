@@ -547,7 +547,7 @@ function showContactModal(contact = null) {
               // Show confirmation step
               submitBtn.disabled = false;
               submitBtn.classList.remove('loading');
-              requestLink = await showLinkConfirmation(modal, checkData.display_name);
+              requestLink = await showLinkConfirmation(modal, checkData.display_name, email);
               if (requestLink === null) return; // user cancelled the whole modal
               submitBtn.disabled = true;
               submitBtn.classList.add('loading');
@@ -585,7 +585,7 @@ function showContactModal(contact = null) {
  * Show link confirmation step inside the contact modal.
  * Returns: true (link), false (don't link), null (cancel)
  */
-function showLinkConfirmation(modal, displayName) {
+function showLinkConfirmation(modal, displayName, contactEmail) {
   return new Promise((resolve) => {
     const content = modal.querySelector('.modal-content');
     const form = document.getElementById('contact-form');
@@ -596,7 +596,7 @@ function showLinkConfirmation(modal, displayName) {
     confirm.innerHTML = `
       <div style="margin-bottom: 16px;">
         <div style="text-align: center; font-size: 32px; margin-bottom: 8px;">🔓</div>
-        <p style="font-weight: 600; margin: 0 0 12px; text-align: center;">El correo <strong>${contact.email}</strong> pertenece al usuario <strong>${displayName}</strong></p>
+        <p style="font-weight: 600; margin: 0 0 12px; text-align: center;">El correo <strong>${contactEmail}</strong> pertenece al usuario <strong>${displayName}</strong></p>
         <p style="color: #374151; font-size: 14px; margin: 0 0 12px;">Vincular permite que ambos hogares vean los gastos compartidos entre ustedes.</p>
         <p style="font-weight: 600; margin: 0 0 6px;">¿Qué significa esto?</p>
         <ul style="color: #374151; font-size: 14px; margin: 0 0 4px; padding-left: 20px; line-height: 1.6;">
