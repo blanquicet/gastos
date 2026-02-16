@@ -208,10 +208,10 @@ function renderHouseholdContent() {
 
     <div class="household-section">
       <div class="section-header">
-        <h3 class="section-title">Grupos y Categorías</h3>
+        <h3 class="section-title">Categorías</h3>
         <button id="add-group-btn" class="btn-secondary btn-small">+ Agregar grupo</button>
       </div>
-      <p class="section-description">Organiza tus gastos en grupos y categorías.</p>
+      <p class="section-description">Las categorías se agrupan por grupos afines. Primero crea un grupo y luego agrega categorías dentro de cada grupo. Ej: grupo Casa → categorías Mercado, Servicios.</p>
       <div class="scroll-fade-container">
         <div id="categories-content">
           ${renderCategoriesSection()}
