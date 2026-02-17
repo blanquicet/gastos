@@ -278,31 +278,26 @@ func (r *repository) FindByName(ctx context.Context, householdID, name string) (
 }
 
 // GetBalance calculates the current balance of an account
-// Current balance = initial_balance + SUM(income) - SUM(expenses via linked payment methods)
-// Note: Expenses calculation is skipped for now as movements are still in Google Sheets
+// Current balance = initial_balance + SUM(income) - SUM(movements via debit cards) - SUM(credit card payments)
 func (r *repository) GetBalance(ctx context.Context, id string) (float64, error) {
 	var balance float64
 	err := r.pool.QueryRow(ctx, `
 		SELECT 
-			a.initial_balance + 
-			COALESCE(SUM(i.amount), 0) as current_balance
+			a.initial_balance 
+			+ COALESCE((SELECT SUM(i.amount) FROM income i WHERE i.account_id = a.id), 0)
+			- COALESCE((SELECT SUM(m.amount) FROM movements m 
+			            JOIN payment_methods pm ON m.payment_method_id = pm.id 
+			            WHERE pm.account_id = a.id), 0)
+			- COALESCE((SELECT SUM(ccp.amount) FROM credit_card_payments ccp 
+			            WHERE ccp.source_account_id = a.id), 0)
+			as current_balance
 		FROM accounts a
-		LEFT JOIN income i ON i.account_id = a.id
 		WHERE a.id = $1
-		GROUP BY a.id, a.initial_balance
 	`, id).Scan(&balance)
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			// Account exists but has no income
-			var initialBalance float64
-			err := r.pool.QueryRow(ctx, `
-				SELECT initial_balance FROM accounts WHERE id = $1
-			`, id).Scan(&initialBalance)
-			if err != nil {
-				return 0, err
-			}
-			return initialBalance, nil
+			return 0, ErrAccountNotFound
 		}
 		return 0, err
 	}
