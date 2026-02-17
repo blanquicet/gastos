@@ -2963,9 +2963,16 @@ function refreshDisplay() {
 
   const totalEl = document.querySelector('.total-amount');
   if (totalEl) {
-    const totalAmount = activeTab === 'gastos' 
-      ? (movementsData?.totals?.total_amount || 0)
-      : (incomeData?.totals?.total_amount || 0);
+    let totalAmount;
+    if (activeTab === 'gastos') {
+      totalAmount = movementsData?.totals?.total_amount || 0;
+    } else if (activeTab === 'ingresos') {
+      totalAmount = incomeData?.totals?.total_amount || 0;
+    } else if (activeTab === 'tarjetas') {
+      totalAmount = creditCardsData?.totals?.total_debt || 0;
+    } else {
+      totalAmount = 0;
+    }
     totalEl.textContent = formatCurrency(totalAmount);
   }
 
