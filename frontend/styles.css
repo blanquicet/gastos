@@ -37,6 +37,26 @@
   font-size: 14px;
 }
 
+/* Error state within loading-spinner */
+.loading-spinner .error-icon {
+  font-size: 48px;
+  margin-bottom: 8px;
+}
+
+.loading-spinner .error-title {
+  color: #dc2626;
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.loading-spinner .error-message {
+  color: #6b7280;
+  font-size: 14px;
+  text-align: center;
+  margin: 8px 0 16px;
+}
+
 body {
   margin: 0;
   padding: 24px;
