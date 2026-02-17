@@ -250,7 +250,6 @@ function renderAccountsList() {
         </div>
       `}).join('')}
     </div>
-    <button id="add-account-btn" class="btn-secondary" style="margin-top: 16px; width: 100%;">+ Agregar cuenta</button>
   ` : '';
 
   return `
@@ -338,7 +337,6 @@ function renderPaymentMethodsList() {
         </div>
       `}).join('')}
     </div>
-    <button id="add-payment-method-btn" class="btn-secondary" style="margin-top: 16px; width: 100%;">+ Agregar método de pago</button>
   ` : '';
 
   return `
