@@ -516,21 +516,19 @@ function showAccountModal(account = null) {
             placeholder="ej: Cuenta de ahorros Bancolombia">
         </label>
         
-        <div style="display: flex; gap: 12px;">
-          <label class="field" style="flex: 1;">
-            <span>Institución</span>
-            <input type="text" id="account-institution" maxlength="100" 
-              value="${account?.institution || ''}" 
-              placeholder="ej: Bancolombia">
-          </label>
-          
-          <label class="field" style="flex: 1;">
-            <span>Últimos 4 dígitos</span>
-            <input type="text" id="account-last4" maxlength="4" pattern="\\d{4}"
-              value="${account?.last4 || ''}" 
-              placeholder="1234">
-          </label>
-        </div>
+        <label class="field">
+          <span>Institución</span>
+          <input type="text" id="account-institution" maxlength="100" 
+            value="${account?.institution || ''}" 
+            placeholder="ej: Bancolombia">
+        </label>
+        
+        <label class="field">
+          <span>Últimos 4 dígitos</span>
+          <input type="text" id="account-last4" maxlength="4" pattern="\\d{4}"
+            value="${account?.last4 || ''}" 
+            placeholder="1234">
+        </label>
 
         <label class="field">
           <span>Balance inicial</span>
@@ -661,42 +659,39 @@ function showPaymentMethodModal(paymentMethod = null) {
       <h3 style="margin: 0 0 20px 0; font-size: 18px; font-weight: 600;">${title}</h3>
       <div id="pm-error" class="error-message" style="display: none;"></div>
       <form id="pm-form" style="display: flex; flex-direction: column; gap: 16px;">
-        <div style="display: flex; gap: 12px;">
-          <label class="field" style="flex: 1;">
-            <span>Nombre *</span>
-            <input type="text" id="pm-name" required maxlength="100" 
-              value="${paymentMethod?.name || ''}" 
-              placeholder="ej: Tarjeta Débito Bancolombia">
-          </label>
-          
-          <label class="field" style="flex: 1;">
-            <span>Tipo *</span>
-            <select id="pm-type" required ${isEdit ? 'disabled' : ''}>
-              <option value="">Selecciona un tipo</option>
-              ${Object.entries(PAYMENT_METHOD_TYPES).map(([value, label]) => `
-                <option value="${value}" ${paymentMethod?.type === value ? 'selected' : ''}>
-                  ${label}
-                </option>
-              `).join('')}
-            </select>
-          </label>
-        </div>
+        <label class="field">
+          <span>Nombre *</span>
+          <input type="text" id="pm-name" required maxlength="100" 
+            value="${paymentMethod?.name || ''}" 
+            placeholder="ej: Tarjeta Débito Bancolombia">
+        </label>
         
-        <div style="display: flex; gap: 12px;">
-          <label class="field" style="flex: 1;">
-            <span>Institución</span>
-            <input type="text" id="pm-institution" maxlength="100" 
-              value="${paymentMethod?.institution || ''}" 
-              placeholder="ej: Bancolombia, Nequi">
-          </label>
-          
-          <label class="field" style="flex: 1;">
-            <span>Últimos 4 dígitos</span>
-            <input type="text" id="pm-last4" maxlength="4" pattern="\\d{4}"
-              value="${paymentMethod?.last4 || ''}" 
-              placeholder="1234">
-          </label>
-        </div>
+        <label class="field">
+          <span>Tipo *</span>
+          <select id="pm-type" required ${isEdit ? 'disabled' : ''}>
+            <option value="">Selecciona un tipo</option>
+            ${Object.entries(PAYMENT_METHOD_TYPES).map(([value, label]) => `
+              <option value="${value}" ${paymentMethod?.type === value ? 'selected' : ''}>
+                ${label}
+              </option>
+            `).join('')}
+          </select>
+          ${isEdit ? '<small class="hint" style="color: #6b7280; font-size: 12px;">El tipo no se puede cambiar</small>' : ''}
+        </label>
+        
+        <label class="field">
+          <span>Institución</span>
+          <input type="text" id="pm-institution" maxlength="100" 
+            value="${paymentMethod?.institution || ''}" 
+            placeholder="ej: Bancolombia, Nequi">
+        </label>
+        
+        <label class="field">
+          <span>Últimos 4 dígitos</span>
+          <input type="text" id="pm-last4" maxlength="4" pattern="\\d{4}"
+            value="${paymentMethod?.last4 || ''}" 
+            placeholder="1234">
+        </label>
 
         <div id="pm-account-field" style="${paymentMethod?.type === 'debit_card' || !isEdit ? '' : 'display: none;'}">
           <label class="field">
