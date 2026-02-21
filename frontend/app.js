@@ -16,6 +16,7 @@ import * as ProfilePage from './pages/profile.js';
 import * as HouseholdPage from './pages/household.js';
 import * as AdminAuditLogsPage from './pages/admin-audit-logs.js';
 import * as InvitePage from './pages/invite.js';
+import * as ChatPage from './pages/chat.js';
 
 // Store current user globally
 let currentUser = null;
@@ -197,6 +198,20 @@ function initRouter() {
     const appEl = document.getElementById('app');
     appEl.innerHTML = InvitePage.render();
     await InvitePage.setup(authenticated);
+    const loadingEl = document.getElementById('loading');
+    if (loadingEl) loadingEl.style.display = 'none';
+  });
+
+  router.route('/chat', async () => {
+    const { authenticated, user } = await checkAuth();
+    if (!authenticated) {
+      router.navigate('/login');
+      return;
+    }
+    currentUser = user;
+    const appEl = document.getElementById('app');
+    appEl.innerHTML = ChatPage.render();
+    ChatPage.setup();
     const loadingEl = document.getElementById('loading');
     if (loadingEl) loadingEl.style.display = 'none';
   });

@@ -40,6 +40,11 @@ type Config struct {
 
 	// Static files (for local development)
 	StaticDir string
+
+	// Azure OpenAI configuration
+	AzureOpenAIEndpoint   string
+	AzureOpenAIAPIKey     string
+	AzureOpenAIDeployment string
 }
 
 // Load reads configuration from environment variables.
@@ -116,6 +121,14 @@ func Load() (*Config, error) {
 	// Rate limiting - disabled only if explicitly set to "false", enabled by default
 	rateLimitEnabled := os.Getenv("RATE_LIMIT_ENABLED") != "false"
 
+	// Azure OpenAI (optional — chat feature disabled if not set)
+	azureOpenAIEndpoint := os.Getenv("AZURE_OPENAI_ENDPOINT")
+	azureOpenAIAPIKey := os.Getenv("AZURE_OPENAI_API_KEY")
+	azureOpenAIDeployment := os.Getenv("AZURE_OPENAI_DEPLOYMENT")
+	if azureOpenAIDeployment == "" {
+		azureOpenAIDeployment = "gpt-4o-mini"
+	}
+
 	return &Config{
 		ServerAddr:          serverAddr,
 		DatabaseURL:         databaseURL,
@@ -133,6 +146,9 @@ func Load() (*Config, error) {
 		SMTPPort:            smtpPort,
 		SMTPUsername:        smtpUsername,
 		SMTPPassword:        smtpPassword,
-		StaticDir:           staticDir,
+		StaticDir:             staticDir,
+		AzureOpenAIEndpoint:   azureOpenAIEndpoint,
+		AzureOpenAIAPIKey:     azureOpenAIAPIKey,
+		AzureOpenAIDeployment: azureOpenAIDeployment,
 	}, nil
 }
