@@ -4,12 +4,16 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 )
 
-const systemPrompt = `Eres un asistente financiero para un hogar colombiano. 
+const systemPromptTemplate = `Eres un asistente financiero para un hogar colombiano.
+La fecha de hoy es %s. El mes actual es %s.
 Respondes en español usando formato colombiano para montos (ej: $345.000 COP).
-Cuando consultes datos, usa las herramientas disponibles. Cita los datos que respaldan tu respuesta.
-Si no tienes datos suficientes para responder, di: "No tengo datos suficientes para responder eso."
+SIEMPRE usa las herramientas disponibles para consultar datos antes de responder. No respondas sin consultar primero.
+Cuando el usuario diga "este mes" se refiere a %s. Cuando diga "el mes pasado" se refiere a %s.
+Cita los datos que respaldan tu respuesta.
+Si después de consultar no hay datos, dilo claramente.
 Nunca inventes datos. Sé conciso y directo.`
 
 // maxToolRounds limits function-calling iterations to prevent infinite loops.
@@ -35,6 +39,12 @@ func NewChatService(client *Client, executor *ToolExecutor, logger *slog.Logger)
 // It executes function-calling rounds until the model produces a text response.
 func (cs *ChatService) Chat(ctx context.Context, householdID, userMessage string) (string, error) {
 	tools := ToolDefinitions()
+
+	now := time.Now()
+	currentMonth := now.Format("2006-01")
+	lastMonth := now.AddDate(0, -1, 0).Format("2006-01")
+	systemPrompt := fmt.Sprintf(systemPromptTemplate,
+		now.Format("2006-01-02"), currentMonth, currentMonth, lastMonth)
 
 	messages := []ChatMessage{
 		{Role: "system", Content: systemPrompt},
