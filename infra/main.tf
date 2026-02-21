@@ -165,7 +165,8 @@ resource "azurerm_container_app" "api" {
   revision_mode                = "Single"
 
   identity {
-    type = "SystemAssigned"
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.api.id]
   }
 
   template {
@@ -249,6 +250,12 @@ resource "azurerm_container_app" "api" {
         value = var.azure_openai_api_version
       }
 
+      # User-Assigned Managed Identity client ID (tells DefaultAzureCredential which identity to use)
+      env {
+        name  = "AZURE_CLIENT_ID"
+        value = azurerm_user_assigned_identity.api.client_id
+      }
+
       dynamic "env" {
         for_each = var.openai_embeddings_enabled ? [1] : []
         content {
@@ -292,6 +299,21 @@ locals {
 
 
 # =============================================================================
+# Managed Identity (User-Assigned, for Container App → OpenAI RBAC)
+# =============================================================================
+# User-Assigned identity is created as a separate resource so that its
+# principal_id is available before the Container App is updated.
+# This avoids the chicken-and-egg problem with SystemAssigned identity.
+
+resource "azurerm_user_assigned_identity" "api" {
+  name                = "conti-api-identity"
+  resource_group_name = data.azurerm_resource_group.gastos.name
+  location            = data.azurerm_resource_group.gastos.location
+
+  tags = var.tags
+}
+
+# =============================================================================
 # Azure OpenAI (for Chat / Phase 10)
 # =============================================================================
 
@@ -317,8 +339,8 @@ resource "azurerm_cognitive_deployment" "chat" {
     version = var.openai_chat_model_version
   }
 
-  sku {
-    name     = "GlobalStandard"
+  scale {
+    type     = "GlobalStandard"
     capacity = var.openai_chat_capacity
   }
 }
@@ -334,8 +356,8 @@ resource "azurerm_cognitive_deployment" "embeddings" {
     version = var.openai_embeddings_model_version
   }
 
-  sku {
-    name     = "Standard"
+  scale {
+    type     = "Standard"
     capacity = var.openai_embeddings_capacity
   }
 
@@ -349,9 +371,9 @@ resource "azurerm_cognitive_deployment" "embeddings" {
 # Enable system-assigned managed identity on the Container App
 # (handled via the identity block in azurerm_container_app below)
 
-# Grant "Cognitive Services OpenAI User" to the Container App's identity
+# Grant "Cognitive Services OpenAI User" to the Container App's managed identity.
 resource "azurerm_role_assignment" "container_app_openai" {
   scope                = azurerm_cognitive_account.openai.id
   role_definition_name = "Cognitive Services OpenAI User"
-  principal_id         = azurerm_container_app.api.identity[0].principal_id
+  principal_id         = azurerm_user_assigned_identity.api.principal_id
 }

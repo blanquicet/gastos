@@ -96,8 +96,8 @@ output "openai_chat_deployment_name" {
 }
 
 output "container_app_identity_principal_id" {
-  description = "Principal ID of the Container App's system-assigned managed identity"
-  value       = azurerm_container_app.api.identity[0].principal_id
+  description = "Principal ID of the Container App's managed identity"
+  value       = azurerm_user_assigned_identity.api.principal_id
 }
 
 output "openai_embeddings_deployment_name" {
