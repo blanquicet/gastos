@@ -450,7 +450,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 		} else {
 			toolExecutor := ai.NewToolExecutor(pool)
 			chatService := ai.NewChatService(aiClient, toolExecutor, logger)
-			chatHandler := ai.NewHandler(chatService, householdRepo, logger)
+			chatHandler := ai.NewHandler(chatService, authService, householdRepo, cfg.SessionCookieName, logger)
 			mux.HandleFunc("POST /chat", chatHandler.HandleChat)
 			logger.Info("chat endpoint enabled", "deployment", cfg.AzureOpenAIDeployment)
 		}

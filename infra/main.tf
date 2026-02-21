@@ -318,11 +318,12 @@ resource "azurerm_user_assigned_identity" "api" {
 # =============================================================================
 
 resource "azurerm_cognitive_account" "openai" {
-  name                = "conti-openai"
-  resource_group_name = data.azurerm_resource_group.gastos.name
-  location            = var.openai_location
-  kind                = "OpenAI"
-  sku_name            = "S0"
+  name                  = "conti-openai"
+  resource_group_name   = data.azurerm_resource_group.gastos.name
+  location              = var.openai_location
+  kind                  = "OpenAI"
+  sku_name              = "S0"
+  custom_subdomain_name = "conti-openai"
 
   public_network_access_enabled = true
 

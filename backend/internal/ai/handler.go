@@ -7,23 +7,27 @@ import (
 "sync"
 "time"
 
+"github.com/blanquicet/conti/backend/internal/auth"
 "github.com/blanquicet/conti/backend/internal/households"
-"github.com/blanquicet/conti/backend/internal/middleware"
 )
 
 // Handler provides HTTP endpoints for chat.
 type Handler struct {
 chatService   *ChatService
+authService   *auth.Service
 householdRepo households.HouseholdRepository
+cookieName    string
 logger        *slog.Logger
 rateLimiter   *rateLimiter
 }
 
 // NewHandler creates a new chat HTTP handler.
-func NewHandler(chatService *ChatService, householdRepo households.HouseholdRepository, logger *slog.Logger) *Handler {
+func NewHandler(chatService *ChatService, authService *auth.Service, householdRepo households.HouseholdRepository, cookieName string, logger *slog.Logger) *Handler {
 return &Handler{
 chatService:   chatService,
+authService:   authService,
 householdRepo: householdRepo,
+cookieName:    cookieName,
 logger:        logger,
 rateLimiter:   newRateLimiter(20, time.Minute),
 }
@@ -44,11 +48,19 @@ http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 return
 }
 
-userID, ok := middleware.GetUserID(r.Context())
-if !ok || userID == "" {
+// Authenticate via session cookie (same pattern as other handlers)
+cookie, err := r.Cookie(h.cookieName)
+if err != nil {
 http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
 return
 }
+
+user, err := h.authService.GetUserBySession(r.Context(), cookie.Value)
+if err != nil {
+http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+return
+}
+userID := user.ID
 
 // Resolve household
 hh, err := h.householdRepo.ListByUser(r.Context(), userID)
