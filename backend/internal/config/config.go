@@ -41,10 +41,10 @@ type Config struct {
 	// Static files (for local development)
 	StaticDir string
 
-	// Azure OpenAI configuration
+	// Azure OpenAI configuration (auth via Managed Identity, no API key)
 	AzureOpenAIEndpoint   string
-	AzureOpenAIAPIKey     string
 	AzureOpenAIDeployment string
+	AzureOpenAIAPIVersion string
 }
 
 // Load reads configuration from environment variables.
@@ -121,12 +121,16 @@ func Load() (*Config, error) {
 	// Rate limiting - disabled only if explicitly set to "false", enabled by default
 	rateLimitEnabled := os.Getenv("RATE_LIMIT_ENABLED") != "false"
 
-	// Azure OpenAI (optional — chat feature disabled if not set)
+	// Azure OpenAI (optional — chat feature disabled if endpoint not set)
+	// Auth via Managed Identity (DefaultAzureCredential), no API key needed
 	azureOpenAIEndpoint := os.Getenv("AZURE_OPENAI_ENDPOINT")
-	azureOpenAIAPIKey := os.Getenv("AZURE_OPENAI_API_KEY")
-	azureOpenAIDeployment := os.Getenv("AZURE_OPENAI_DEPLOYMENT")
+	azureOpenAIDeployment := os.Getenv("AZURE_OPENAI_CHAT_DEPLOYMENT")
 	if azureOpenAIDeployment == "" {
 		azureOpenAIDeployment = "gpt-4o-mini"
+	}
+	azureOpenAIAPIVersion := os.Getenv("AZURE_OPENAI_API_VERSION")
+	if azureOpenAIAPIVersion == "" {
+		azureOpenAIAPIVersion = "2024-10-21"
 	}
 
 	return &Config{
@@ -148,7 +152,7 @@ func Load() (*Config, error) {
 		SMTPPassword:        smtpPassword,
 		StaticDir:             staticDir,
 		AzureOpenAIEndpoint:   azureOpenAIEndpoint,
-		AzureOpenAIAPIKey:     azureOpenAIAPIKey,
 		AzureOpenAIDeployment: azureOpenAIDeployment,
+		AzureOpenAIAPIVersion: azureOpenAIAPIVersion,
 	}, nil
 }

@@ -6,6 +6,7 @@ import (
 "fmt"
 "log/slog"
 
+"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 "github.com/openai/openai-go/v3"
 "github.com/openai/openai-go/v3/azure"
 "github.com/openai/openai-go/v3/shared"
@@ -14,22 +15,23 @@ import (
 // Config holds Azure OpenAI connection settings.
 type Config struct {
 Endpoint   string // e.g. "https://xxx.openai.azure.com"
-APIKey     string
 Deployment string // e.g. "gpt-4o-mini"
 APIVersion string // defaults to "2024-10-21"
 }
 
-// Client wraps the OpenAI Go SDK configured for Azure.
+// Client wraps the OpenAI Go SDK configured for Azure with Managed Identity.
 type Client struct {
 inner      *openai.Client
 deployment string
 logger     *slog.Logger
 }
 
-// NewClient creates a new Azure OpenAI client.
+// NewClient creates a new Azure OpenAI client using DefaultAzureCredential.
+// In Azure Container Apps this uses the system-assigned managed identity.
+// Locally it falls back to az CLI credentials.
 func NewClient(cfg *Config, logger *slog.Logger) (*Client, error) {
-if cfg.Endpoint == "" || cfg.APIKey == "" || cfg.Deployment == "" {
-return nil, fmt.Errorf("ai: endpoint, api_key, and deployment are all required")
+if cfg.Endpoint == "" || cfg.Deployment == "" {
+return nil, fmt.Errorf("ai: endpoint and deployment are required")
 }
 
 apiVersion := cfg.APIVersion
@@ -37,9 +39,19 @@ if apiVersion == "" {
 apiVersion = "2024-10-21"
 }
 
+cred, err := azidentity.NewDefaultAzureCredential(nil)
+if err != nil {
+return nil, fmt.Errorf("ai: failed to create Azure credential: %w", err)
+}
+
 client := openai.NewClient(
 azure.WithEndpoint(cfg.Endpoint, apiVersion),
-azure.WithAPIKey(cfg.APIKey),
+azure.WithTokenCredential(cred),
+)
+
+logger.Info("AI client initialized with Managed Identity",
+"endpoint", cfg.Endpoint,
+"deployment", cfg.Deployment,
 )
 
 return &Client{
@@ -105,8 +117,8 @@ Content: choice.Message.Content,
 
 for _, tc := range choice.Message.ToolCalls {
 result.ToolCalls = append(result.ToolCalls, ToolCall{
-ID:       tc.ID,
-Function: tc.Function.Name,
+ID:        tc.ID,
+Function:  tc.Function.Name,
 Arguments: tc.Function.Arguments,
 })
 }

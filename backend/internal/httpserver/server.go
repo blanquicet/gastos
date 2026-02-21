@@ -432,12 +432,12 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 	mux.HandleFunc("GET /admin/audit-logs/{id}", auditHandler.GetAuditLog)
 	mux.HandleFunc("POST /admin/audit-logs/cleanup", auditHandler.RunCleanup)
 
-	// Chat endpoint (requires Azure OpenAI config)
-	if cfg.AzureOpenAIEndpoint != "" && cfg.AzureOpenAIAPIKey != "" {
+	// Chat endpoint (requires Azure OpenAI config, auth via Managed Identity)
+	if cfg.AzureOpenAIEndpoint != "" {
 		aiClient, err := ai.NewClient(&ai.Config{
 			Endpoint:   cfg.AzureOpenAIEndpoint,
-			APIKey:     cfg.AzureOpenAIAPIKey,
 			Deployment: cfg.AzureOpenAIDeployment,
+			APIVersion: cfg.AzureOpenAIAPIVersion,
 		}, logger)
 		if err != nil {
 			logger.Error("failed to create AI client, chat disabled", "error", err)
@@ -449,7 +449,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 			logger.Info("chat endpoint enabled", "deployment", cfg.AzureOpenAIDeployment)
 		}
 	} else {
-		logger.Info("chat endpoint disabled (AZURE_OPENAI_ENDPOINT/API_KEY not set)")
+		logger.Info("chat endpoint disabled (AZURE_OPENAI_ENDPOINT not set)")
 	}
 
 	// Serve static files in development mode with SPA fallback

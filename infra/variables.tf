@@ -109,3 +109,43 @@ variable "tags" {
     managed_by  = "terraform"
   }
 }
+
+# =============================================================================
+# Azure OpenAI Variables
+# =============================================================================
+
+variable "openai_location" {
+  description = "Azure region for OpenAI resource (must have OpenAI model quota)"
+  type        = string
+  default     = "eastus"
+}
+
+variable "azure_openai_chat_deployment" {
+  description = "Deployment name for the chat model"
+  type        = string
+  default     = "gpt-4o-mini"
+}
+
+variable "openai_chat_model_name" {
+  description = "OpenAI model name for chat"
+  type        = string
+  default     = "gpt-4o-mini"
+}
+
+variable "openai_chat_model_version" {
+  description = "OpenAI model version for chat"
+  type        = string
+  default     = "2024-07-18"
+}
+
+variable "openai_chat_capacity" {
+  description = "Token-per-minute capacity (in thousands) for chat deployment"
+  type        = number
+  default     = 10
+}
+
+variable "azure_openai_api_version" {
+  description = "Azure OpenAI API version"
+  type        = string
+  default     = "2024-10-21"
+}

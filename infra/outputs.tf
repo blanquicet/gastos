@@ -75,3 +75,27 @@ output "container_app_environment_name" {
   description = "Name of the Container App Environment"
   value       = azurerm_container_app_environment.api.name
 }
+
+# =============================================================================
+# Azure OpenAI Outputs
+# =============================================================================
+
+output "openai_endpoint" {
+  description = "Azure OpenAI endpoint URL"
+  value       = azurerm_cognitive_account.openai.endpoint
+}
+
+output "openai_resource_id" {
+  description = "Azure OpenAI resource ID"
+  value       = azurerm_cognitive_account.openai.id
+}
+
+output "openai_chat_deployment_name" {
+  description = "Chat model deployment name"
+  value       = azurerm_cognitive_deployment.chat.name
+}
+
+output "container_app_identity_principal_id" {
+  description = "Principal ID of the Container App's system-assigned managed identity"
+  value       = azurerm_container_app.api.identity[0].principal_id
+}

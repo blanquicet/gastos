@@ -164,6 +164,10 @@ resource "azurerm_container_app" "api" {
   resource_group_name          = data.azurerm_resource_group.gastos.name
   revision_mode                = "Single"
 
+  identity {
+    type = "SystemAssigned"
+  }
+
   template {
     min_replicas = 0
     max_replicas = 2
@@ -228,6 +232,22 @@ resource "azurerm_container_app" "api" {
         name  = "EMAIL_BASE_URL"
         value = var.email_base_url
       }
+
+      # Azure OpenAI (chat endpoint, auth via Managed Identity)
+      env {
+        name  = "AZURE_OPENAI_ENDPOINT"
+        value = azurerm_cognitive_account.openai.endpoint
+      }
+
+      env {
+        name  = "AZURE_OPENAI_CHAT_DEPLOYMENT"
+        value = var.azure_openai_chat_deployment
+      }
+
+      env {
+        name  = "AZURE_OPENAI_API_VERSION"
+        value = var.azure_openai_api_version
+      }
     }
   }
 
@@ -262,3 +282,49 @@ locals {
   database_url = "postgres://${var.postgres_admin_username}:${urlencode(random_password.postgres_admin.result)}@${azurerm_postgresql_flexible_server.auth.fqdn}:5432/${var.postgres_database_name}?sslmode=require"
 }
 
+
+# =============================================================================
+# Azure OpenAI (for Chat / Phase 10)
+# =============================================================================
+
+resource "azurerm_cognitive_account" "openai" {
+  name                = "conti-openai"
+  resource_group_name = data.azurerm_resource_group.gastos.name
+  location            = var.openai_location
+  kind                = "OpenAI"
+  sku_name            = "S0"
+
+  public_network_access_enabled = true
+
+  tags = var.tags
+}
+
+resource "azurerm_cognitive_deployment" "chat" {
+  name                 = var.azure_openai_chat_deployment
+  cognitive_account_id = azurerm_cognitive_account.openai.id
+
+  model {
+    format  = "OpenAI"
+    name    = var.openai_chat_model_name
+    version = var.openai_chat_model_version
+  }
+
+  sku {
+    name     = "GlobalStandard"
+    capacity = var.openai_chat_capacity
+  }
+}
+
+# =============================================================================
+# Managed Identity + RBAC (Container App → OpenAI)
+# =============================================================================
+
+# Enable system-assigned managed identity on the Container App
+# (handled via the identity block in azurerm_container_app below)
+
+# Grant "Cognitive Services OpenAI User" to the Container App's identity
+resource "azurerm_role_assignment" "container_app_openai" {
+  scope                = azurerm_cognitive_account.openai.id
+  role_definition_name = "Cognitive Services OpenAI User"
+  principal_id         = azurerm_container_app.api.identity[0].principal_id
+}
