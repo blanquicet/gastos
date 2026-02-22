@@ -804,14 +804,8 @@ export async function setup() {
     try {
       const draft = JSON.parse(chatPrefill);
 
-      // Click the HOUSEHOLD tipo button (same as tipoParam handler)
-      const householdBtn = document.querySelector('.tipo-btn[data-tipo="HOUSEHOLD"]');
-      if (householdBtn) householdBtn.click();
-
-      // hideFullScreenLoading makes the form visible (form starts with display:none)
-      hideFullScreenLoading();
-
-      // Wait for DOM to settle after tipo change + form visibility
+      // tipoParam handler above already clicked HOUSEHOLD and hid loading
+      // Just wait for DOM to settle
       await new Promise(r => setTimeout(r, 100));
 
       // Get fresh references — the form may have been re-rendered
@@ -837,8 +831,6 @@ export async function setup() {
         freshCat.value = draft.category_id;
         freshCat.dispatchEvent(new Event('change'));
       }
-
-      hideFullScreenLoading();
 
       // Set payment method LAST with generous delay
       // Everything else (tipo click, showPaymentMethods, category change) must settle first
