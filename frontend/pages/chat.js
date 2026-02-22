@@ -45,7 +45,7 @@ export function render() {
             <canvas id="chat-volume-canvas" class="chat-volume-canvas"></canvas>
             <span id="chat-voice-label" class="chat-voice-label">🎙️ 0s</span>
           </div>
-          <button type="submit" id="chat-send-btn" aria-label="Enviar">
+          <button type="submit" id="chat-send-btn" aria-label="Enviar" style="display:none">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
           </button>
           <button type="button" id="chat-mic-btn" class="chat-mic-btn" aria-label="Grabar voz" title="Hablar">
@@ -259,6 +259,14 @@ export function setup() {
     window.history.back();
   });
 
+  // Toggle send/mic buttons based on input content
+  function updateInputButtons() {
+    const hasText = input.value.trim().length > 0;
+    sendBtn.style.display = hasText ? '' : 'none';
+    micBtn.style.display = hasText ? 'none' : '';
+  }
+  input.addEventListener('input', updateInputButtons);
+
   // Suggestion chips
   document.querySelectorAll('.chat-chip').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -315,6 +323,7 @@ export function setup() {
       document.getElementById('chat-send-btn').disabled = false;
       input.focus();
       statusDot.classList.remove('active');
+      updateInputButtons();
     }
   });
 
