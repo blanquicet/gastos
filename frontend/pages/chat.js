@@ -205,7 +205,7 @@ export function setup() {
     div.querySelector('.draft-btn-edit').addEventListener('click', (e) => {
       const draftData = JSON.parse(e.target.dataset.draft);
       sessionStorage.setItem('chat-prefill', JSON.stringify(draftData));
-      window.location.href = '/registrar-movimiento?tipo=GASTO';
+      window.location.href = '/registrar-movimiento?tipo=GASTO&from=chat';
     });
     }
 

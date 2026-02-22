@@ -698,12 +698,17 @@ export async function setup() {
   // Initialize navbar
   Navbar.setup();
   
-  // Setup back link if present (when coming from home)
+  // Setup back link - go back to previous page (chat or home)
   const backLink = document.getElementById('back-to-home');
   if (backLink) {
     backLink.addEventListener('click', (e) => {
       e.preventDefault();
-      router.navigate('/');
+      // If we came from chat prefill, go back to chat
+      if (urlParams.get('from') === 'chat') {
+        router.navigate('/chat');
+      } else {
+        router.navigate('/');
+      }
     });
   }
 
