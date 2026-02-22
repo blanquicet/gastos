@@ -2864,8 +2864,8 @@ button.loading::after {
   position: fixed;
   bottom: 40px;
   left: 32px;
-  width: 48px;
-  height: 48px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   background: #111827;
   color: white;
