@@ -315,6 +315,11 @@ export function setup() {
       if (data.draft && data.draft.action === 'confirm_movement') {
         appendDraftCard(data.draft);
       }
+
+      // Show clickable options if available
+      if (data.options && data.options.length > 0) {
+        appendOptionChips(data.options);
+      }
     } catch (err) {
       removeMessage(loadingId);
       appendMessage('assistant', 'No se pudo conectar con el servidor. Verifica tu conexión.');
@@ -348,6 +353,31 @@ export function setup() {
     messagesEl.appendChild(div);
     messagesEl.scrollTop = messagesEl.scrollHeight;
     return id;
+  }
+
+  function appendOptionChips(options) {
+    const id = 'opts-' + Date.now();
+    const div = document.createElement('div');
+    div.className = 'chat-message assistant';
+    div.id = id;
+    div.innerHTML = `
+      <div class="chat-bubble-row">
+        <div class="chat-ai-mark">AI</div>
+        <div class="chat-options-wrap">
+          ${options.map(opt => `<button class="chat-option-chip">${escapeHtml(opt)}</button>`).join('')}
+        </div>
+      </div>`;
+
+    messagesEl.appendChild(div);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+
+    div.querySelectorAll('.chat-option-chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        input.value = btn.textContent;
+        div.remove();
+        form.dispatchEvent(new Event('submit', { cancelable: true }));
+      });
+    });
   }
 
   function appendDraftCard(draft) {

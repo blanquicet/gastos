@@ -4978,3 +4978,25 @@ input[type="number"] {
   white-space: nowrap;
   margin-right: 8px;
 }
+/* Chat option chips (interactive selections) */
+.chat-options-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 0;
+}
+.chat-option-chip {
+  padding: 7px 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 100px;
+  background: #fff;
+  color: #374151;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.chat-option-chip:hover {
+  background: #10b981;
+  color: #fff;
+  border-color: #10b981;
+}

@@ -49,6 +49,7 @@ type historyMessage struct {
 type chatResponse struct {
 	Message string         `json:"message"`
 	Draft   *MovementDraft `json:"draft,omitempty"`
+	Options []string       `json:"options,omitempty"`
 }
 
 // HandleChat processes POST /chat requests.
@@ -114,7 +115,7 @@ func (h *Handler) HandleChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(chatResponse{Message: result.Message, Draft: result.Draft})
+	json.NewEncoder(w).Encode(chatResponse{Message: result.Message, Draft: result.Draft, Options: result.Options})
 }
 
 // HandleCreateMovement processes POST /chat/create-movement requests.

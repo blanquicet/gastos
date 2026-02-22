@@ -449,7 +449,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 		if err != nil {
 			logger.Error("failed to create AI client, chat disabled", "error", err)
 		} else {
-			toolExecutor := ai.NewToolExecutor(movementsService, incomeService, budgetsService, categoriesRepo, paymentMethodsRepo, householdRepo)
+			toolExecutor := ai.NewToolExecutor(movementsService, incomeService, budgetsService, categoriesRepo, categoryGroupsRepo, paymentMethodsRepo, householdRepo)
 			chatService := ai.NewChatService(aiClient, toolExecutor, logger)
 			chatHandler := ai.NewHandler(chatService, authService, movementsService, householdRepo, cfg.SessionCookieName, logger)
 			mux.HandleFunc("POST /chat", chatHandler.HandleChat)

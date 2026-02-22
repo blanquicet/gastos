@@ -10,6 +10,7 @@ import (
 
 	"github.com/blanquicet/conti/backend/internal/budgets"
 	"github.com/blanquicet/conti/backend/internal/categories"
+	"github.com/blanquicet/conti/backend/internal/categorygroups"
 	"github.com/blanquicet/conti/backend/internal/households"
 	"github.com/blanquicet/conti/backend/internal/income"
 	"github.com/blanquicet/conti/backend/internal/movements"
@@ -23,6 +24,7 @@ type ToolExecutor struct {
 	incomeService     income.Service
 	budgetService     *budgets.BudgetService
 	categoriesRepo    categories.Repository
+	categoryGroupRepo categorygroups.Repository
 	paymentMethodRepo paymentmethods.Repository
 	householdRepo     households.HouseholdRepository
 }
@@ -33,6 +35,7 @@ func NewToolExecutor(
 	incomeService income.Service,
 	budgetService *budgets.BudgetService,
 	categoriesRepo categories.Repository,
+	categoryGroupRepo categorygroups.Repository,
 	paymentMethodRepo paymentmethods.Repository,
 	householdRepo households.HouseholdRepository,
 ) *ToolExecutor {
@@ -41,6 +44,7 @@ func NewToolExecutor(
 		incomeService:     incomeService,
 		budgetService:     budgetService,
 		categoriesRepo:    categoriesRepo,
+		categoryGroupRepo: categoryGroupRepo,
 		paymentMethodRepo: paymentMethodRepo,
 		householdRepo:     householdRepo,
 	}
@@ -154,11 +158,11 @@ func ToolDefinitions() []Tool {
 				"properties": map[string]any{
 					"description":    map[string]any{"type": "string", "description": "What the expense is for (e.g. 'Mercado en el Euro')"},
 					"amount":         map[string]any{"type": "number", "description": "Amount in COP (e.g. 50000)"},
-					"category":       map[string]any{"type": "string", "description": "Category name to match (e.g. 'Mercado', 'Gastos fijos'). Will be fuzzy-matched."},
-					"payment_method": map[string]any{"type": "string", "description": "Payment method name (e.g. 'Débito Jose', 'AMEX', 'Efectivo'). Will be fuzzy-matched."},
+					"category":       map[string]any{"type": "string", "description": "Category name. Optional — if omitted, the tool returns available options for the user to pick."},
+					"payment_method": map[string]any{"type": "string", "description": "Payment method name. Optional — if omitted, the tool returns available options for the user to pick."},
 					"date":           map[string]any{"type": "string", "description": "Date in YYYY-MM-DD format. Defaults to today if not specified."},
 				},
-				"required": []string{"description", "amount", "category", "payment_method"},
+				"required": []string{"amount"},
 			},
 		},
 	}
@@ -688,8 +692,11 @@ func (te *ToolExecutor) prepareMovement(ctx context.Context, householdID, userID
 	pmName := getString(args, "payment_method")
 	dateStr := getString(args, "date")
 
+	if description == "" && categoryName != "" {
+		description = categoryName // Use category as description if not provided
+	}
 	if description == "" {
-		return map[string]string{"error": "Falta la descripción del gasto"}, nil
+		description = "Gasto"
 	}
 	if amount <= 0 {
 		return map[string]string{"error": "El monto debe ser mayor a 0"}, nil
@@ -707,28 +714,70 @@ func (te *ToolExecutor) prepareMovement(ctx context.Context, householdID, userID
 	}
 
 	var matchedCat *categories.Category
-	for _, c := range cats {
-		if strings.EqualFold(c.Name, categoryName) {
-			matchedCat = c
-			break
+	if categoryName != "" {
+		// Handle "Group > Name" format (from option chips)
+		groupFilter := ""
+		catNameFilter := categoryName
+		if parts := strings.SplitN(categoryName, " > ", 2); len(parts) == 2 {
+			groupFilter = parts[0]
+			catNameFilter = parts[1]
 		}
-	}
-	if matchedCat == nil {
+
+		// Build group ID → name map for matching
+		groupNames := make(map[string]string)
+		groups, _ := te.categoryGroupRepo.ListByHousehold(ctx, householdID, false)
+		for _, g := range groups {
+			groupNames[g.ID] = g.Name
+		}
+
+		// Exact match (with optional group filter)
 		for _, c := range cats {
-			if containsInsensitive(c.Name, categoryName) {
-				matchedCat = c
-				break
+			if strings.EqualFold(c.Name, catNameFilter) {
+				if groupFilter == "" {
+					matchedCat = c
+					break
+				}
+				if c.CategoryGroupID != nil && strings.EqualFold(groupNames[*c.CategoryGroupID], groupFilter) {
+					matchedCat = c
+					break
+				}
+			}
+		}
+		// Fuzzy match
+		if matchedCat == nil {
+			for _, c := range cats {
+				if containsInsensitive(c.Name, catNameFilter) {
+					matchedCat = c
+					break
+				}
 			}
 		}
 	}
 	if matchedCat == nil {
-		// Return available categories so LLM can ask user
+		// Build group ID → name map
+		groupNames := make(map[string]string)
+		groups, _ := te.categoryGroupRepo.ListByHousehold(ctx, householdID, false)
+		for _, g := range groups {
+			groupNames[g.ID] = g.Name
+		}
+		// Use "Group > Name" format for all categories (disambiguates duplicates)
 		var names []string
 		for _, c := range cats {
-			names = append(names, c.Name)
+			displayName := c.Name
+			if c.CategoryGroupID != nil {
+				if gn, ok := groupNames[*c.CategoryGroupID]; ok {
+					displayName = gn + " > " + c.Name
+				}
+			}
+			names = append(names, displayName)
+		}
+		sort.Strings(names)
+		msg := "Selecciona la categoría"
+		if categoryName != "" {
+			msg = fmt.Sprintf("No encontré la categoría '%s'", categoryName)
 		}
 		return map[string]any{
-			"error":                fmt.Sprintf("No encontré la categoría '%s'", categoryName),
+			"error":                msg,
 			"available_categories": names,
 		}, nil
 	}
@@ -740,17 +789,19 @@ func (te *ToolExecutor) prepareMovement(ctx context.Context, householdID, userID
 	}
 
 	var matchedPM *paymentmethods.PaymentMethod
-	for _, pm := range pms {
-		if strings.EqualFold(pm.Name, pmName) {
-			matchedPM = pm
-			break
-		}
-	}
-	if matchedPM == nil {
+	if pmName != "" {
 		for _, pm := range pms {
-			if containsInsensitive(pm.Name, pmName) {
+			if strings.EqualFold(pm.Name, pmName) {
 				matchedPM = pm
 				break
+			}
+		}
+		if matchedPM == nil {
+			for _, pm := range pms {
+				if containsInsensitive(pm.Name, pmName) {
+					matchedPM = pm
+					break
+				}
 			}
 		}
 	}
@@ -759,8 +810,12 @@ func (te *ToolExecutor) prepareMovement(ctx context.Context, householdID, userID
 		for _, pm := range pms {
 			names = append(names, pm.Name)
 		}
+		msg := "Selecciona el método de pago"
+		if pmName != "" {
+			msg = fmt.Sprintf("No encontré el método de pago '%s'", pmName)
+		}
 		return map[string]any{
-			"error":                    fmt.Sprintf("No encontré el método de pago '%s'", pmName),
+			"error":                     msg,
 			"available_payment_methods": names,
 		}, nil
 	}

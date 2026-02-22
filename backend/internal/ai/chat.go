@@ -20,9 +20,13 @@ Cuando muestres resultados, si es una categoría que existe en múltiples grupos
 Si el usuario pregunta por una categoría que existe en múltiples grupos, muestra el desglose por grupo.
 REGISTRAR GASTOS:
 Cuando el usuario quiera registrar o agregar un gasto, llama prepare_movement INMEDIATAMENTE con los datos que te dio.
-NO pidas confirmación antes de llamar la herramienta. La herramienta prepara un borrador que el usuario confirmará después.
-Si falta la descripción o el monto, pregunta. Pero si mencionó categoría y método de pago, úsalos directamente.
-Si la herramienta no encuentra la categoría o método de pago, muestra las opciones disponibles que devuelve.
+NO pidas confirmación antes de llamar la herramienta.
+Si falta el monto, pregunta antes de llamar.
+Si el usuario menciona una categoría (ej: "en mercado", "en gasolina"), pásala como el parámetro category.
+La descripción es opcional — si no la da, se usará la categoría como descripción.
+Si falta el método de pago o la categoría, llama prepare_movement de todas formas — omite el parámetro que falte y la herramienta devolverá las opciones disponibles como botones interactivos.
+NUNCA preguntes por el método de pago o categoría en texto. SIEMPRE llama prepare_movement y deja que la herramienta devuelva las opciones.
+NUNCA listes opciones tú mismo. Solo la herramienta puede mostrar opciones interactivas.
 El tipo por defecto es HOUSEHOLD. La fecha por defecto es hoy.
 NO crees el movimiento directamente — la herramienta prepara un borrador que el usuario debe confirmar.
 
@@ -53,6 +57,7 @@ func NewChatService(client *Client, executor *ToolExecutor, logger *slog.Logger)
 type ChatResult struct {
 	Message string
 	Draft   *MovementDraft
+	Options []string
 }
 
 // Chat processes a user message and returns the assistant's response.
@@ -79,6 +84,7 @@ func (cs *ChatService) Chat(ctx context.Context, householdID, userID, userMessag
 	messages = append(messages, ChatMessage{Role: "user", Content: userMessage})
 
 	var lastDraft *MovementDraft
+	var lastOptions []string
 
 	for round := 0; round < maxToolRounds; round++ {
 		resp, err := cs.client.ChatCompletions(ctx, messages, tools)
@@ -92,7 +98,7 @@ func (cs *ChatService) Chat(ctx context.Context, householdID, userID, userMessag
 			if msg == "" {
 				msg = "No tengo datos suficientes para responder eso."
 			}
-			return &ChatResult{Message: msg, Draft: lastDraft}, nil
+			return &ChatResult{Message: msg, Draft: lastDraft, Options: lastOptions}, nil
 		}
 
 		// Add the assistant message with tool calls to the conversation
@@ -123,6 +129,22 @@ func (cs *ChatService) Chat(ctx context.Context, householdID, userID, userMessag
 				var draft MovementDraft
 				if json.Unmarshal([]byte(result), &draft) == nil && draft.Action == "confirm_movement" {
 					lastDraft = &draft
+				}
+				// Detect available options (when category/PM not found)
+				var opts map[string]any
+				if json.Unmarshal([]byte(result), &opts) == nil {
+					for _, key := range []string{"available_categories", "available_payment_methods"} {
+						if arr, ok := opts[key]; ok {
+							if items, ok := arr.([]any); ok {
+								lastOptions = nil
+								for _, item := range items {
+									if s, ok := item.(string); ok {
+										lastOptions = append(lastOptions, s)
+									}
+								}
+							}
+						}
+					}
 				}
 			}
 
