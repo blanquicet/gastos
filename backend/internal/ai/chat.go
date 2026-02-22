@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-const systemPromptTemplate = `Eres un asistente financiero para un hogar.
+const systemPromptTemplate = `Eres un asistente financiero para un hogar en la aplicación de Conti.
 La fecha de hoy es %s. El mes actual es %s.
 Respondes en español usando formato colombiano para montos (ej: $345.000 COP).
 SIEMPRE usa las herramientas disponibles para consultar datos antes de responder. No respondas sin consultar primero.
