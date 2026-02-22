@@ -741,35 +741,6 @@ export async function setup() {
     }
   }
 
-  // Chat prefill: if coming from chat with a draft, populate form fields
-  const chatPrefill = sessionStorage.getItem('chat-prefill');
-  if (chatPrefill && !isEditMode) {
-    sessionStorage.removeItem('chat-prefill');
-    try {
-      const draft = JSON.parse(chatPrefill);
-      // Set tipo to GASTO (HOUSEHOLD)
-      tipoEl.value = 'GASTO';
-      document.querySelector('.tipo-btn[data-tipo="GASTO"]')?.classList.add('active');
-      onTipoChange();
-      // Description
-      const descEl = document.getElementById('descripcion');
-      if (descEl && draft.description) descEl.value = draft.description;
-      // Amount
-      if (valorEl && draft.amount) valorEl.value = draft.amount;
-      // Date
-      const fechaEl = document.getElementById('fecha');
-      if (fechaEl && draft.movement_date) fechaEl.value = draft.movement_date;
-      // Category
-      const catEl = document.getElementById('categoria');
-      if (catEl && draft.category_id) catEl.value = draft.category_id;
-      // Payment method
-      const pmEl = document.getElementById('metodo');
-      if (pmEl && draft.payment_method_id) pmEl.value = draft.payment_method_id;
-    } catch (e) {
-      console.error('Failed to apply chat prefill:', e);
-    }
-  }
-
   // Setup tipo button listeners
   const tipoBtns = document.querySelectorAll('.tipo-btn');
   tipoBtns.forEach(btn => {
@@ -821,6 +792,64 @@ export async function setup() {
     // Hide loading screen after tipo is selected
     hideFullScreenLoading();
   }
+  // Chat prefill: if coming from chat with a draft, populate form fields
+  const chatPrefill = sessionStorage.getItem('chat-prefill');
+  if (chatPrefill && !isEditMode) {
+    sessionStorage.removeItem('chat-prefill');
+    try {
+      const draft = JSON.parse(chatPrefill);
+
+      // Click the HOUSEHOLD tipo button (same as tipoParam handler)
+      const householdBtn = document.querySelector('.tipo-btn[data-tipo="HOUSEHOLD"]');
+      if (householdBtn) householdBtn.click();
+
+      // hideFullScreenLoading makes the form visible (form starts with display:none)
+      hideFullScreenLoading();
+
+      // Wait for DOM to settle after tipo change + form visibility
+      await new Promise(r => setTimeout(r, 100));
+
+      // Get fresh references — the form may have been re-rendered
+      const form = document.getElementById('movForm');
+
+      // Description
+      const descEl = form.querySelector('#descripcion');
+      if (descEl && draft.description) descEl.value = draft.description;
+
+      // Amount
+      const freshValor = form.querySelector('#valor');
+      if (freshValor && draft.amount) {
+        freshValor.value = String(draft.amount);
+      }
+
+      // Date
+      const fechaEl = form.querySelector('#fecha');
+      if (fechaEl && draft.movement_date) fechaEl.value = draft.movement_date;
+
+      // Category — set by ID
+      const freshCat = form.querySelector('#categoria');
+      if (freshCat && draft.category_id) {
+        freshCat.value = draft.category_id;
+        freshCat.dispatchEvent(new Event('change'));
+      }
+
+      // Payment method — ensure it's populated then set value
+      // showPaymentMethods may have already run during click, but call again to be safe
+      if (currentUser && currentUser.name) {
+        showPaymentMethods(currentUser.name, true);
+      }
+      await new Promise(r => setTimeout(r, 50));
+      const pmSelect = document.getElementById('metodo');
+      if (pmSelect && draft.payment_method_name) {
+        pmSelect.value = draft.payment_method_name;
+      }
+
+      hideFullScreenLoading();
+    } catch (e) {
+      console.error('Failed to apply chat prefill:', e);
+    }
+  }
+
   pagadorEl.addEventListener('change', onPagadorChange);
   pagadorCompartidoEl.addEventListener('change', onPagadorChange);
   equitableEl.addEventListener('change', onEquitableChange);
