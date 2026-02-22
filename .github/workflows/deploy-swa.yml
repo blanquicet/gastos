@@ -30,6 +30,23 @@ jobs:
         with:
           submodules: true
           lfs: false
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Minify JS and CSS
+        run: |
+          npm install -g terser csso-cli
+          echo "=== Before minification ==="
+          du -sh frontend/
+          find frontend -name '*.js' -type f | while read f; do
+            terser "$f" --compress --mangle --module -o "$f"
+          done
+          find frontend -name '*.css' -type f | while read f; do
+            csso "$f" -o "$f"
+          done
+          echo "=== After minification ==="
+          du -sh frontend/
       - name: Build And Deploy
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1

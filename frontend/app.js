@@ -2,24 +2,35 @@
  * App Initialization
  * 
  * Sets up router, routes, and authentication flow.
- * Maintains API_URL auto-detection for local vs production.
+ * Pages are lazy-loaded on first navigation to reduce initial bundle size.
  */
 
 import router from './router.js';
 import { checkAuth } from './auth-utils.js';
-import * as LoginPage from './pages/login.js';
-import * as ForgotPasswordPage from './pages/forgot-password.js';
-import * as ResetPasswordPage from './pages/reset-password.js';
-import * as HomePage from './pages/home.js';
-import * as RegistrarMovimientoPage from './pages/registrar-movimiento.js';
-import * as ProfilePage from './pages/profile.js';
-import * as HouseholdPage from './pages/household.js';
-import * as AdminAuditLogsPage from './pages/admin-audit-logs.js';
-import * as InvitePage from './pages/invite.js';
-import * as ChatPage from './pages/chat.js';
 
 // Store current user globally
 let currentUser = null;
+
+// Page module cache (populated on first navigation)
+const pageCache = {};
+
+async function loadPage(name) {
+  if (!pageCache[name]) {
+    switch (name) {
+      case 'login': pageCache[name] = await import('./pages/login.js'); break;
+      case 'forgot-password': pageCache[name] = await import('./pages/forgot-password.js'); break;
+      case 'reset-password': pageCache[name] = await import('./pages/reset-password.js'); break;
+      case 'home': pageCache[name] = await import('./pages/home.js'); break;
+      case 'registrar-movimiento': pageCache[name] = await import('./pages/registrar-movimiento.js'); break;
+      case 'profile': pageCache[name] = await import('./pages/profile.js'); break;
+      case 'household': pageCache[name] = await import('./pages/household.js'); break;
+      case 'admin-audit-logs': pageCache[name] = await import('./pages/admin-audit-logs.js'); break;
+      case 'invite': pageCache[name] = await import('./pages/invite.js'); break;
+      case 'chat': pageCache[name] = await import('./pages/chat.js'); break;
+    }
+  }
+  return pageCache[name];
+}
 
 /**
  * Initialize router and define routes
@@ -27,6 +38,7 @@ let currentUser = null;
 function initRouter() {
   // Register routes
   router.route('/login', async () => {
+    const LoginPage = await loadPage('login');
     const appEl = document.getElementById('app');
     appEl.innerHTML = LoginPage.render();
     LoginPage.setup();
@@ -35,6 +47,7 @@ function initRouter() {
   });
 
   router.route('/forgot-password', async () => {
+    const ForgotPasswordPage = await loadPage('forgot-password');
     const appEl = document.getElementById('app');
     appEl.innerHTML = ForgotPasswordPage.render();
     ForgotPasswordPage.init();
@@ -43,6 +56,7 @@ function initRouter() {
   });
 
   router.route('/reset-password', async () => {
+    const ResetPasswordPage = await loadPage('reset-password');
     const appEl = document.getElementById('app');
     appEl.innerHTML = ResetPasswordPage.render();
     ResetPasswordPage.init();
@@ -51,7 +65,6 @@ function initRouter() {
   });
 
   router.route('/', async () => {
-    // Check if user is authenticated
     const { authenticated, user } = await checkAuth();
     
     if (!authenticated) {
@@ -61,18 +74,14 @@ function initRouter() {
 
     currentUser = user;
     
-    // Check if we need to reload data (coming from registrar-movimiento)
     const urlParams = new URLSearchParams(window.location.search);
     const reloadParam = urlParams.get('reload');
+
+    const HomePage = await loadPage('home');
     
     if (reloadParam) {
-      // Parse tabs that need reload
       const tabsToReload = reloadParam.split(',').filter(Boolean);
-      
-      // Mark tabs for lazy reload
       HomePage.markTabsForReload(tabsToReload);
-      
-      // Remove reload param from URL
       urlParams.delete('reload');
       const newSearch = urlParams.toString();
       const newUrl = newSearch ? `/?${newSearch}` : '/';
@@ -113,7 +122,6 @@ function initRouter() {
   });
 
   router.route('/registrar-movimiento', async () => {
-    // Check if user is authenticated
     const { authenticated, user } = await checkAuth();
     
     if (!authenticated) {
@@ -122,6 +130,7 @@ function initRouter() {
     }
 
     currentUser = user;
+    const RegistrarMovimientoPage = await loadPage('registrar-movimiento');
     const appEl = document.getElementById('app');
     appEl.innerHTML = RegistrarMovimientoPage.render(user);
     await RegistrarMovimientoPage.setup();
@@ -130,7 +139,6 @@ function initRouter() {
   });
 
   router.route('/perfil', async () => {
-    // Check if user is authenticated
     const { authenticated, user } = await checkAuth();
     
     if (!authenticated) {
@@ -139,6 +147,7 @@ function initRouter() {
     }
 
     currentUser = user;
+    const ProfilePage = await loadPage('profile');
     const appEl = document.getElementById('app');
     appEl.innerHTML = ProfilePage.render(user);
     await ProfilePage.setup();
@@ -147,7 +156,6 @@ function initRouter() {
   });
 
   router.route('/hogar', async () => {
-    // Check if user is authenticated
     const { authenticated, user } = await checkAuth();
     
     if (!authenticated) {
@@ -156,6 +164,7 @@ function initRouter() {
     }
 
     currentUser = user;
+    const HouseholdPage = await loadPage('household');
     const appEl = document.getElementById('app');
     appEl.innerHTML = HouseholdPage.render(user);
     await HouseholdPage.setup();
@@ -164,7 +173,6 @@ function initRouter() {
   });
 
   router.route('/admin/audit-logs', async () => {
-    // Check if user is authenticated
     const { authenticated, user } = await checkAuth();
     
     if (!authenticated) {
@@ -172,13 +180,13 @@ function initRouter() {
       return;
     }
 
-    // Check if user is admin (hardcoded for now)
     if (user.email !== 'blanquicet@gmail.com') {
       router.navigate('/');
       return;
     }
 
     currentUser = user;
+    const AdminAuditLogsPage = await loadPage('admin-audit-logs');
     const appEl = document.getElementById('app');
     appEl.innerHTML = AdminAuditLogsPage.render(user);
     await AdminAuditLogsPage.setup();
@@ -186,15 +194,14 @@ function initRouter() {
     if (loadingEl) loadingEl.style.display = 'none';
   });
 
-  // /invite is a semi-public route - renders without auth, but accepting requires login
   router.route('/invite', async () => {
-    // Check auth but don't redirect - we'll show invite info regardless
     const { authenticated, user } = await checkAuth();
     
     if (authenticated) {
       currentUser = user;
     }
     
+    const InvitePage = await loadPage('invite');
     const appEl = document.getElementById('app');
     appEl.innerHTML = InvitePage.render();
     await InvitePage.setup(authenticated);
@@ -209,6 +216,7 @@ function initRouter() {
       return;
     }
     currentUser = user;
+    const ChatPage = await loadPage('chat');
     const appEl = document.getElementById('app');
     appEl.innerHTML = ChatPage.render();
     ChatPage.setup();

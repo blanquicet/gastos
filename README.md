@@ -2,82 +2,75 @@
 
 > Personal and family finance app focused on shared expenses, debt clarity, and financial transparency.
 
-**⚠️ In Active Development** — This project is currently under active development. Features and architecture are evolving rapidly.
-
 ## What is Conti?
 
 Conti is a web application designed to make money management between people simple, transparent, and calm. It helps you:
 
 - Track shared expenses with family and friends
 - Understand who owes whom (and how much)
-- Manage household finances with clarity
+- Manage household finances with budgets and categories
 - Split costs fairly across multiple people
-- Plan events and settle debts easily
+- Automate recurring expenses (rent, utilities, subscriptions)
+- Chat with an AI assistant about your finances
 
 The app emphasizes **clarity over complexity** and **trust over cleverness**.
-
-## Preview
-
-### Movement Registration
-
-Simple and clean interface for recording expenses and payments:
-
-<p align="center">
-  <img src="docs/images/registrar-movimiento.png" alt="Movement Registration Form" width="600">
-</p>
-
-## Vision
-
-The long-term vision is to build a comprehensive personal finance tool that answers questions like:
-
-- "How much did we spend on this trip?"
-- "Can I afford to pay my credit card this month?"
-- "Who still owes me money?"
-- "Where did our money go last month?"
-
-See [FUTURE_VISION.md](FUTURE_VISION.md) for the complete product roadmap and philosophy.
-
-## Philosophy
-
-This app is guided by core principles:
-
-- **Clarity over complexity** — Simple, understandable interfaces
-- **Trust over cleverness** — Transparent data, no hidden logic
-- **Calm over control** — Non-invasive notifications, no pressure
-- **Insight over micromanagement** — Show what matters, hide the noise
-
-Money between people should be simple, transparent, and calm.
-
-## Current Status
-
-**Phase 0: Movement Registration** ✅ Active
-
-- Movement entry via web form
-- Integration with n8n webhook backend
-- Data stored in Google Sheets
-
-**Phase 1: Authentication** ✅ Complete
-
-- Session-based authentication with PostgreSQL
-- User registration, login, password reset (backend ready, missing frontend)
-- Go backend API deployed on Azure
-
-**Next: Phase 2** ⏳ Planned
-
-- Implement families and external contacts
-- Migrate movements from Google Sheets to PostgreSQL, integrated with Go API
 
 ## Architecture
 
 ```mermaid
 graph TD
-    A[Frontend<br/>Azure Static Web Apps] -->|HTTPS + CORS| B[Go API<br/>Azure Container Apps]
-    B -->|Auth & Sessions| C[PostgreSQL<br/>Azure Database for PostgreSQL]
-    B -->|Movements registration| D[n8n Backend<br/>VM with n8n + Caddy]
-    D -->|Store Data| E[Google Sheets]
+    A[Frontend<br/>Azure Static Web Apps<br/>conti.blanquicet.com.co] -->|HTTPS + CORS| B[Go API<br/>Azure Container Apps<br/>api.conti.blanquicet.com.co]
+    B -->|SQL| C[(PostgreSQL<br/>Azure Flexible Server<br/>brazilsouth)]
+    B -->|Managed Identity| D[Azure OpenAI<br/>GPT-4o-mini]
 ```
 
-See [docs/design/](docs/design/) for detailed phase documentation.
+| Component | Technology | Hosting |
+|-----------|-----------|---------|
+| **Frontend** | Vanilla HTML/CSS/JavaScript (ES6 modules, mobile-first) | Azure Static Web Apps (CDN) |
+| **Backend** | Go with pgx driver | Azure Container Apps |
+| **Database** | PostgreSQL 16 | Azure Flexible Server |
+| **AI Chat** | GPT-4o-mini | Azure OpenAI (Managed Identity) |
+| **Auth** | Session-based with HttpOnly cookies | — |
+| **IaC** | Terraform | Azure Storage (remote state) |
+| **CI/CD** | GitHub Actions | — |
+
+## Features
+
+### Implemented
+
+- **Household Management** — Members, contacts, payment methods, bank accounts
+- **Movement Registration** — HOUSEHOLD, SPLIT, and DEBT_PAYMENT movement types
+- **Expense Dashboard** — 3-level hierarchical view (Groups → Categories → Movements)
+- **Income Tracking** — Per-member income with account allocation
+- **Budget Management** — Monthly budgets per category with inheritance
+- **Loans View** — 3-level drill-down showing who owes whom
+- **Recurring Movements** — Templates with auto-generation (monthly/yearly schedules)
+- **Credit Card Tracking** — Statement periods, payment tracking, installments
+- **Audit Logging** — Complete audit trail for all CRUD operations
+- **AI Chat** — Financial assistant powered by GPT-4o-mini with tool use
+- **Email Notifications** — Password reset via Resend
+
+### Coming Soon
+
+- Debt settlement ("Saldar") integration
+- Template editing from UI
+- Mobile app (PWA)
+
+## Project Structure
+
+```
+├── frontend/          # Vanilla HTML/CSS/JavaScript (mobile-first SPA)
+│   ├── pages/         # Route-based page modules (lazy-loaded)
+│   ├── components/    # Reusable UI components
+│   └── styles.css     # Global styles
+├── backend/           # Go API server
+│   ├── cmd/api/       # Entry point
+│   ├── internal/      # Domain packages (movements, income, budgets, etc.)
+│   └── migrations/    # PostgreSQL migrations (033+)
+├── infra/             # Terraform for Azure infrastructure
+├── docs/              # Design docs (10 phases)
+└── .github/           # CI/CD workflows
+```
 
 ## Getting Started
 
@@ -85,35 +78,16 @@ For local development setup, see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ## Documentation
 
-- **[FUTURE_VISION.md](FUTURE_VISION.md)** — Product vision, philosophy, and long-term roadmap
-- **[docs/design/](docs/design/)** — Phase-by-phase implementation documentation
-  - [00_N8N_PHASE.md](docs/design/00_N8N_PHASE.md) — Movement registration (current)
-  - [01_AUTH_PHASE.md](docs/design/01_AUTH_PHASE.md) — Authentication system (complete)
-- **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** — Local development setup guide
+- **[FUTURE_VISION.md](FUTURE_VISION.md)** — Product vision and roadmap
+- **[docs/design/](docs/design/)** — Phase-by-phase design documents
 - **[infra/README.md](infra/README.md)** — Infrastructure and deployment guide
 
-## Tech Stack
+## Philosophy
 
-- **Frontend:** Vanilla HTML/CSS/JavaScript (mobile-first)
-- **Backend:** Go with PostgreSQL (pgx driver)
-- **Auth:** Session-based with HttpOnly cookies
-- **Deployment:** Azure (Static Web Apps + Container Apps + PostgreSQL)
-- **IaC:** Terraform
-- **CI/CD:** GitHub Actions
-
-## License
-
-```
-├── frontend/          # Vanilla HTML/CSS/JavaScript (mobile-first, Azure Static Web Apps)
-├── backend/           # Go with PostgreSQL (pgx driver, Azure Container Apps)
-├── infra/             # Terraform for infrastructure as code
-└── docs/              # Documentation and design docs
-```
-
-- **Auth:** Session-based with HttpOnly cookies
-- **Deployment:** Azure (Static Web Apps + Container Apps + PostgreSQL)roject in active development. The codebase and architecture are evolving as new phases are implemented.
-
-If you're interested in the project or have suggestions, feel free to open an issue for discussion.
+- **Clarity over complexity** — Simple, understandable interfaces
+- **Trust over cleverness** — Transparent data, no hidden logic
+- **Calm over control** — Non-invasive, no pressure
+- **Insight over micromanagement** — Show what matters, hide the noise
 
 ---
 

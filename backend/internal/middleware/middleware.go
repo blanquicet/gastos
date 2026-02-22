@@ -1,9 +1,12 @@
 package middleware
 
 import (
+	"compress/gzip"
+	"io"
 	"log/slog"
 	"net/http"
 	"runtime/debug"
+	"strings"
 	"time"
 	
 	"github.com/blanquicet/conti/backend/internal/audit"
@@ -114,6 +117,39 @@ func AuditContext() func(http.Handler) http.Handler {
 			// Add IP and User Agent to context for audit logging
 			ctx := audit.WithRequestMetadata(r.Context(), r)
 			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+// gzipResponseWriter wraps http.ResponseWriter to compress responses.
+type gzipResponseWriter struct {
+	io.Writer
+	http.ResponseWriter
+}
+
+func (grw gzipResponseWriter) Write(b []byte) (int, error) {
+	return grw.Writer.Write(b)
+}
+
+// Gzip returns a middleware that compresses responses with gzip.
+func Gzip() func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			gz, err := gzip.NewWriterLevel(w, gzip.BestSpeed)
+			if err != nil {
+				next.ServeHTTP(w, r)
+				return
+			}
+			defer gz.Close()
+
+			w.Header().Set("Content-Encoding", "gzip")
+			w.Header().Del("Content-Length")
+			next.ServeHTTP(gzipResponseWriter{Writer: gz, ResponseWriter: w}, r)
 		})
 	}
 }
