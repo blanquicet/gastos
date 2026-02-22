@@ -14,13 +14,13 @@ export function render() {
         <button class="back-btn" id="chat-back-btn">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
         </button>
-        <span class="chat-header-title">Asistente</span>
+        <span class="chat-header-title">Conti AI</span>
         <span class="chat-header-dot" id="chat-status-dot"></span>
       </header>
 
       <div class="chat-messages" id="chat-messages">
         <div class="chat-welcome" id="chat-welcome">
-          <span class="chat-welcome-label">Asistente financiero</span>
+          <span class="chat-welcome-label">Conti AI</span>
           <h2>¿En qué puedo<br>ayudarte hoy?</h2>
           <p>Consulta tus gastos, ingresos y presupuesto con lenguaje natural.</p>
           <div class="chat-suggestions" id="chat-suggestions">
