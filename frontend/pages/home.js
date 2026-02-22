@@ -1323,6 +1323,8 @@ export function render(user) {
           </div>
         `}
       </div>
+
+      <button class="btn-assistant-floating" id="btn-assistant" title="Asistente financiero">✨</button>
     </main>
   `;
 }
@@ -6213,6 +6215,12 @@ export function clearTabData(tabsToReload = []) {
  */
 export async function setup() {
   Navbar.setup();
+
+  // Assistant FAB
+  const assistantBtn = document.getElementById('btn-assistant');
+  if (assistantBtn) {
+    assistantBtn.addEventListener('click', () => router.navigate('/chat'));
+  }
 
   // Initialize current month if not set
   if (!currentMonth) {

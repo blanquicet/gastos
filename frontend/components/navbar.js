@@ -28,13 +28,13 @@ export function render(user, activeRoute = '/') {
 
     <div id="dropdown-menu" class="dropdown-menu">
       <a href="/perfil" class="dropdown-item ${activeRoute === '/perfil' ? 'active' : ''}" data-route="/perfil">
-        Perfil
+        👤 Perfil
       </a>
       <a href="/hogar" class="dropdown-item ${activeRoute === '/hogar' ? 'active' : ''}" data-route="/hogar">
-        Hogar <span id="link-request-badge" class="nav-badge" style="display:none;"></span>
+        🏠 Hogar <span id="link-request-badge" class="nav-badge" style="display:none;"></span>
       </a>
       <a href="/" class="dropdown-item ${activeRoute === '/' ? 'active' : ''}" data-route="/">
-        Mes a Mes
+        📊 Mes a Mes
       </a>
       <a href="/chat" class="dropdown-item ${activeRoute === '/chat' ? 'active' : ''}" data-route="/chat">
         ✨ Asistente
@@ -45,7 +45,7 @@ export function render(user, activeRoute = '/') {
       </a>
       ` : ''}
       <button id="dropdown-logout-btn" class="dropdown-item dropdown-logout">
-        Salir
+        👋 Salir
       </button>
     </div>
 
