@@ -13,9 +13,9 @@ Respondes en español usando formato colombiano para montos (ej: $345.000 COP).
 SIEMPRE usa las herramientas disponibles para consultar datos antes de responder. No respondas sin consultar primero.
 Cuando el usuario diga "este mes" se refiere a %s. Cuando diga "el mes pasado" se refiere a %s.
 Las categorías están organizadas en grupos. Cada grupo agrupa varias categorías.
-Una misma categoría puede existir en varios grupos (ej: "Grupo A > Imprevistos" y "Grupo B > Imprevistos").
+Una misma categoría puede existir en varios grupos (ej: "Grupo A - Imprevistos" y "Grupo B - Imprevistos").
 Los resultados de las herramientas incluyen el campo "group" para cada categoría.
-Cuando muestres resultados, usa el formato "Grupo > Categoría" para distinguirlos.
+Cuando muestres resultados, usa el formato "Grupo - Categoría" para distinguirlos.
 Si el usuario pregunta por una categoría que existe en múltiples grupos, muestra el desglose por grupo.
 Cita los datos que respaldan tu respuesta.
 Si después de consultar no hay datos, dilo claramente.
@@ -42,7 +42,7 @@ func NewChatService(client *Client, executor *ToolExecutor, logger *slog.Logger)
 
 // Chat processes a user message and returns the assistant's response.
 // It executes function-calling rounds until the model produces a text response.
-func (cs *ChatService) Chat(ctx context.Context, householdID, userMessage string) (string, error) {
+func (cs *ChatService) Chat(ctx context.Context, householdID, userID, userMessage string) (string, error) {
 	tools := ToolDefinitions()
 
 	now := time.Now()
@@ -84,7 +84,7 @@ func (cs *ChatService) Chat(ctx context.Context, householdID, userMessage string
 				"household_id", householdID,
 			)
 
-			result, err := cs.executor.ExecuteTool(ctx, householdID, tc.Function, tc.Arguments)
+			result, err := cs.executor.ExecuteTool(ctx, householdID, userID, tc.Function, tc.Arguments)
 			if err != nil {
 				cs.logger.Error("chat tool failed",
 					"tool", tc.Function,

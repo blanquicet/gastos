@@ -86,7 +86,7 @@ return
 }
 
 // Process chat
-response, err := h.chatService.Chat(r.Context(), householdID, req.Message)
+response, err := h.chatService.Chat(r.Context(), householdID, userID, req.Message)
 if err != nil {
 h.logger.Error("chat failed", "error", err, "user_id", userID)
 w.Header().Set("Content-Type", "application/json")
