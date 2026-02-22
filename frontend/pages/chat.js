@@ -101,10 +101,18 @@ export function setup() {
     micBtn.disabled = true;
   }
 
-  function showVoiceOverlay(text) {
+  function showVoiceOverlay(text, showCanvas = true) {
     input.style.display = 'none';
     voiceOverlay.style.display = 'flex';
     voiceLabel.textContent = text;
+    volumeCanvas.style.display = showCanvas ? '' : 'none';
+    if (!showCanvas) {
+      voiceLabel.style.flex = '1';
+      voiceLabel.style.textAlign = 'center';
+    } else {
+      voiceLabel.style.flex = '';
+      voiceLabel.style.textAlign = '';
+    }
     sendBtn.disabled = true;
   }
 
@@ -182,7 +190,7 @@ export function setup() {
         }
 
         // Transcribing state
-        showVoiceOverlay('Transcribiendo...');
+        showVoiceOverlay('Transcribiendo...', false);
         micBtn.disabled = true;
 
         try {

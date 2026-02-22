@@ -4976,4 +4976,5 @@ input[type="number"] {
   font-weight: 500;
   color: #10b981;
   white-space: nowrap;
+  margin-right: 8px;
 }
