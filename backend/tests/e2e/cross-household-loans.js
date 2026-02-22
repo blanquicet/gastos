@@ -1,6 +1,7 @@
 import { chromium } from 'playwright';
 import pg from 'pg';
 import { createGroupsAndCategoriesViaUI } from './helpers/category-helpers.js';
+import { skipOnboardingWizard, completeOnboardingViaDB } from './helpers/onboarding-helpers.js';
 const { Pool } = pg;
 
 /**
@@ -91,6 +92,7 @@ async function testCrossHouseholdLoans() {
 
     const joseResult = await pool.query('SELECT id FROM users WHERE email = $1', [joseEmail]);
     joseUserId = joseResult.rows[0].id;
+    await completeOnboardingViaDB(pool, joseUserId);
 
     // Create household
     await josePage.locator('#hamburger-btn').click();
@@ -134,6 +136,7 @@ async function testCrossHouseholdLoans() {
 
     const mariaResult = await pool.query('SELECT id FROM users WHERE email = $1', [mariaEmail]);
     mariaUserId = mariaResult.rows[0].id;
+    await completeOnboardingViaDB(pool, mariaUserId);
 
     // Create Maria's household
     await mariaPage.locator('#hamburger-btn').click();

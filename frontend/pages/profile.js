@@ -12,6 +12,7 @@ import { API_URL } from '../config.js';
 import router from '../router.js';
 import * as Navbar from '../components/navbar.js';
 import { showConfirmation, showSuccess, showError, showCreateHouseholdModal } from '../utils.js';
+import { renderOnboardingBanner, setupOnboardingBanner } from '../components/onboarding-banner.js';
 
 // Colombian number formatting helpers
 function formatNumber(num) {
@@ -62,6 +63,8 @@ export function render(user) {
         <p class="subtitle">Información de tu cuenta y hogar.</p>
       </header>
 
+      <div id="onboarding-banner-container">${renderOnboardingBanner(currentUser?.onboarding_completed)}</div>
+
       <div id="profile-content">
         <div class="loading-section">
           <div class="spinner-small"></div>
@@ -77,6 +80,7 @@ export function render(user) {
  */
 export async function setup() {
   Navbar.setup();
+  setupOnboardingBanner((path) => router.navigate(path));
   await loadProfile();
 }
 
@@ -382,9 +386,9 @@ function setupEventListeners() {
     createBtn.addEventListener('click', async () => {
       const household = await showCreateHouseholdModal(API_URL);
       if (household) {
-        showSuccess('¡Hogar creado!', `Tu hogar <strong>${household.name}</strong> ha sido creado exitosamente.`);
-        // Reload the profile page to show the new household
-        router.navigate('/perfil');
+        await showSuccess('¡Hogar creado!', `Tu hogar <strong>${household.name}</strong> ha sido creado exitosamente.`);
+        // Navigate to home where the onboarding wizard will show
+        router.navigate('/');
       }
     });
   }
@@ -408,6 +412,17 @@ function setupEventListeners() {
       showPaymentMethodModal();
     });
   });
+
+  // Auto-open modal from URL action parameter (used by onboarding wizard)
+  const urlParams = new URLSearchParams(window.location.search);
+  const action = urlParams.get('action');
+  if (action === 'add-account') {
+    showAccountModal();
+    window.history.replaceState({}, '', '/perfil');
+  } else if (action === 'add-payment-method') {
+    showPaymentMethodModal();
+    window.history.replaceState({}, '', '/perfil');
+  }
 
   // Menu toggle buttons (for payment methods)
   document.querySelectorAll('[data-menu-id]').forEach(btn => {

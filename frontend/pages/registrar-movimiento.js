@@ -14,6 +14,84 @@ import router from '../router.js';
 import * as Navbar from '../components/navbar.js';
 import { showSuccess, getSimplifiedCategoryName, isCategoryRequired } from '../utils.js';
 
+const MOVEMENT_TYPE_STEPS = [
+  { title: 'Gasto del hogar', tipo: 'HOUSEHOLD',
+    desc: 'Gastos que hace el hogar como unidad: mercado, servicios, arriendo, etc.<br><br>Se registran a nombre del hogar y se asignan a una categoría.' },
+  { title: 'Dividir gasto', tipo: 'SPLIT',
+    desc: 'Cuando alguien paga algo y se divide entre varias personas.<br><br>Ejemplo: Un amigo paga la cena de $100k y tú debes $50k. Esto crea una deuda automáticamente.' },
+  { title: 'Préstamo', tipo: 'LOAN',
+    desc: 'Registra cuando prestas o te prestan dinero.<br><br><strong>Prestar:</strong> Tú le diste dinero a alguien.<br><strong>Pagar deuda:</strong> Alguien te devuelve lo que te debía.' },
+  { title: 'Ingresos', tipo: 'INGRESO',
+    desc: 'Registra tu salario, bonos, reembolsos, o cualquier ingreso.<br><br>El dinero se deposita en una de tus cuentas bancarias.' },
+];
+
+function highlightTipoBtn(tipo) {
+  // Remove highlight from all
+  document.querySelectorAll('.tipo-btn').forEach(b => b.classList.remove('tipo-highlight'));
+  // Add to current
+  const btn = document.querySelector(`.tipo-btn[data-tipo="${tipo}"]`);
+  if (btn) btn.classList.add('tipo-highlight');
+}
+
+function clearTipoHighlight() {
+  document.querySelectorAll('.tipo-btn').forEach(b => b.classList.remove('tipo-highlight'));
+}
+
+function showMovementTypesWizard() {
+  if (document.querySelector('[data-testid="movement-types-wizard"]')) return;
+
+  let currentStep = 0;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.setAttribute('data-testid', 'movement-types-wizard');
+
+  function renderStep() {
+    const step = MOVEMENT_TYPE_STEPS[currentStep];
+    const isFirst = currentStep === 0;
+    const isLast = currentStep === MOVEMENT_TYPE_STEPS.length - 1;
+
+    overlay.innerHTML = `
+      <div class="onboarding-wizard-card">
+        <div class="onboarding-step-title">${step.title}</div>
+        <div class="onboarding-step-desc">${step.desc}</div>
+        <div class="onboarding-dots">
+          ${MOVEMENT_TYPE_STEPS.map((_, i) =>
+            `<div class="onboarding-dot ${i === currentStep ? 'active' : ''}"></div>`
+          ).join('')}
+        </div>
+        <div class="onboarding-actions">
+          <div class="onboarding-nav">
+            ${!isFirst ? '<button class="onboarding-btn-secondary" data-wiz="prev">← Anterior</button>' : ''}
+            ${isLast
+              ? '<button class="onboarding-btn-primary" data-wiz="done">¡Entendido!</button>'
+              : '<button class="onboarding-btn-primary" data-wiz="next">Siguiente →</button>'
+            }
+          </div>
+        </div>
+      </div>
+    `;
+
+    overlay.querySelector('.onboarding-wizard-card').addEventListener('click', (e) => {
+      const action = e.target.closest('[data-wiz]')?.dataset.wiz;
+      if (!action) return;
+      e.stopPropagation();
+      if (action === 'next') { currentStep++; renderStep(); }
+      else if (action === 'prev') { currentStep--; renderStep(); }
+      else if (action === 'done') { clearTipoHighlight(); overlay.remove(); }
+    });
+
+    highlightTipoBtn(step.tipo);
+  }
+
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) { clearTipoHighlight(); overlay.remove(); }
+  });
+
+  document.body.appendChild(overlay);
+  renderStep();
+}
+
 // Configuration loaded from API
 let users = [];
 let usersMap = {}; // Map of name -> user object
@@ -306,10 +384,10 @@ export function render(user) {
           <p id="status" class="status" role="status" aria-live="polite"></p>
         </div>
       </form>
+      <button type="button" class="btn-help-floating" id="show-types-help" title="¿Qué tipo elegir?">?</button>
     </main>
   `;
   }
-  
   // Normal render without loading (when navigating directly without params)
   return `
     <main class="card">
@@ -505,6 +583,7 @@ export function render(user) {
           <p id="status" class="status" role="status" aria-live="polite"></p>
         </div>
       </form>
+      <button type="button" class="btn-help-floating" id="show-types-help" title="¿Qué tipo elegir?">?</button>
     </main>
   `;
 }
@@ -697,6 +776,10 @@ export async function setup() {
 
   // Initialize navbar
   Navbar.setup();
+
+  // Help button to show movement types wizard
+  const helpBtn = document.getElementById('show-types-help');
+  if (helpBtn) helpBtn.addEventListener('click', () => showMovementTypesWizard());
   
   // Setup back link - go back to previous page (chat or home)
   const backLink = document.getElementById('back-to-home');

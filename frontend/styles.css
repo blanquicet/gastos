@@ -3385,6 +3385,15 @@ button.loading::after {
   font-weight: 600;
 }
 
+.tipo-highlight .tipo-icon {
+  animation: tipo-pulse 2s ease-in-out infinite;
+}
+
+@keyframes tipo-pulse {
+  0%, 100% { outline: 3px solid rgba(99, 102, 241, 0.6); outline-offset: 4px; }
+  50% { outline: 3px solid rgba(99, 102, 241, 0.2); outline-offset: 8px; }
+}
+
 /* Mobile: 2 columns */
 @media (max-width: 600px) {
   .tipo-selector {
@@ -4999,4 +5008,162 @@ input[type="number"] {
   background: #10b981;
   color: #fff;
   border-color: #10b981;
+}
+
+/* =============================================================================
+   Onboarding Wizard & Checklist
+   ============================================================================= */
+
+.onboarding-wizard-card {
+  background: linear-gradient(135deg, #374151, #4b5563);
+  border-radius: 18px;
+  padding: 32px 28px 24px;
+  max-width: 380px;
+  width: 90vw;
+  color: #f1f5f9;
+  animation: banner-slide-in 0.35s ease-out;
+  position: relative;
+}
+
+.onboarding-step-title {
+  font-size: 20px;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+.onboarding-step-desc {
+  font-size: 14px;
+  color: #94a3b8;
+  text-align: center;
+  line-height: 1.5;
+  margin-bottom: 24px;
+}
+
+.onboarding-dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.onboarding-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #64748b;
+  transition: background 0.2s, width 0.2s;
+}
+
+.onboarding-dot.active {
+  background: #a5b4fc;
+  width: 24px;
+  border-radius: 4px;
+}
+
+.onboarding-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+
+.onboarding-btn-primary {
+  width: 100%;
+  padding: 12px;
+  background: #6366f1;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.onboarding-btn-primary:hover {
+  background: #4f46e5;
+}
+
+.onboarding-btn-secondary {
+  width: 100%;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.onboarding-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #f1f5f9;
+}
+
+.onboarding-skip {
+  background: none;
+  border: none;
+  color: #64748b;
+  font-size: 13px;
+  cursor: pointer;
+  margin-top: 4px;
+  padding: 4px;
+}
+
+.onboarding-skip:hover {
+  color: #94a3b8;
+}
+
+.onboarding-nav {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.onboarding-nav .onboarding-btn-secondary {
+  flex: 1;
+}
+
+.onboarding-nav .onboarding-btn-primary {
+  flex: 2;
+}
+
+.section-highlight {
+  animation: section-pulse 3s ease-out;
+  border-radius: 12px;
+}
+
+@keyframes section-pulse {
+  0% { outline: 3px solid rgba(99, 102, 241, 0.6); outline-offset: 8px; }
+  30% { outline: 3px solid rgba(99, 102, 241, 0.4); outline-offset: 12px; }
+  100% { outline: 3px solid rgba(99, 102, 241, 0); outline-offset: 16px; }
+}
+
+.btn-help-floating {
+  position: fixed;
+  bottom: 40px;
+  right: 32px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #94a3b8;
+  color: white;
+  border: none;
+  font-size: 24px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(148, 163, 184, 0.3);
+  transition: transform 0.2s, box-shadow 0.2s;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.btn-help-floating:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 16px rgba(148, 163, 184, 0.4);
 }

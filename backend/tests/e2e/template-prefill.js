@@ -8,6 +8,7 @@
 import { chromium } from 'playwright';
 import pg from 'pg';
 import { createGroupsAndCategoriesViaUI, getCategoryIds } from './helpers/category-helpers.js';
+import { skipOnboardingWizard, completeOnboardingViaDB } from './helpers/onboarding-helpers.js';
 const { Pool } = pg;
 
 const appUrl = process.env.APP_URL || 'http://localhost:8080';
@@ -72,9 +73,18 @@ async function testTemplatePrefill() {
     await page.locator('#household-name-input').fill(householdName);
     await page.locator('#household-create-btn').click();
     await page.waitForTimeout(1000);
+
+    // Complete onboarding BEFORE dismissing modal (which triggers page reload)
+    const userQuery = await pool.query(
+      'SELECT id FROM users WHERE email = $1',
+      [userEmail]
+    );
+    const userId = userQuery.rows[0].id;
+    await completeOnboardingViaDB(pool, userId);
+
     await page.locator('#modal-ok').click();
     await page.waitForTimeout(2000);
-    
+
     console.log('✅ User and household created');
     
     // Get IDs from database
@@ -83,12 +93,6 @@ async function testTemplatePrefill() {
       [householdName]
     );
     const householdId = householdQuery.rows[0].id;
-    
-    const userQuery = await pool.query(
-      'SELECT id FROM users WHERE email = $1',
-      [userEmail]
-    );
-    const userId = userQuery.rows[0].id;
     
     // ==================================================================
     // Create test data via database

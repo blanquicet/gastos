@@ -17,12 +17,13 @@ var (
 
 // User represents an authenticated user.
 type User struct {
-	ID           string
-	Email        string
-	Name         string
-	PasswordHash string
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID                    string
+	Email                 string
+	Name                  string
+	PasswordHash          string
+	OnboardingCompletedAt *time.Time
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
 }
 
 // Session represents an authentication session.
@@ -49,6 +50,7 @@ type UserRepository interface {
 	GetByID(ctx context.Context, id string) (*User, error)
 	GetByEmail(ctx context.Context, email string) (*User, error)
 	UpdatePassword(ctx context.Context, id, passwordHash string) error
+	CompleteOnboarding(ctx context.Context, id string) error
 	Delete(ctx context.Context, id string) error
 }
 

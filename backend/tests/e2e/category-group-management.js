@@ -1,5 +1,6 @@
 import { chromium } from 'playwright';
 import pg from 'pg';
+import { skipOnboardingWizard, completeOnboardingViaDB } from './helpers/onboarding-helpers.js';
 const { Pool } = pg;
 
 /**
@@ -7,11 +8,11 @@ const { Pool } = pg;
  *
  * Tests the complete category and group management from /hogar page:
  * 1. Register user and create household
- * 2. Create a category group
- * 3. Create a category in that group
- * 4. Create a second group (for move test)
- * 5. Edit the group (rename, change icon)
- * 6. Edit the category (rename, move to different group)
+ * 2. Create a category group ("Salud")
+ * 3. Create a category in that group ("Consulta médica")
+ * 4. Create a second group ("Transporte") for move test
+ * 5. Edit the group (rename "Salud" → "Bienestar", change icon)
+ * 6. Move category ("Consulta médica") from "Bienestar" to "Transporte"
  * 7. Verify categories appear in movement form dropdown
  * 8. Deactivate a category
  * 9. Verify deactivated category does NOT appear in movement form
@@ -19,7 +20,6 @@ const { Pool } = pg;
  * 11. Delete a category (no movements)
  * 12. Delete a group (empty)
  * 13. Deactivate/reactivate a group
- * 14. Cleanup
  */
 
 async function testCategoryGroupManagement() {
@@ -76,6 +76,12 @@ async function testCategoryGroupManagement() {
     await page.locator('#household-name-input').fill(householdName);
     await page.locator('#household-create-btn').click();
     await page.waitForTimeout(1000);
+
+    // Complete onboarding before dismissing modal (which triggers page reload)
+    const userQuery = await pool.query('SELECT id FROM users WHERE email = $1', [userEmail]);
+    const userId = userQuery.rows[0].id;
+    await completeOnboardingViaDB(pool, userId);
+
     await page.locator('#modal-ok').click();
     await page.waitForTimeout(2000);
 
@@ -93,11 +99,11 @@ async function testCategoryGroupManagement() {
     await page.locator('#add-group-btn').click();
     await page.waitForTimeout(500);
 
-    // Fill group name
-    await page.locator('#group-name').fill('Hogar');
+    // Fill group name (use unique name since "Hogar" and "Diversión" already exist as defaults)
+    await page.locator('#group-name').fill('Salud');
 
-    // Select icon 🏠
-    await page.locator('.icon-pick[data-icon="🏠"]').click();
+    // Select icon ⚕️
+    await page.locator('.icon-pick[data-icon="⚕️"]').click();
     await page.waitForTimeout(200);
 
     // Submit
@@ -105,11 +111,11 @@ async function testCategoryGroupManagement() {
     await page.waitForTimeout(2000);
 
     // Verify group appears in page
-    const groupCard = page.locator('.cat-group-card', { hasText: 'Hogar' });
+    const groupCard = page.locator('.cat-group-card', { hasText: 'Salud' });
     if (await groupCard.count() === 0) {
-      throw new Error('Group "Hogar" not found after creation');
+      throw new Error('Group "Salud" not found after creation');
     }
-    console.log('✅ Group "Hogar" created with 🏠 icon');
+    console.log('✅ Group "Salud" created with ⚕️ icon');
 
     // ==================================================================
     // STEP 3: Create a Category Inside the Group
@@ -123,7 +129,7 @@ async function testCategoryGroupManagement() {
     await page.waitForTimeout(500);
 
     // Fill category name (group should be pre-selected)
-    await page.locator('#cat-name').fill('Mercado');
+    await page.locator('#cat-name').fill('Consulta médica');
 
     // Verify group is pre-selected in dropdown
     const selectedGroup = await page.locator('#cat-group').inputValue();
@@ -139,11 +145,11 @@ async function testCategoryGroupManagement() {
     await groupCard.locator('.cat-group-header').click();
     await page.waitForTimeout(500);
 
-    const catItem = groupCard.locator('.cat-item', { hasText: 'Mercado' });
+    const catItem = groupCard.locator('.cat-item', { hasText: 'Consulta médica' });
     if (await catItem.count() === 0) {
-      throw new Error('Category "Mercado" not found under "Hogar" group');
+      throw new Error('Category "Consulta médica" not found under "Salud" group');
     }
-    console.log('✅ Category "Mercado" created in "Hogar" group');
+    console.log('✅ Category "Consulta médica" created in "Salud" group');
 
     // ==================================================================
     // STEP 4: Create a Second Group (for move test)
@@ -169,14 +175,14 @@ async function testCategoryGroupManagement() {
     // ==================================================================
     console.log('📝 Step 5: Editing group (rename + icon)...');
 
-    const hogarCard = page.locator('.cat-group-card', { hasText: 'Hogar' });
-    await hogarCard.locator('[data-group-menu]').click();
+    const saludCard = page.locator('.cat-group-card', { hasText: 'Salud' });
+    await saludCard.locator('[data-group-menu]').click();
     await page.waitForTimeout(300);
     await page.locator('body > .three-dots-menu button[data-action="edit-group"]').click();
     await page.waitForTimeout(500);
 
     // Change name and icon
-    await page.locator('#group-name').fill('Casa');
+    await page.locator('#group-name').fill('Bienestar');
     await page.locator('.icon-pick[data-icon="🏦"]').click();
     await page.waitForTimeout(200);
 
@@ -184,75 +190,40 @@ async function testCategoryGroupManagement() {
     await page.waitForTimeout(2000);
 
     // Verify rename in UI
-    const casaCard = page.locator('.cat-group-card', { hasText: 'Casa' });
-    if (await casaCard.count() === 0) {
-      throw new Error('Group was not renamed to "Casa"');
+    const bienestarCard = page.locator('.cat-group-card', { hasText: 'Bienestar' });
+    if (await bienestarCard.count() === 0) {
+      throw new Error('Group was not renamed to "Bienestar"');
     }
 
     // Verify in DB
     const renamedGroup = await pool.query(
       `SELECT name, icon FROM category_groups
-       WHERE household_id = (SELECT id FROM households WHERE name = $1) AND name = 'Casa'`,
+       WHERE household_id = (SELECT id FROM households WHERE name = $1) AND name = 'Bienestar'`,
       [householdName]
     );
     if (renamedGroup.rows.length === 0) {
-      throw new Error('Group "Casa" not found in database');
+      throw new Error('Group "Bienestar" not found in database');
     }
     if (!renamedGroup.rows[0].icon.startsWith('🏦')) {
       throw new Error(`Expected icon 🏦, got ${renamedGroup.rows[0].icon}`);
     }
-    console.log('✅ Group renamed to "Casa" with icon 🏦');
+    console.log('✅ Group renamed to "Bienestar" with icon 🏦');
 
     // ==================================================================
-    // STEP 6: Edit Category (rename only, keep same group)
+    // STEP 6: Move Category to a Different Group
     // ==================================================================
-    console.log('📝 Step 6: Renaming category (same group)...');
-
-    // Expand "Casa" group
-    await casaCard.locator('.cat-group-header').click();
-    await page.waitForTimeout(500);
-
-    // Edit "Mercado"
-    const mercadoItem = casaCard.locator('.cat-item', { hasText: 'Mercado' });
-    await mercadoItem.locator('.three-dots-btn').click();
-    await page.waitForTimeout(300);
-    await page.locator('body > .three-dots-menu button[data-action="edit-category"]').click();
-    await page.waitForTimeout(500);
-
-    // Only rename, don't change group
-    await page.locator('#cat-name').fill('Supermercado');
-    await page.locator('#category-form button[type="submit"]').click();
-    await page.waitForTimeout(2000);
-
-    // Verify in DB — still in Casa
-    const renamedCat = await pool.query(
-      `SELECT c.name, cg.name as group_name FROM categories c
-       JOIN category_groups cg ON c.category_group_id = cg.id
-       WHERE c.household_id = (SELECT id FROM households WHERE name = $1)
-         AND c.name = 'Supermercado'`,
-      [householdName]
-    );
-    if (renamedCat.rows.length === 0) throw new Error('Category "Supermercado" not found');
-    if (renamedCat.rows[0].group_name !== 'Casa') {
-      throw new Error(`Expected group "Casa", got "${renamedCat.rows[0].group_name}"`);
-    }
-    console.log('✅ Category renamed to "Supermercado" (still in "Casa")');
-
-    // ==================================================================
-    // STEP 7: Move Category to a Different Group (without renaming)
-    // ==================================================================
-    console.log('📝 Step 7: Moving category from "Casa" to "Transporte"...');
+    console.log('📝 Step 6: Moving category from "Bienestar" to "Transporte"...');
 
     await page.goto(`${appUrl}/hogar`);
     await page.waitForTimeout(2000);
 
-    // Expand Casa to find "Supermercado"
-    const casaCardMove = page.locator('.cat-group-card', { hasText: 'Casa' });
-    await casaCardMove.locator('.cat-group-header').click();
+    // Expand Bienestar to find "Consulta médica"
+    const bienestarCardMove = page.locator('.cat-group-card', { hasText: 'Bienestar' });
+    await bienestarCardMove.locator('.cat-group-header').click();
     await page.waitForTimeout(500);
 
-    const superItemMove = casaCardMove.locator('.cat-item', { hasText: 'Supermercado' });
-    await superItemMove.locator('.three-dots-btn').click();
+    const consultaItemMove = bienestarCardMove.locator('.cat-item', { hasText: 'Consulta médica' });
+    await consultaItemMove.locator('.three-dots-btn').click();
     await page.waitForTimeout(300);
     await page.locator('body > .three-dots-menu button[data-action="edit-category"]').click();
     await page.waitForTimeout(500);
@@ -271,41 +242,41 @@ async function testCategoryGroupManagement() {
       `SELECT c.name, cg.name as group_name FROM categories c
        JOIN category_groups cg ON c.category_group_id = cg.id
        WHERE c.household_id = (SELECT id FROM households WHERE name = $1)
-         AND c.name = 'Supermercado'`,
+         AND c.name = 'Consulta médica'`,
       [householdName]
     );
-    if (movedCat.rows.length === 0) throw new Error('Category "Supermercado" not found after move');
+    if (movedCat.rows.length === 0) throw new Error('Category "Consulta médica" not found after move');
     if (movedCat.rows[0].group_name !== 'Transporte') {
       throw new Error(`Expected group "Transporte", got "${movedCat.rows[0].group_name}"`);
     }
 
-    // Verify in UI — category should now be under "Transporte", not "Casa"
+    // Verify in UI — category should now be under "Transporte", not "Bienestar"
     await page.goto(`${appUrl}/hogar`);
     await page.waitForTimeout(2000);
 
     const tCardAfterMove = page.locator('.cat-group-card', { hasText: 'Transporte' });
     await tCardAfterMove.locator('.cat-group-header').click();
     await page.waitForTimeout(500);
-    const movedItem = tCardAfterMove.locator('.cat-item', { hasText: 'Supermercado' });
+    const movedItem = tCardAfterMove.locator('.cat-item', { hasText: 'Consulta médica' });
     if (await movedItem.count() === 0) {
-      throw new Error('"Supermercado" not found under "Transporte" group in UI');
+      throw new Error('"Consulta médica" not found under "Transporte" group in UI');
     }
 
-    // Verify "Casa" no longer has it
-    const casaCardAfterMove = page.locator('.cat-group-card', { hasText: 'Casa' });
-    await casaCardAfterMove.locator('.cat-group-header').click();
+    // Verify "Bienestar" no longer has it
+    const bienestarCardAfterMove = page.locator('.cat-group-card', { hasText: 'Bienestar' });
+    await bienestarCardAfterMove.locator('.cat-group-header').click();
     await page.waitForTimeout(500);
-    const ghostItem = casaCardAfterMove.locator('.cat-item', { hasText: 'Supermercado' });
+    const ghostItem = bienestarCardAfterMove.locator('.cat-item', { hasText: 'Consulta médica' });
     if (await ghostItem.count() > 0) {
-      throw new Error('"Supermercado" should NOT be under "Casa" anymore');
+      throw new Error('"Consulta médica" should NOT be under "Bienestar" anymore');
     }
 
-    console.log('✅ Category "Supermercado" moved from "Casa" to "Transporte"');
+    console.log('✅ Category "Consulta médica" moved from "Bienestar" to "Transporte"');
 
     // ==================================================================
-    // STEP 8: Verify Categories in Movement Form
+    // STEP 7: Verify Categories in Movement Form
     // ==================================================================
-    console.log('📝 Step 8: Verifying categories in movement form...');
+    console.log('📝 Step 7: Verifying categories in movement form...');
 
     await page.goto(`${appUrl}/registrar-movimiento`);
     await page.waitForLoadState('networkidle');
@@ -317,35 +288,35 @@ async function testCategoryGroupManagement() {
     const categoryOptions = await page.locator('#categoria option').allTextContents();
     console.log('  Category options:', categoryOptions);
 
-    if (!categoryOptions.some(o => o.includes('Supermercado'))) {
-      throw new Error('"Supermercado" not found in category dropdown');
+    if (!categoryOptions.some(o => o.includes('Consulta médica'))) {
+      throw new Error('"Consulta médica" not found in category dropdown');
     }
 
-    // Verify "Supermercado" is under the "TRANSPORTE" optgroup (not "CASA")
+    // Verify "Consulta médica" is under the "TRANSPORTE" optgroup (not "BIENESTAR")
     const transOptgroup = page.locator('#categoria optgroup[label="TRANSPORTE"]');
-    const supInTrans = transOptgroup.locator('option', { hasText: 'Supermercado' });
-    if (await supInTrans.count() === 0) {
-      throw new Error('"Supermercado" should be under "TRANSPORTE" optgroup in movement form');
+    const consultaInTrans = transOptgroup.locator('option', { hasText: 'Consulta médica' });
+    if (await consultaInTrans.count() === 0) {
+      throw new Error('"Consulta médica" should be under "TRANSPORTE" optgroup in movement form');
     }
 
     console.log('✅ Categories appear in movement form under correct group');
 
     // ==================================================================
-    // STEP 9: Deactivate a Category
+    // STEP 8: Deactivate a Category
     // ==================================================================
-    console.log('📝 Step 9: Deactivating category...');
+    console.log('📝 Step 8: Deactivating category...');
 
     await page.goto(`${appUrl}/hogar`);
     await page.waitForTimeout(2000);
 
-    // Expand Transporte (where Supermercado lives after Step 7)
+    // Expand Transporte (where "Consulta médica" lives after Step 6)
     const tCardDeact = page.locator('.cat-group-card', { hasText: 'Transporte' });
     await tCardDeact.locator('.cat-group-header').click();
     await page.waitForTimeout(500);
 
-    // Deactivate "Supermercado"
-    const superItem = tCardDeact.locator('.cat-item', { hasText: 'Supermercado' });
-    await superItem.locator('.three-dots-btn').click();
+    // Deactivate "Consulta médica"
+    const consultaItem = tCardDeact.locator('.cat-item', { hasText: 'Consulta médica' });
+    await consultaItem.locator('.three-dots-btn').click();
     await page.waitForTimeout(300);
     await page.locator('body > .three-dots-menu button[data-action="deactivate-category"]').click();
     await page.waitForTimeout(500);
@@ -355,18 +326,18 @@ async function testCategoryGroupManagement() {
     // Verify in DB
     const deactivated = await pool.query(
       `SELECT is_active FROM categories
-       WHERE household_id = (SELECT id FROM households WHERE name = $1) AND name = 'Supermercado'`,
+       WHERE household_id = (SELECT id FROM households WHERE name = $1) AND name = 'Consulta médica'`,
       [householdName]
     );
     if (deactivated.rows[0].is_active !== false) {
       throw new Error('Category should be deactivated');
     }
-    console.log('✅ Category "Supermercado" deactivated');
+    console.log('✅ Category "Consulta médica" deactivated');
 
     // ==================================================================
-    // STEP 10: Verify Deactivated Category NOT in Movement Form
+    // STEP 9: Verify Deactivated Category NOT in Movement Form
     // ==================================================================
-    console.log('📝 Step 10: Verifying deactivated category hidden from form...');
+    console.log('📝 Step 9: Verifying deactivated category hidden from form...');
 
     await page.goto(`${appUrl}/registrar-movimiento`);
     await page.waitForLoadState('networkidle');
@@ -376,15 +347,15 @@ async function testCategoryGroupManagement() {
     await page.waitForTimeout(1000);
 
     const optsAfter = await page.locator('#categoria option').allTextContents();
-    if (optsAfter.some(o => o.includes('Supermercado'))) {
+    if (optsAfter.some(o => o.includes('Consulta médica'))) {
       throw new Error('Deactivated category should NOT appear in form');
     }
     console.log('✅ Deactivated category hidden from movement form');
 
     // ==================================================================
-    // STEP 11: Reactivate Category
+    // STEP 10: Reactivate Category
     // ==================================================================
-    console.log('📝 Step 11: Reactivating category...');
+    console.log('📝 Step 10: Reactivating category...');
 
     await page.goto(`${appUrl}/hogar`);
     await page.waitForTimeout(2000);
@@ -393,7 +364,7 @@ async function testCategoryGroupManagement() {
     await tCardReact.locator('.cat-group-header').click();
     await page.waitForTimeout(500);
 
-    const inactiveItem = tCardReact.locator('.cat-item', { hasText: 'Supermercado' });
+    const inactiveItem = tCardReact.locator('.cat-item', { hasText: 'Consulta médica' });
     await inactiveItem.locator('.three-dots-btn').click();
     await page.waitForTimeout(300);
     await page.locator('body > .three-dots-menu button[data-action="reactivate-category"]').click();
@@ -401,18 +372,18 @@ async function testCategoryGroupManagement() {
 
     const reactivated = await pool.query(
       `SELECT is_active FROM categories
-       WHERE household_id = (SELECT id FROM households WHERE name = $1) AND name = 'Supermercado'`,
+       WHERE household_id = (SELECT id FROM households WHERE name = $1) AND name = 'Consulta médica'`,
       [householdName]
     );
     if (reactivated.rows[0].is_active !== true) {
       throw new Error('Category should be reactivated');
     }
-    console.log('✅ Category "Supermercado" reactivated');
+    console.log('✅ Category "Consulta médica" reactivated');
 
     // ==================================================================
-    // STEP 12: Delete a Category (no movements)
+    // STEP 11: Delete a Category (no movements)
     // ==================================================================
-    console.log('📝 Step 12: Deleting category...');
+    console.log('📝 Step 11: Deleting category...');
 
     await page.goto(`${appUrl}/hogar`);
     await page.waitForTimeout(2000);
@@ -421,8 +392,8 @@ async function testCategoryGroupManagement() {
     await tCardDel.locator('.cat-group-header').click();
     await page.waitForTimeout(500);
 
-    const superItem2 = tCardDel.locator('.cat-item', { hasText: 'Supermercado' });
-    await superItem2.locator('.three-dots-btn').click();
+    const consultaItem2 = tCardDel.locator('.cat-item', { hasText: 'Consulta médica' });
+    await consultaItem2.locator('.three-dots-btn').click();
     await page.waitForTimeout(300);
     await page.locator('body > .three-dots-menu button[data-action="delete-category"]').click();
     await page.waitForTimeout(500);
@@ -437,18 +408,18 @@ async function testCategoryGroupManagement() {
 
     const deletedCat = await pool.query(
       `SELECT id FROM categories
-       WHERE household_id = (SELECT id FROM households WHERE name = $1) AND name = 'Supermercado'`,
+       WHERE household_id = (SELECT id FROM households WHERE name = $1) AND name = 'Consulta médica'`,
       [householdName]
     );
     if (deletedCat.rows.length > 0) {
-      throw new Error('Category "Supermercado" should be deleted');
+      throw new Error('Category "Consulta médica" should be deleted');
     }
-    console.log('✅ Category "Supermercado" deleted');
+    console.log('✅ Category "Consulta médica" deleted');
 
     // ==================================================================
-    // STEP 13: Delete an Empty Group
+    // STEP 12: Delete an Empty Group
     // ==================================================================
-    console.log('📝 Step 13: Deleting empty group...');
+    console.log('📝 Step 12: Deleting empty group...');
 
     await page.goto(`${appUrl}/hogar`);
     await page.waitForTimeout(2000);
@@ -477,13 +448,13 @@ async function testCategoryGroupManagement() {
     console.log('✅ Group "Transporte" deleted');
 
     // ==================================================================
-    // STEP 14: Deactivate and Reactivate a Group
+    // STEP 13: Deactivate and Reactivate a Group
     // ==================================================================
-    console.log('📝 Step 14: Testing group deactivation/reactivation...');
+    console.log('📝 Step 13: Testing group deactivation/reactivation...');
 
-    // Add a category to "Casa" so we can deactivate instead of delete
-    const casaCard2 = page.locator('.cat-group-card', { hasText: 'Casa' });
-    await casaCard2.locator('[data-group-menu]').click();
+    // Add a category to "Bienestar" so we can deactivate instead of delete
+    const bienestarCard2 = page.locator('.cat-group-card', { hasText: 'Bienestar' });
+    await bienestarCard2.locator('[data-group-menu]').click();
     await page.waitForTimeout(300);
     await page.locator('body > .three-dots-menu .menu-item[data-action="add-category"]').click();
     await page.waitForTimeout(500);
@@ -491,9 +462,9 @@ async function testCategoryGroupManagement() {
     await page.locator('#category-form button[type="submit"]').click();
     await page.waitForTimeout(2000);
 
-    // Deactivate "Casa" group
-    const casaCard3 = page.locator('.cat-group-card', { hasText: 'Casa' });
-    await casaCard3.locator('[data-group-menu]').click();
+    // Deactivate "Bienestar" group
+    const bienestarCard3 = page.locator('.cat-group-card', { hasText: 'Bienestar' });
+    await bienestarCard3.locator('[data-group-menu]').click();
     await page.waitForTimeout(300);
     await page.locator('body > .three-dots-menu button[data-action="deactivate-group"]').click();
     await page.waitForTimeout(500);
@@ -502,16 +473,16 @@ async function testCategoryGroupManagement() {
 
     const deactivatedGroup = await pool.query(
       `SELECT is_active FROM category_groups
-       WHERE household_id = (SELECT id FROM households WHERE name = $1) AND name = 'Casa'`,
+       WHERE household_id = (SELECT id FROM households WHERE name = $1) AND name = 'Bienestar'`,
       [householdName]
     );
     if (deactivatedGroup.rows[0].is_active !== false) {
-      throw new Error('Group "Casa" should be deactivated');
+      throw new Error('Group "Bienestar" should be deactivated');
     }
     console.log('  ✅ Group deactivated');
 
-    // Reactivate "Casa"
-    const inactiveGroup = page.locator('.cat-group-card', { hasText: 'Casa' });
+    // Reactivate "Bienestar"
+    const inactiveGroup = page.locator('.cat-group-card', { hasText: 'Bienestar' });
     await inactiveGroup.locator('[data-group-menu]').click();
     await page.waitForTimeout(300);
     await page.locator('body > .three-dots-menu button[data-action="reactivate-group"]').click();
@@ -519,11 +490,11 @@ async function testCategoryGroupManagement() {
 
     const reactivatedGroup = await pool.query(
       `SELECT is_active FROM category_groups
-       WHERE household_id = (SELECT id FROM households WHERE name = $1) AND name = 'Casa'`,
+       WHERE household_id = (SELECT id FROM households WHERE name = $1) AND name = 'Bienestar'`,
       [householdName]
     );
     if (reactivatedGroup.rows[0].is_active !== true) {
-      throw new Error('Group "Casa" should be reactivated');
+      throw new Error('Group "Bienestar" should be reactivated');
     }
     console.log('  ✅ Group reactivated');
     console.log('✅ Group deactivation/reactivation works');

@@ -12,6 +12,7 @@ import router from '../router.js';
 import * as Navbar from '../components/navbar.js';
 import { showConfirmation, showSuccess, showError } from '../utils.js';
 import { validateEmail } from '../auth-utils.js';
+import { renderOnboardingBanner, setupOnboardingBanner } from '../components/onboarding-banner.js';
 
 // Phone validation regex
 // Allows: 3001234567 (10-14 digits) or +573001234567 (+ plus up to 13 digits)
@@ -41,6 +42,8 @@ export function render(user) {
         <p class="subtitle">Administra tu hogar, miembros y contactos.</p>
       </header>
 
+      <div id="onboarding-banner-container">${renderOnboardingBanner(currentUser?.onboarding_completed)}</div>
+
       <div id="household-content">
         <div class="loading-section">
           <div class="spinner-small"></div>
@@ -56,15 +59,26 @@ export function render(user) {
  */
 export async function setup() {
   Navbar.setup();
-  
-  // Setup back link
-  const backLink = document.getElementById('back-to-profile');
-  backLink?.addEventListener('click', (e) => {
-    e.preventDefault();
-    router.navigate('/perfil');
-  });
+  setupOnboardingBanner((path) => router.navigate(path));
   
   await loadHousehold();
+
+  // Scroll to section(s) if specified in URL and add highlight effect
+  const urlParams = new URLSearchParams(window.location.search);
+  const section = urlParams.get('section');
+  if (section) {
+    const sections = section.split(',');
+    const firstEl = document.getElementById(`section-${sections[0]}`);
+    if (firstEl) firstEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    sections.forEach(s => {
+      const el = document.getElementById(`section-${s}`);
+      if (el) {
+        el.classList.add('section-highlight');
+        setTimeout(() => el.classList.remove('section-highlight'), 3000);
+      }
+    });
+    window.history.replaceState({}, '', '/hogar');
+  }
 }
 
 /**
@@ -168,7 +182,7 @@ function renderHouseholdContent() {
       </div>
     </div>
 
-    <div class="household-section">
+    <div class="household-section" id="section-miembros">
       <div class="section-header">
         <h3 class="section-title">Miembros</h3>
         ${isOwner ? '<button id="invite-member-btn" class="btn-secondary btn-small">+ Invitar miembro</button>' : ''}
@@ -182,7 +196,7 @@ function renderHouseholdContent() {
       </div>
     </div>
 
-    <div class="household-section">
+    <div class="household-section" id="section-contactos">
       <div class="section-header">
         <h3 class="section-title">Contactos</h3>
         <button id="add-contact-btn" class="btn-secondary btn-small">+ Agregar contacto</button>
@@ -193,17 +207,7 @@ function renderHouseholdContent() {
       </div>
     </div>
 
-    <div class="household-section">
-      <div class="section-header">
-        <h3 class="section-title">Métodos de Pago Compartidos</h3>
-      </div>
-      <p class="section-description">Métodos de pago que todos los miembros del hogar pueden usar para registrar movimientos. Gestiona tus métodos de pago desde tu perfil.</p>
-      <div class="scroll-fade-container">
-        ${renderSharedPaymentMethods()}
-      </div>
-    </div>
-
-    <div class="household-section">
+    <div class="household-section" id="section-categorias">
       <div class="section-header">
         <h3 class="section-title">Categorías</h3>
         <button id="add-group-btn" class="btn-secondary btn-small">+ Agregar grupo</button>
@@ -213,6 +217,16 @@ function renderHouseholdContent() {
         <div id="categories-content">
           ${renderCategoriesSection()}
         </div>
+      </div>
+    </div>
+
+    <div class="household-section">
+      <div class="section-header">
+        <h3 class="section-title">Métodos de Pago Compartidos</h3>
+      </div>
+      <p class="section-description">Métodos de pago que todos los miembros del hogar pueden usar para registrar movimientos. Gestiona tus métodos de pago desde tu perfil.</p>
+      <div class="scroll-fade-container">
+        ${renderSharedPaymentMethods()}
       </div>
     </div>
   `;

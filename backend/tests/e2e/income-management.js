@@ -1,5 +1,6 @@
 import { chromium } from 'playwright';
 import pg from 'pg';
+import { skipOnboardingWizard, completeOnboardingViaDB } from './helpers/onboarding-helpers.js';
 const { Pool } = pg;
 
 /**
@@ -82,12 +83,14 @@ async function testIncomeManagement() {
     await page.locator('#household-name-input').fill(householdName);
     await page.locator('#household-create-btn').click();
     await page.waitForTimeout(1000);
-    await page.locator('#modal-ok').click();
-    await page.waitForTimeout(2000);
-    
-    // Get user ID and household ID from database
+
+    // Complete onboarding BEFORE dismissing modal (which triggers page reload)
     const userResult = await pool.query('SELECT id FROM users WHERE email = $1', [userEmail]);
     user1Id = userResult.rows[0].id;
+    await completeOnboardingViaDB(pool, user1Id);
+
+    await page.locator('#modal-ok').click();
+    await page.waitForTimeout(2000);
     
     const householdResult = await pool.query(
       'SELECT household_id FROM household_members WHERE user_id = $1',
@@ -308,7 +311,7 @@ async function testIncomeManagement() {
     
     // Navigate to home first
     await page.goto(`${appUrl}/`);
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(2000);
     
     // Click on Ingresos tab
     await page.locator('button.tab-btn[data-tab="ingresos"]').click();
@@ -316,9 +319,10 @@ async function testIncomeManagement() {
     
     // Navigate to January 2026 (incomes were registered for January)
     // Click prev month button until we see "Enero"
-    const currentMonth = await page.locator('.month-display').textContent();
-    if (!currentMonth.includes('Enero')) {
-      await page.locator('.month-nav-btn:first-child').click(); // Previous month
+    for (let i = 0; i < 12; i++) {
+      const monthText = await page.locator('.month-display').textContent();
+      if (monthText.includes('Enero')) break;
+      await page.locator('.month-nav-btn:first-child').click();
       await page.waitForTimeout(1000);
     }
     

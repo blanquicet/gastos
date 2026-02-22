@@ -1,6 +1,6 @@
 import { chromium } from 'playwright';
 import pg from 'pg';
-import { createGroupsAndCategoriesViaUI } from './helpers/category-helpers.js';
+import { skipOnboardingWizard, completeOnboardingViaDB } from './helpers/onboarding-helpers.js';
 const { Pool } = pg;
 
 /**
@@ -97,6 +97,7 @@ async function testMovementCompartido() {
     // Get user ID from database
     const userResult = await pool.query('SELECT id FROM users WHERE email = $1', [userEmail]);
     userId = userResult.rows[0].id;
+    await completeOnboardingViaDB(pool, userId);
     
     // Create household
     await page.locator('#hamburger-btn').click();
@@ -112,7 +113,7 @@ async function testMovementCompartido() {
     await page.waitForTimeout(1000);
     await page.locator('#modal-ok').click();
     await page.waitForTimeout(2000);
-    
+
     // Get household ID from database
     const householdResult = await pool.query('SELECT id FROM households WHERE name = $1', [householdName]);
     householdId = householdResult.rows[0].id;
@@ -178,15 +179,10 @@ async function testMovementCompartido() {
     console.log('✅ Payment method added');
 
     // ==================================================================
-    // STEP 3.5: Create Category Groups and Categories
+    // STEP 3.5: Categories
     // ==================================================================
-    console.log('📝 Step 3.5: Creating category groups and categories...');
-    
-    await createGroupsAndCategoriesViaUI(page, appUrl, [
-      { name: 'Casa', icon: '🏠', categories: ['Mercado'] }
-    ]);
-    
-    console.log('✅ Category groups and categories created');
+    // "Mercado" already exists by default (in "Hogar" group), no need to create it
+    console.log('✅ Using default "Mercado" category');
 
     // ==================================================================
     // STEP 4: Create SPLIT Movement (Equitable Split)
@@ -467,16 +463,15 @@ async function testMovementCompartido() {
       console.log(`  - Group: ${groupName}`);
     }
     
-    // First expand the "Casa" group that contains "Mercado"
-    const casaGroup = page.locator('.expense-group-card[data-group="Casa"]');
-    await casaGroup.waitFor({ state: 'visible', timeout: 5000 });
-    const casaHeader = casaGroup.locator('.expense-group-header');
-    await casaHeader.click();
+    // First expand the "Hogar" group that contains "Mercado"
+    const hogarGroup = page.locator('.expense-group-card[data-group="Hogar"]');
+    await hogarGroup.waitFor({ state: 'visible', timeout: 5000 });
+    const hogarHeader = hogarGroup.locator('.expense-group-header');
+    await hogarHeader.click();
     await page.waitForTimeout(500);
     
     // Then expand the "Mercado" category to see movements
-    // Note: data-category-id includes group prefix for uniqueness (e.g., "Casa_Mercado")
-    const mercadoCategory = page.locator('.expense-category-item[data-category-id="Casa_Mercado"]');
+    const mercadoCategory = page.locator('.expense-category-item[data-category-id="Hogar_Mercado"]');
     const mercadoHeader = mercadoCategory.locator('.expense-category-header');
     await mercadoHeader.click();
     await page.waitForTimeout(500);

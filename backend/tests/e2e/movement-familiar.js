@@ -1,6 +1,6 @@
 import { chromium } from 'playwright';
 import pg from 'pg';
-import { createGroupsAndCategoriesViaUI } from './helpers/category-helpers.js';
+import { skipOnboardingWizard, completeOnboardingViaDB } from './helpers/onboarding-helpers.js';
 const { Pool } = pg;
 
 /**
@@ -97,6 +97,7 @@ async function testMovementFamiliar() {
     // Get user ID from database
     const userResult = await pool.query('SELECT id FROM users WHERE email = $1', [userEmail]);
     userId = userResult.rows[0].id;
+    await completeOnboardingViaDB(pool, userId);
     
     // Create household
     await page.locator('#hamburger-btn').click();
@@ -112,7 +113,7 @@ async function testMovementFamiliar() {
     await page.waitForTimeout(1000);
     await page.locator('#modal-ok').click();
     await page.waitForTimeout(2000);
-    
+
     // Get household ID from database
     const householdResult = await pool.query('SELECT id FROM households WHERE name = $1', [householdName]);
     householdId = householdResult.rows[0].id;
@@ -152,15 +153,10 @@ async function testMovementFamiliar() {
     console.log('✅ Payment method added');
 
     // ==================================================================
-    // STEP 2.5: Create Category Groups and Categories
+    // STEP 2.5: Categories
     // ==================================================================
-    console.log('📝 Step 2.5: Creating category groups and categories...');
-    
-    await createGroupsAndCategoriesViaUI(page, appUrl, [
-      { name: 'Casa', icon: '🏠', categories: ['Mercado'] }
-    ]);
-    
-    console.log('✅ Category groups and categories created');
+    // "Mercado" already exists by default (in "Hogar" group), no need to create it
+    console.log('✅ Using default "Mercado" category');
 
     // ==================================================================
     // STEP 3: Navigate to Movement Form

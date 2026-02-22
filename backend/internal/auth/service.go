@@ -287,6 +287,11 @@ func (s *Service) GetUserBySession(ctx context.Context, sessionID string) (*User
 	return s.users.GetByID(ctx, session.UserID)
 }
 
+// CompleteOnboarding marks a user's onboarding as completed.
+func (s *Service) CompleteOnboarding(ctx context.Context, userID string) error {
+	return s.users.CompleteOnboarding(ctx, userID)
+}
+
 // RequestPasswordReset creates a password reset token.
 func (s *Service) RequestPasswordReset(ctx context.Context, email string) (string, error) {
 	email = strings.TrimSpace(strings.ToLower(email))

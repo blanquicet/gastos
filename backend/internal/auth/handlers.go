@@ -41,9 +41,10 @@ type LoginRequest struct {
 
 // UserResponse is the response for user info.
 type UserResponse struct {
-	ID    string `json:"id"`
-	Email string `json:"email"`
-	Name  string `json:"name"`
+	ID                  string `json:"id"`
+	Email               string `json:"email"`
+	Name                string `json:"name"`
+	OnboardingCompleted bool   `json:"onboarding_completed"`
 }
 
 // ForgotPasswordRequest is the request body for forgot password.
@@ -151,10 +152,34 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.respondJSON(w, UserResponse{
-		ID:    user.ID,
-		Email: user.Email,
-		Name:  user.Name,
+		ID:                  user.ID,
+		Email:               user.Email,
+		Name:                user.Name,
+		OnboardingCompleted: user.OnboardingCompletedAt != nil,
 	}, http.StatusOK)
+}
+
+// CompleteOnboarding handles POST /me/onboarding/complete
+func (h *Handler) CompleteOnboarding(w http.ResponseWriter, r *http.Request) {
+	cookie, err := r.Cookie(h.cookieName)
+	if err != nil {
+		h.respondError(w, "no autorizado", http.StatusUnauthorized)
+		return
+	}
+
+	user, err := h.service.GetUserBySession(r.Context(), cookie.Value)
+	if err != nil {
+		h.respondError(w, "no autorizado", http.StatusUnauthorized)
+		return
+	}
+
+	if err := h.service.CompleteOnboarding(r.Context(), user.ID); err != nil {
+		h.logger.Error("failed to complete onboarding", "error", err)
+		h.respondError(w, "error interno", http.StatusInternalServerError)
+		return
+	}
+
+	h.respondJSON(w, map[string]bool{"ok": true}, http.StatusOK)
 }
 
 // ForgotPassword handles POST /auth/forgot-password

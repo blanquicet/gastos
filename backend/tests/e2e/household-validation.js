@@ -1,5 +1,6 @@
 import { chromium } from 'playwright';
 import pg from 'pg';
+import { skipOnboardingWizard, completeOnboardingViaDB } from './helpers/onboarding-helpers.js';
 const { Pool } = pg;
 
 /**
@@ -69,8 +70,15 @@ async function testHouseholdValidation() {
     await page.locator('#household-name-input').fill(householdName);
     await page.locator('#household-create-btn').click();
     await page.waitForTimeout(1000);
+
+    // Complete onboarding BEFORE dismissing modal (which triggers page reload)
+    const userQuery = await pool.query('SELECT id FROM users WHERE email = $1', [userEmail]);
+    const userId = userQuery.rows[0].id;
+    await completeOnboardingViaDB(pool, userId);
+
     await page.locator('#modal-ok').click();
     await page.waitForTimeout(2000);
+
     
     // Navigate to household page
     await page.goto(`${apiUrl}/hogar`);

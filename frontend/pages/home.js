@@ -193,8 +193,194 @@ function renderNoHouseholdState() {
 }
 
 /**
- * Get icon for income type
+ * Onboarding wizard steps definition
  */
+const ONBOARDING_STEPS = [
+  {
+    icon: '📂',
+    title: 'Categorías',
+    desc: 'Las <strong>categorías</strong> te ayudan a organizar tus gastos (ej: Mercado, Subscripciones, Vacaciones, etc.).<br><br>Ya creamos unas de ejemplo para que empieces. Puedes editarlas o crear nuevas.',
+    actionLabel: 'Gestionar categorías',
+    actionRoute: '/hogar?section=categorias',
+  },
+  {
+    icon: '🏦',
+    title: 'Cuenta bancaria',
+    desc: 'Las <strong>cuentas bancarias</strong> es donde vive tu dinero. Se usan para registrar ingresos y recibir pagos de deudas. Ejemplo: Cuenta de ahorros, Efectivo.<br><br>Necesitas al menos una cuenta para registrar tu primer ingreso.',
+    actionLabel: 'Agregar cuenta',
+    actionRoute: '/perfil?action=add-account',
+  },
+  {
+    icon: '💳',
+    title: 'Método de pago',
+    desc: 'Para registrar gastos necesitas al menos un <strong>método de pago</strong>. Ejemplo: Tarjeta Débito de Bancolombia, Tarjeta Crédito de Nu.<br><br>Recuerda asociar las tarjetas de débito a una cuenta para que resten automáticamente el dinero de tu saldo disponible.',
+    actionLabel: 'Agregar método de pago',
+    actionRoute: '/perfil?action=add-payment-method',
+  },
+  {
+    icon: '👥',
+    title: 'Miembros y contactos',
+    desc: '<strong>Miembros</strong> son las personas que viven en este hogar con acceso a todos los movimientos.<br><br><strong>Contactos</strong> son personas con las que tienes transacciones ocasionales (amigos, familia externa, etc.).',
+    actionLabel: 'Ir a Mi hogar',
+    actionRoute: '/hogar?section=miembros,contactos',
+  },
+  {
+    icon: '✨',
+    title: 'Registra tu primer gasto',
+    desc: '¡Listo! Ya tienes todo lo necesario para empezar.<br><br>Registra tu primer gasto y lleva el control de tus finanzas.',
+    actionLabel: 'Registrar mi primer gasto',
+    actionRoute: '/registrar-movimiento',
+  },
+];
+
+/**
+ * Show onboarding wizard modal
+ */
+function showOnboardingWizard() {
+  // Prevent duplicate wizards
+  if (document.querySelector('[data-testid="onboarding-wizard"]')) return;
+
+  // Resume from saved step if user navigated away and came back
+  let currentStep = parseInt(localStorage.getItem('onboarding_current_step') || '0');
+  if (currentStep >= ONBOARDING_STEPS.length) currentStep = 0;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.setAttribute('data-testid', 'onboarding-wizard');
+
+  function renderStep() {
+    const step = ONBOARDING_STEPS[currentStep];
+    const isFirst = currentStep === 0;
+    const isLast = currentStep === ONBOARDING_STEPS.length - 1;
+
+    overlay.innerHTML = `
+      <div class="onboarding-wizard-card">
+        <div class="onboarding-step-title">${step.title}</div>
+        <div class="onboarding-step-desc">${step.desc}</div>
+        <div class="onboarding-dots">
+          ${ONBOARDING_STEPS.map((_, i) => 
+            `<div class="onboarding-dot ${i === currentStep ? 'active' : ''}"></div>`
+          ).join('')}
+        </div>
+        <div class="onboarding-actions">
+          ${isLast ? `
+            <div class="onboarding-nav">
+              <button class="onboarding-btn-secondary" data-wiz="prev">← Anterior</button>
+              <button class="onboarding-btn-primary" data-wiz="finish">${step.actionLabel}</button>
+            </div>
+          ` : `
+            <div class="onboarding-nav">
+              ${!isFirst ? '<button class="onboarding-btn-secondary" data-wiz="prev">← Anterior</button>' : ''}
+              <button class="onboarding-btn-primary" data-wiz="next">Siguiente →</button>
+            </div>
+            ${step.actionLabel ? `<button class="onboarding-btn-secondary" data-wiz="action">${step.actionLabel}</button>` : ''}
+          `}
+          <button class="onboarding-skip" data-wiz="skip" data-testid="skip-wizard">Omitir guía</button>
+        </div>
+      </div>
+    `;
+
+    const card = overlay.querySelector('.onboarding-wizard-card');
+    card.addEventListener('click', (e) => {
+      const action = e.target.closest('[data-wiz]')?.dataset.wiz;
+      if (!action) return;
+      e.stopPropagation();
+      if (action === 'next') { currentStep++; localStorage.setItem('onboarding_current_step', currentStep); renderStep(); }
+      else if (action === 'prev') { currentStep--; localStorage.setItem('onboarding_current_step', currentStep); renderStep(); }
+      else if (action === 'skip') { finishWizard(); }
+      else if (action === 'action') {
+        // Save progress and navigate — wizard will resume on next home visit
+        localStorage.setItem('onboarding_current_step', currentStep + 1);
+        overlay.remove();
+        router.navigate(step.actionRoute);
+      }
+      else if (action === 'finish') { finishWizard(); router.navigate(step.actionRoute); }
+    });
+  }
+
+  function finishWizard() {
+    localStorage.removeItem('onboarding_current_step');
+    overlay.remove();
+    document.getElementById('onboarding-checklist')?.remove();
+    // Mark onboarding as completed on server
+    fetch(`${API_URL}/me/onboarding/complete`, { method: 'POST', credentials: 'include' });
+    if (currentUser) currentUser.onboarding_completed = true;
+  }
+
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      localStorage.setItem('onboarding_current_step', String(currentStep));
+      overlay.remove();
+      injectChecklistBanner();
+    }
+  });
+
+  document.body.appendChild(overlay);
+  renderStep();
+}
+
+/**
+ * Inject checklist banner into the current page (after wizard dismiss)
+ */
+function injectChecklistBanner() {
+  document.getElementById('onboarding-checklist')?.remove();
+
+  const html = renderOnboardingChecklist();
+  if (!html) return;
+
+  const container = document.getElementById('onboarding-banner-home');
+  if (container) {
+    container.innerHTML = html;
+    setupOnboardingChecklist();
+  }
+}
+
+/**
+ * Render onboarding checklist banner (shown in home until setup is complete)
+ */
+function renderOnboardingChecklist() {
+  if (currentUser?.onboarding_completed) return '';
+  
+  const currentStep = parseInt(localStorage.getItem('onboarding_current_step') || '-1');
+  if (currentStep < 0) return '';
+
+  const stepTitles = ONBOARDING_STEPS.map(s => s.title);
+  const stepIndex = Math.min(currentStep, stepTitles.length - 1);
+  const progress = `${stepIndex + 1}/${stepTitles.length}`;
+
+  return `
+    <div class="link-request-banner-stack" id="onboarding-checklist" style="margin-bottom:0;">
+      <div class="link-request-banner" id="onboarding-checklist-click" style="position:relative; cursor:pointer;">
+        <div class="link-request-banner-icon">📋</div>
+        <div class="link-request-banner-content">
+          <div class="link-request-banner-title">Guía de configuración (${progress})</div>
+          <div class="link-request-banner-subtitle">Siguiente: ${stepTitles[stepIndex]}</div>
+        </div>
+        <div class="link-request-banner-arrow" id="onboarding-dismiss" style="font-size:18px;font-weight:bold;">✕</div>
+      </div>
+    </div>
+  `;
+}
+
+function setupOnboardingChecklist() {
+  const banner = document.getElementById('onboarding-checklist-click');
+  if (!banner) return;
+
+  const dismissBtn = document.getElementById('onboarding-dismiss');
+  if (dismissBtn) {
+    dismissBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.getElementById('onboarding-checklist')?.remove();
+      fetch(`${API_URL}/me/onboarding/complete`, { method: 'POST', credentials: 'include' });
+      if (currentUser) currentUser.onboarding_completed = true;
+    });
+  }
+
+  banner.addEventListener('click', (e) => {
+    if (e.target.id === 'onboarding-dismiss') return;
+    showOnboardingWizard();
+  });
+}
 function getIncomeTypeIcon(type) {
   const icons = {
     'salary': '💰',
@@ -1227,6 +1413,8 @@ export function render(user) {
       </header>
 
       ${renderTabs()}
+
+      <div id="onboarding-banner-home" style="margin: 16px 0 0;"></div>
       
       <div class="dashboard-content">
         ${activeTab === 'gastos' && movementsData ? `
@@ -6286,14 +6474,18 @@ export async function setup() {
       createBtn.addEventListener('click', async () => {
         const household = await showCreateHouseholdModal(API_URL);
         if (household) {
-          // Show success modal and wait for user to click OK
           await showSuccess('¡Hogar creado!', `Tu hogar <strong>${household.name}</strong> ha sido creado exitosamente.`);
-          // Navigate to profile to complete setup
-          window.location.href = '/perfil';
+          // Reload page so dashboard loads behind the wizard
+          window.location.reload();
         }
       });
     }
     return; // Don't load any data
+  }
+
+  // Show onboarding wizard if not completed
+  if (!currentUser?.onboarding_completed) {
+    showOnboardingWizard();
   }
   
   // Load data based on active tab (gastos by default)
@@ -6309,6 +6501,13 @@ export async function setup() {
   
   // Remove active tab from reload set since we just loaded it
   tabsNeedingReload.delete(activeTab);
+
+  // Show onboarding checklist in dedicated container (outside dashboard-content so it persists across tabs)
+  const bannerContainer = document.getElementById('onboarding-banner-home');
+  if (bannerContainer) {
+    bannerContainer.innerHTML = renderOnboardingChecklist();
+    setupOnboardingChecklist();
+  }
   
   // Initial render of content - UPDATE THE DOM after loading data
   // contentContainer already declared above for no-household check

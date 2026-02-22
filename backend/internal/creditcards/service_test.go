@@ -10,10 +10,9 @@ func TestCalculateBillingCycle_NilCutoff(t *testing.T) {
 	date := time.Date(2026, time.January, 15, 0, 0, 0, 0, time.UTC)
 	cycle := CalculateBillingCycle(date, nil)
 
-	// January 15 is before cutoff (31), so cycle should be:
-	// Dec 1 (31+1=1) to Jan 31
+	// January 15 is before cutoff (31), so cycle is: Jan 1 to Feb 1 (exclusive)
 	expectedStart := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
-	expectedEnd := time.Date(2026, time.January, 31, 23, 59, 59, 999999999, time.UTC)
+	expectedEnd := time.Date(2026, time.February, 1, 0, 0, 0, 0, time.UTC)
 
 	if !cycle.StartDate.Equal(expectedStart) {
 		t.Errorf("StartDate = %v, want %v", cycle.StartDate, expectedStart)
@@ -29,9 +28,9 @@ func TestCalculateBillingCycle_BeforeCutoff(t *testing.T) {
 	date := time.Date(2026, time.January, 10, 0, 0, 0, 0, time.UTC)
 	cycle := CalculateBillingCycle(date, &cutoff)
 
-	// Day 10 < cutoff 15, so cycle is: Dec 16 to Jan 15
+	// Day 10 < cutoff 15, so cycle is: Dec 16 to Jan 16 (exclusive)
 	expectedStart := time.Date(2025, time.December, 16, 0, 0, 0, 0, time.UTC)
-	expectedEnd := time.Date(2026, time.January, 15, 23, 59, 59, 999999999, time.UTC)
+	expectedEnd := time.Date(2026, time.January, 16, 0, 0, 0, 0, time.UTC)
 
 	if !cycle.StartDate.Equal(expectedStart) {
 		t.Errorf("StartDate = %v, want %v", cycle.StartDate, expectedStart)
@@ -47,9 +46,9 @@ func TestCalculateBillingCycle_AfterCutoff(t *testing.T) {
 	date := time.Date(2026, time.January, 20, 0, 0, 0, 0, time.UTC)
 	cycle := CalculateBillingCycle(date, &cutoff)
 
-	// Day 20 > cutoff 15, so cycle is: Jan 16 to Feb 15
+	// Day 20 > cutoff 15, so cycle is: Jan 16 to Feb 16 (exclusive)
 	expectedStart := time.Date(2026, time.January, 16, 0, 0, 0, 0, time.UTC)
-	expectedEnd := time.Date(2026, time.February, 15, 23, 59, 59, 999999999, time.UTC)
+	expectedEnd := time.Date(2026, time.February, 16, 0, 0, 0, 0, time.UTC)
 
 	if !cycle.StartDate.Equal(expectedStart) {
 		t.Errorf("StartDate = %v, want %v", cycle.StartDate, expectedStart)
@@ -65,9 +64,9 @@ func TestCalculateBillingCycle_OnCutoffDay(t *testing.T) {
 	date := time.Date(2026, time.January, 15, 0, 0, 0, 0, time.UTC)
 	cycle := CalculateBillingCycle(date, &cutoff)
 
-	// Day 15 == cutoff 15, so cycle is: Dec 16 to Jan 15
+	// Day 15 == cutoff 15, so cycle is: Dec 16 to Jan 16 (exclusive)
 	expectedStart := time.Date(2025, time.December, 16, 0, 0, 0, 0, time.UTC)
-	expectedEnd := time.Date(2026, time.January, 15, 23, 59, 59, 999999999, time.UTC)
+	expectedEnd := time.Date(2026, time.January, 16, 0, 0, 0, 0, time.UTC)
 
 	if !cycle.StartDate.Equal(expectedStart) {
 		t.Errorf("StartDate = %v, want %v", cycle.StartDate, expectedStart)
@@ -83,9 +82,9 @@ func TestCalculateBillingCycle_EndOfYear(t *testing.T) {
 	date := time.Date(2025, time.December, 25, 0, 0, 0, 0, time.UTC)
 	cycle := CalculateBillingCycle(date, &cutoff)
 
-	// Day 25 > cutoff 20, so cycle is: Dec 21 to Jan 20
+	// Day 25 > cutoff 20, so cycle is: Dec 21 to Jan 21 (exclusive)
 	expectedStart := time.Date(2025, time.December, 21, 0, 0, 0, 0, time.UTC)
-	expectedEnd := time.Date(2026, time.January, 20, 23, 59, 59, 999999999, time.UTC)
+	expectedEnd := time.Date(2026, time.January, 21, 0, 0, 0, 0, time.UTC)
 
 	if !cycle.StartDate.Equal(expectedStart) {
 		t.Errorf("StartDate = %v, want %v", cycle.StartDate, expectedStart)
@@ -102,9 +101,9 @@ func TestCalculateBillingCycle_February(t *testing.T) {
 	cycle := CalculateBillingCycle(date, &cutoff)
 
 	// Day 15 < cutoff 30, but Feb only has 28 days
-	// So cycle is: Jan 31 to Feb 28
+	// So cycle is: Jan 31 to Mar 1 (exclusive, since Feb 28+1 = Mar 1)
 	expectedStart := time.Date(2026, time.January, 31, 0, 0, 0, 0, time.UTC)
-	expectedEnd := time.Date(2026, time.February, 28, 23, 59, 59, 999999999, time.UTC)
+	expectedEnd := time.Date(2026, time.March, 1, 0, 0, 0, 0, time.UTC)
 
 	if !cycle.StartDate.Equal(expectedStart) {
 		t.Errorf("StartDate = %v, want %v", cycle.StartDate, expectedStart)

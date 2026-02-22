@@ -1,5 +1,6 @@
 import { chromium } from 'playwright';
 import pg from 'pg';
+import { skipOnboardingWizard, completeOnboardingViaDB } from './helpers/onboarding-helpers.js';
 const { Pool } = pg;
 
 /**
@@ -82,9 +83,15 @@ async function testHouseholdInvitation() {
     await page1.locator('#household-create-btn').click();
     await page1.waitForTimeout(2000);
     
+    // Complete onboarding BEFORE dismissing modal (which triggers page reload)
+    const user1Query = await pool.query('SELECT id FROM users WHERE email = $1', [user1Email]);
+    const user1Id = user1Query.rows[0].id;
+    await completeOnboardingViaDB(pool, user1Id);
+
     // Click OK on success modal
     await page1.locator('#modal-ok').click();
     await page1.waitForTimeout(2000);
+
     
     console.log('✅ Household created');
 

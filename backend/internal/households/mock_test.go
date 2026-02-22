@@ -9,6 +9,13 @@ import (
 	"github.com/blanquicet/conti/backend/internal/auth"
 )
 
+// MockCategoriesRepo is a no-op mock for DefaultCategoriesCreator
+type MockCategoriesRepo struct{}
+
+func (m *MockCategoriesRepo) CreateDefaultCategories(ctx context.Context, householdID string) error {
+	return nil
+}
+
 // MockHouseholdRepository is a mock implementation for testing
 type MockHouseholdRepository struct {
 	households  map[string]*Household
@@ -388,6 +395,16 @@ func (m *MockUserRepository) Delete(ctx context.Context, id string) error {
 		return auth.ErrUserNotFound
 	}
 	delete(m.users, id)
+	return nil
+}
+
+func (m *MockUserRepository) CompleteOnboarding(ctx context.Context, id string) error {
+	user, ok := m.users[id]
+	if !ok {
+		return auth.ErrUserNotFound
+	}
+	now := time.Now()
+	user.OnboardingCompletedAt = &now
 	return nil
 }
 

@@ -7,6 +7,7 @@
 import { chromium } from 'playwright';
 import pg from 'pg';
 import { createGroupsAndCategoriesViaUI, getCategoryIds } from './helpers/category-helpers.js';
+import { skipOnboardingWizard, completeOnboardingViaDB } from './helpers/onboarding-helpers.js';
 const { Pool } = pg;
 
 const appUrl = process.env.APP_URL || 'http://localhost:8080';
@@ -61,9 +62,18 @@ async function testTemplates() {
     await page.locator('#household-name-input').fill(householdName);
     await page.locator('#household-create-btn').click();
     await page.waitForTimeout(1000);
+
+    // Complete onboarding BEFORE dismissing modal (which triggers page reload)
+    const userQuery = await pool.query(
+      'SELECT id FROM users WHERE email = $1',
+      [userEmail]
+    );
+    const userId = userQuery.rows[0].id;
+    await completeOnboardingViaDB(pool, userId);
+
     await page.locator('#modal-ok').click();
     await page.waitForTimeout(2000);
-    
+
     console.log('✅ User and household created');
     
     // Get household ID
@@ -74,8 +84,10 @@ async function testTemplates() {
     const householdId = householdQuery.rows[0].id;
     
     // Create test categories via UI
+    // "Mercado" already exists by default (in "Hogar" group)
+    // Only create "Casa" group with "Gastos fijos" category
     await createGroupsAndCategoriesViaUI(page, appUrl, [
-      { name: 'Casa', icon: '🏠', categories: ['Mercado', 'Gastos fijos'] }
+      { name: 'Casa', icon: '🏠', categories: ['Gastos fijos'] }
     ]);
     
     // Get category IDs from DB (needed for template creation)
@@ -86,13 +98,6 @@ async function testTemplates() {
     ];
     
     console.log(`✅ Created ${categoryIds.length} test categories via UI`);
-    
-    // Get user ID for payment method
-    const userQuery = await pool.query(
-      'SELECT id FROM users WHERE email = $1',
-      [userEmail]
-    );
-    const userId = userQuery.rows[0].id;
     
     // Create test payment method via database
     const paymentMethodResult = await pool.query(
@@ -118,9 +123,9 @@ async function testTemplates() {
     await presupuestoTab.click();
     await page.waitForTimeout(1500);
     
-    // Expand Casa group to see categories
-    const casaGroupHeader = page.locator('.expense-group-header').filter({ hasText: 'Casa' });
-    await casaGroupHeader.click();
+    // Expand Hogar group to see Mercado category
+    const hogarGroupHeader = page.locator('.expense-group-header').filter({ hasText: 'Hogar' });
+    await hogarGroupHeader.click();
     await page.waitForTimeout(500);
     
     // Click on Mercado category to expand it
@@ -189,8 +194,8 @@ async function testTemplates() {
     await presupuestoTab.click();
     await page.waitForTimeout(1500);
     
-    // Expand Casa group
-    const casaGroupHeader2 = page.locator('.expense-group-header').filter({ hasText: 'Casa' });
+    // Expand Hogar group (Mercado is in Hogar)
+    const casaGroupHeader2 = page.locator('.expense-group-header').filter({ hasText: 'Hogar' });
     await casaGroupHeader2.click();
     await page.waitForTimeout(500);
     
@@ -323,8 +328,8 @@ async function testTemplates() {
     await presupuestoTab.click();
     await page.waitForTimeout(1500);
     
-    // Expand Casa group to see categories
-    const casaGroup4 = page.locator('.expense-group-header').filter({ hasText: 'Casa' });
+    // Expand Hogar group to see categories (Mercado is in Hogar)
+    const casaGroup4 = page.locator('.expense-group-header').filter({ hasText: 'Hogar' });
     if (await casaGroup4.count() > 0) {
       await casaGroup4.click();
       await page.waitForTimeout(500);
@@ -393,8 +398,8 @@ async function testTemplates() {
     // Wait for any animations to finish
     await page.waitForTimeout(1000);
     
-    // Step 1: Re-expand Casa group (click twice to ensure it's expanded, first might collapse, second expands)
-    const casaGroupAgain = page.locator('.expense-group-header').filter({ hasText: 'Casa' }).first();
+    // Step 1: Re-expand Hogar group (click twice to ensure it's expanded, first might collapse, second expands)
+    const casaGroupAgain = page.locator('.expense-group-header').filter({ hasText: 'Hogar' }).first();
     await casaGroupAgain.waitFor({ state: 'visible', timeout: 5000 });
     await casaGroupAgain.click(); // First click (might collapse if expanded, or expand if collapsed)
     await page.waitForTimeout(300);
@@ -456,8 +461,8 @@ async function testTemplates() {
     // After success modal, all groups collapse again - re-expand everything
     await page.waitForTimeout(1000);
     
-    // Step 1: Re-expand Casa group (double click to ensure)
-    const casaGroupOnceMore = page.locator('.expense-group-header').filter({ hasText: 'Casa' }).first();
+    // Step 1: Re-expand Hogar group (double click to ensure)
+    const casaGroupOnceMore = page.locator('.expense-group-header').filter({ hasText: 'Hogar' }).first();
     await casaGroupOnceMore.waitFor({ state: 'visible', timeout: 5000 });
     await casaGroupOnceMore.click();
     await page.waitForTimeout(300);
@@ -690,8 +695,8 @@ async function testTemplates() {
     await presupuestoTab.click();
     await page.waitForTimeout(1500);
     
-    // Expand Casa group
-    const casaGroupForTest9 = page.locator('.expense-group-header').filter({ hasText: 'Casa' });
+    // Expand Hogar group (Mercado is in Hogar)
+    const casaGroupForTest9 = page.locator('.expense-group-header').filter({ hasText: 'Hogar' });
     await casaGroupForTest9.click();
     await page.waitForTimeout(700);
     

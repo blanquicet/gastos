@@ -320,9 +320,7 @@ func (r *PostgresRepository) Reorder(ctx context.Context, householdID string, ca
 	return tx.Commit(ctx)
 }
 
-// CreateDefaultCategories creates the default categories for a new household
-// Note: This function creates categories without category groups.
-// Category groups should be created separately and then categories assigned to them.
+// CreateDefaultCategories creates the default category groups and categories for a new household
 func (r *PostgresRepository) CreateDefaultCategories(ctx context.Context, householdID string) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -331,11 +329,31 @@ func (r *PostgresRepository) CreateDefaultCategories(ctx context.Context, househ
 	defer tx.Rollback(ctx)
 
 	defaults := GetDefaultCategories()
+
+	// Collect unique groups
+	groupIDs := make(map[string]string)
 	for _, def := range defaults {
+		if _, exists := groupIDs[def.CategoryGroup]; !exists {
+			var groupID string
+			err := tx.QueryRow(ctx, `
+				INSERT INTO category_groups (household_id, name, icon)
+				VALUES ($1, $2, $3)
+				RETURNING id
+			`, householdID, def.CategoryGroup, def.GroupIcon).Scan(&groupID)
+			if err != nil {
+				return err
+			}
+			groupIDs[def.CategoryGroup] = groupID
+		}
+	}
+
+	// Create categories with group assignment
+	for _, def := range defaults {
+		groupID := groupIDs[def.CategoryGroup]
 		_, err := tx.Exec(ctx, `
-			INSERT INTO categories (household_id, name, display_order)
-			VALUES ($1, $2, $3)
-		`, householdID, def.Name, def.DisplayOrder)
+			INSERT INTO categories (household_id, name, category_group_id, display_order)
+			VALUES ($1, $2, $3, $4)
+		`, householdID, def.Name, groupID, def.DisplayOrder)
 		if err != nil {
 			return err
 		}

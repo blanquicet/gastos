@@ -93,9 +93,6 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 		cfg.SessionDuration,
 	)
 
-	// Create household service
-	householdService := households.NewService(householdRepo, userRepo, auditService, emailSender)
-
 	// Create auth handler
 	authHandler := auth.NewHandler(
 		authService,
@@ -148,18 +145,9 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 		logger,
 	)
 	
-	// Create household handler (needs function to load shared payment methods)
 	loadSharedPM := func(ctx context.Context, householdID, userID string) (interface{}, error) {
 		return paymentMethodsService.ListSharedPaymentMethods(ctx, householdID, userID)
 	}
-	
-	householdHandler := households.NewHandler(
-		householdService,
-		authService,
-		loadSharedPM,
-		cfg.SessionCookieName,
-		logger,
-	)
 	
 	paymentMethodsHandler := paymentmethods.NewHandler(
 		paymentMethodsService,
@@ -178,6 +166,16 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 	categoriesHandler := categories.NewHandler(
 		categoriesService,
 		authService,
+		cfg.SessionCookieName,
+		logger,
+	)
+
+	// Create household service (needs categoriesRepo for default categories)
+	householdService := households.NewService(householdRepo, userRepo, categoriesRepo, auditService, emailSender)
+	householdHandler := households.NewHandler(
+		householdService,
+		authService,
+		loadSharedPM,
 		cfg.SessionCookieName,
 		logger,
 	)
@@ -314,6 +312,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 	mux.Handle("POST /auth/login", rateLimitAuth(http.HandlerFunc(authHandler.Login)))
 	mux.HandleFunc("POST /auth/logout", authHandler.Logout)
 	mux.HandleFunc("GET /me", authHandler.Me)
+	mux.HandleFunc("POST /me/onboarding/complete", authHandler.CompleteOnboarding)
 	mux.Handle("POST /auth/forgot-password", rateLimitReset(http.HandlerFunc(authHandler.ForgotPassword)))
 	mux.Handle("POST /auth/reset-password", rateLimitReset(http.HandlerFunc(authHandler.ResetPassword)))
 	mux.HandleFunc("DELETE /auth/account", authHandler.DeleteAccount)

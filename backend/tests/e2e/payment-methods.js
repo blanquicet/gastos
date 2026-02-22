@@ -1,5 +1,6 @@
 import { chromium } from 'playwright';
 import pg from 'pg';
+import { skipOnboardingWizard, completeOnboardingViaDB } from './helpers/onboarding-helpers.js';
 const { Pool } = pg;
 
 /**
@@ -80,9 +81,15 @@ async function testPaymentMethods() {
     await page1.locator('#household-name-input').fill(householdName);
     await page1.locator('#household-create-btn').click();
     await page1.waitForTimeout(1000);
+
+    // Complete onboarding BEFORE dismissing modal (which triggers page reload)
+    const user1Query = await pool.query('SELECT id FROM users WHERE email = $1', [user1Email]);
+    const user1Id = user1Query.rows[0].id;
+    await completeOnboardingViaDB(pool, user1Id);
+
     await page1.locator('#modal-ok').click();
     await page1.waitForTimeout(2000);
-    
+
     console.log('✅ User 1 registered and household created');
 
     // ==================================================================
