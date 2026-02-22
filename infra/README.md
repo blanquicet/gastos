@@ -26,7 +26,6 @@ graph TB
     subgraph "Azure Resource Group: gastos-rg"
         subgraph "Ya existente (no gestionado por TF)"
             SWA[Azure Static Web Apps<br/>gastos.blanquicet.com.co]
-            VM[VM con n8n + Caddy<br/>n8n.blanquicet.com.co]
         end
 
         subgraph "Gestionado por Terraform"
@@ -36,14 +35,12 @@ graph TB
     end
 
     SWA -->|"API calls"| API[Go API<br/>api.gastos.blanquicet.com.co]
-    API -->|"Auth queries"| PG
-    API -->|"Movimientos"| VM
+    API -->|"Queries"| PG
     PG --- DB
 
     style PG fill:#336791,color:#fff
     style DB fill:#336791,color:#fff
     style SWA fill:#0078d4,color:#fff
-    style VM fill:#f5f5f5,stroke:#333
     style API fill:#00ADD8,color:#fff
 ```
 

@@ -8,7 +8,7 @@
 # Prerrequisitos:
 # - Ejecutar: infra/scripts/setup-github-actions.sh
 # - Configurar secrets: ARM_CLIENT_ID, ARM_CLIENT_SECRET, ARM_SUBSCRIPTION_ID, ARM_TENANT_ID
-# - Configurar secrets: ALLOWED_ORIGINS, N8N_WEBHOOK_URL, N8N_API_KEY
+# - Configurar secrets: ALLOWED_ORIGINS
 #
 # Variables opcionales (GitHub Variables, no Secrets):
 # - AZURE_OPENAI_CHAT_DEPLOYMENT: deployment name (default: gpt-4o-mini)
@@ -44,8 +44,6 @@ env:
   ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
   ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
   TF_VAR_allowed_origins: ${{ secrets.ALLOWED_ORIGINS }}
-  TF_VAR_n8n_webhook_url: ${{ secrets.N8N_WEBHOOK_URL }}
-  TF_VAR_n8n_api_key: ${{ secrets.N8N_API_KEY }}
   TF_VAR_email_provider: "resend"
   TF_VAR_email_api_key: ${{ secrets.EMAIL_API_KEY }}
   TF_VAR_email_from_address: "noreply@conti.blanquicet.com.co"

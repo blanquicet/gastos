@@ -40,22 +40,11 @@ go run ./cmd/api/main.go
 **Variables de entorno:**
 
 - El backend usa las variables definidas en el archivo `.env`
-- Asegúrate de tener configurado: `DATABASE_URL`, `N8N_WEBHOOK_URL`, `SESSION_COOKIE_SECURE`, `STATIC_DIR`
+- Asegúrate de tener configurado: `DATABASE_URL`, `SESSION_COOKIE_SECURE`, `STATIC_DIR`
 
-### 3. n8n (Servicio externo)
+### 3. Base de datos
 
-⚠️ **IMPORTANTE**: n8n debe estar corriendo para que los movimientos se guarden en Google Sheets.
-
-**Verificar que n8n está disponible:**
-```bash
-curl -I <URL_DEL_WEBHOOK_N8N>
-# Verificar la URL configurada en tu archivo .env
-```
-
-**Si hay errores relacionados con n8n:**
-- El backend retornará status 500 con mensaje: "Failed to record movement"
-- El frontend mostrará: "No se pudo conectar con n8n para guardar el movimiento en Google Sheets"
-- **Solución**: Asegúrate que n8n está corriendo antes de continuar con los tests
+PostgreSQL es la única fuente de verdad para todos los datos.
 
 ## Instalación de Playwright (Already installed)
 
@@ -131,8 +120,6 @@ WHERE user_id = (SELECT id FROM users WHERE email = 'test-playwright@example.com
 ```
 
 ### Test 3: Registro de Movimientos
-
-⚠️ **Antes de ejecutar**: Preguntar al usuario si n8n está corriendo.
 
 #### 3.1 Movimiento FAMILIAR
 
@@ -283,19 +270,6 @@ WHERE user_id = (SELECT id FROM users WHERE email = 'test-playwright@example.com
 - Al obtener foco: muestra número sin formato
 
 ## Manejo de Errores
-
-### Error: n8n no disponible
-
-**Síntomas:**
-- Backend retorna HTTP 500
-- Mensaje: "Failed to record movement"
-- Frontend muestra: "No se pudo conectar con n8n para guardar el movimiento en Google Sheets"
-
-**Solución:**
-1. Preguntar al usuario: "¿Está corriendo n8n?"
-2. Esperar confirmación antes de continuar
-3. Si no está corriendo, pedir que lo inicie
-4. Reintentar el test
 
 ### Error: Backend no disponible
 
@@ -646,43 +620,16 @@ WHERE user_id = (SELECT id FROM users WHERE email = 'test-playwright@example.com
 
 ### Validaciones del Backend (errores esperados)
 
-- [ ] n8n no disponible → HTTP 500 con mensaje específico
 - [ ] Base de datos no disponible → error de conexión
 - [ ] Sesión expirada → redirección a /login
 
 ## Notas para Copilot al Ejecutar Tests
 
-1. **Antes de test de movimientos**: Siempre preguntar si n8n está corriendo
-2. **Casos de error son importantes**: No solo probar casos felices
+1. **Casos de error son importantes**: No solo probar casos felices
 3. **Validar mensajes de error**: Verificar que los mensajes sean claros y útiles
 4. **Probar límites**: Números grandes, muchos participantes, porcentajes con decimales
 5. **UI responsivo**: Verificar que campos aparecen/desaparecen correctamente
 6. **Formato de números**: Probar ciclo focus/blur múltiples veces
-
-## Verificación de Google Sheets
-
-Después de cada movimiento registrado con éxito, verificar en Google Sheets:
-
-**Columnas esperadas:**
-
-- Fecha: `2025-12-23` (o fecha actual)
-- Tipo: `FAMILIAR`, `COMPARTIDO`, o `PAGO_DEUDA`
-- Descripción: texto ingresado
-- Categoría: categoría seleccionada (NO debe ser "undefined")
-- Valor: número sin formato (ej: `150000`)
-- Pagador: nombre o vacío para FAMILIAR
-- Contraparte: nombre para PAGO_DEUDA, vacío para otros
-- Método de pago: nombre del método
-- Participantes: JSON array para COMPARTIDO, vacío para otros
-
-## Notas Importantes
-
-1. **Categoría es obligatoria para TODOS los tipos** (incluyendo COMPARTIDO)
-2. **Los porcentajes se envían como decimales** (0.3333, no 33.33)
-3. **El login siempre muestra el formulario de login primero** (bug fix aplicado)
-4. **n8n debe estar corriendo** para que los movimientos se guarden en Sheets
-5. **Formato de valores con comas** (71,033.90) aplica a monto total y participantes en modo valor
-6. **Prefijo COP consistente**: aparece a la izquierda en todos los campos de valor
 
 ## Errores Comunes al Usar Playwright
 

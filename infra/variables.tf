@@ -56,19 +56,6 @@ variable "allowed_origins" {
   default     = ""
 }
 
-variable "n8n_webhook_url" {
-  description = "n8n webhook URL for movement registration (set via TF_VAR_n8n_webhook_url in CI/CD)"
-  type        = string
-  default     = ""
-}
-
-variable "n8n_api_key" {
-  description = "n8n API key for authentication (set via TF_VAR_n8n_api_key in CI/CD)"
-  type        = string
-  sensitive   = true
-  default     = ""
-}
-
 variable "email_provider" {
   description = "Email provider: noop, smtp, sendgrid, or resend"
   type        = string

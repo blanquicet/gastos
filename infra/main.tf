@@ -200,16 +200,6 @@ resource "azurerm_container_app" "api" {
       }
 
       env {
-        name  = "N8N_WEBHOOK_URL"
-        value = var.n8n_webhook_url
-      }
-
-      env {
-        name  = "N8N_API_KEY"
-        value = var.n8n_api_key
-      }
-
-      env {
         name  = "EMAIL_PROVIDER"
         value = var.email_provider
       }
