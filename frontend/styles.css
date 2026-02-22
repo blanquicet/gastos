@@ -2867,12 +2867,12 @@ button.loading::after {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: #111827;
-  color: white;
-  border: none;
-  font-size: 20px;
+  background: #fff;
+  color: #111827;
+  border: 1px solid #e5e7eb;
+  font-size: 22px;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   transition: transform 0.2s, box-shadow 0.2s;
   z-index: 100;
   display: flex;
@@ -2882,7 +2882,8 @@ button.loading::after {
 
 .btn-assistant-floating:hover {
   transform: scale(1.08);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+  border-color: #10b981;
 }
 
 .floating-actions {
