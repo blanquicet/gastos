@@ -85,10 +85,10 @@ export function setup() {
 
   // Detect supported format
   const audioFormats = [
-    { mime: 'audio/mp4',              ext: 'mp4' },
-    { mime: 'audio/webm;codecs=opus', ext: 'webm' },
+    { mime: 'audio/ogg;codecs=opus',  ext: 'ogg' },   // Best: Azure accepts directly, no ffmpeg
+    { mime: 'audio/webm;codecs=opus', ext: 'webm' },  // Good: fast remux to OGG (~50ms)
     { mime: 'audio/webm',             ext: 'webm' },
-    { mime: 'audio/ogg;codecs=opus',  ext: 'ogg' },
+    { mime: 'audio/mp4',              ext: 'mp4' },    // Safari: full transcode to WAV (~2-3s)
   ];
 
   const supportedFormat = typeof MediaRecorder !== 'undefined'
