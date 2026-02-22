@@ -34,9 +34,6 @@ export function render(user) {
   return `
     <main class="card">
       <header class="header">
-        <a href="/perfil" class="back-link" id="back-to-profile">
-          ← Volver al perfil
-        </a>
         <div class="header-row">
           <h1>Mi hogar</h1>
           ${Navbar.render(user, '/hogar')}
