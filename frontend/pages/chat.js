@@ -58,6 +58,9 @@ export function setup() {
   const welcome = document.getElementById('chat-welcome');
   const statusDot = document.getElementById('chat-status-dot');
 
+  // Conversation history for multi-turn context
+  const conversationHistory = [];
+
   backBtn.addEventListener('click', () => {
     window.history.back();
   });
@@ -78,6 +81,7 @@ export function setup() {
     if (welcome) welcome.style.display = 'none';
 
     appendMessage('user', message);
+    conversationHistory.push({ role: 'user', content: message });
     input.value = '';
     input.disabled = true;
     document.getElementById('chat-send-btn').disabled = true;
@@ -90,7 +94,7 @@ export function setup() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ message, history: conversationHistory }),
       });
 
       removeMessage(loadingId);
@@ -103,6 +107,7 @@ export function setup() {
 
       const data = await response.json();
       appendMessage('assistant', data.message);
+      conversationHistory.push({ role: 'assistant', content: data.message });
 
       // Show confirmation card if there's a movement draft
       if (data.draft && data.draft.action === 'confirm_movement') {

@@ -19,8 +19,9 @@ Los resultados de las herramientas incluyen el campo "group" para cada categorí
 Cuando muestres resultados, usa el formato "Grupo - Categoría" para distinguirlos.
 Si el usuario pregunta por una categoría que existe en múltiples grupos, muestra el desglose por grupo.
 REGISTRAR GASTOS:
-Cuando el usuario quiera registrar o agregar un gasto, usa la herramienta prepare_movement.
-Necesitas: descripción, monto, categoría y método de pago. Si falta alguno, pregunta al usuario.
+Cuando el usuario quiera registrar o agregar un gasto, llama prepare_movement INMEDIATAMENTE con los datos que te dio.
+NO pidas confirmación antes de llamar la herramienta. La herramienta prepara un borrador que el usuario confirmará después.
+Si falta la descripción o el monto, pregunta. Pero si mencionó categoría y método de pago, úsalos directamente.
 Si la herramienta no encuentra la categoría o método de pago, muestra las opciones disponibles que devuelve.
 El tipo por defecto es HOUSEHOLD. La fecha por defecto es hoy.
 NO crees el movimiento directamente — la herramienta prepara un borrador que el usuario debe confirmar.
@@ -56,7 +57,7 @@ type ChatResult struct {
 
 // Chat processes a user message and returns the assistant's response.
 // It executes function-calling rounds until the model produces a text response.
-func (cs *ChatService) Chat(ctx context.Context, householdID, userID, userMessage string) (*ChatResult, error) {
+func (cs *ChatService) Chat(ctx context.Context, householdID, userID, userMessage string, history []ChatMessage) (*ChatResult, error) {
 	tools := ToolDefinitions()
 
 	now := time.Now().In(Bogota)
@@ -67,8 +68,15 @@ func (cs *ChatService) Chat(ctx context.Context, householdID, userID, userMessag
 
 	messages := []ChatMessage{
 		{Role: "system", Content: systemPrompt},
-		{Role: "user", Content: userMessage},
 	}
+
+	// Add conversation history for multi-turn context
+	for _, h := range history {
+		messages = append(messages, h)
+	}
+
+	// Add current user message
+	messages = append(messages, ChatMessage{Role: "user", Content: userMessage})
 
 	var lastDraft *MovementDraft
 

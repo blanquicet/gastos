@@ -1,200 +1,214 @@
 package ai
 
 import (
-"encoding/json"
-"log/slog"
-"net/http"
-"sync"
-"time"
+	"encoding/json"
+	"log/slog"
+	"net/http"
+	"sync"
+	"time"
 
-"github.com/blanquicet/conti/backend/internal/auth"
-"github.com/blanquicet/conti/backend/internal/households"
-"github.com/blanquicet/conti/backend/internal/movements"
+	"github.com/blanquicet/conti/backend/internal/auth"
+	"github.com/blanquicet/conti/backend/internal/households"
+	"github.com/blanquicet/conti/backend/internal/movements"
 )
 
 // Handler provides HTTP endpoints for chat.
 type Handler struct {
-chatService      *ChatService
-authService      *auth.Service
-movementsService movements.Service
-householdRepo    households.HouseholdRepository
-cookieName       string
-logger           *slog.Logger
-rateLimiter      *rateLimiter
+	chatService      *ChatService
+	authService      *auth.Service
+	movementsService movements.Service
+	householdRepo    households.HouseholdRepository
+	cookieName       string
+	logger           *slog.Logger
+	rateLimiter      *rateLimiter
 }
 
 // NewHandler creates a new chat HTTP handler.
 func NewHandler(chatService *ChatService, authService *auth.Service, movementsService movements.Service, householdRepo households.HouseholdRepository, cookieName string, logger *slog.Logger) *Handler {
-return &Handler{
-chatService:      chatService,
-authService:      authService,
-movementsService: movementsService,
-householdRepo:    householdRepo,
-cookieName:       cookieName,
-logger:        logger,
-rateLimiter:   newRateLimiter(20, time.Minute),
-}
+	return &Handler{
+		chatService:      chatService,
+		authService:      authService,
+		movementsService: movementsService,
+		householdRepo:    householdRepo,
+		cookieName:       cookieName,
+		logger:           logger,
+		rateLimiter:      newRateLimiter(20, time.Minute),
+	}
 }
 
 type chatRequest struct {
-Message string `json:"message"`
+	Message string           `json:"message"`
+	History []historyMessage `json:"history,omitempty"`
+}
+
+type historyMessage struct {
+	Role    string `json:"role"` // "user" or "assistant"
+	Content string `json:"content"`
 }
 
 type chatResponse struct {
-Message string         `json:"message"`
-Draft   *MovementDraft `json:"draft,omitempty"`
+	Message string         `json:"message"`
+	Draft   *MovementDraft `json:"draft,omitempty"`
 }
 
 // HandleChat processes POST /chat requests.
 func (h *Handler) HandleChat(w http.ResponseWriter, r *http.Request) {
-if r.Method != http.MethodPost {
-http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-return
-}
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 
-// Authenticate via session cookie (same pattern as other handlers)
-cookie, err := r.Cookie(h.cookieName)
-if err != nil {
-http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
-return
-}
+	// Authenticate via session cookie (same pattern as other handlers)
+	cookie, err := r.Cookie(h.cookieName)
+	if err != nil {
+		http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
 
-user, err := h.authService.GetUserBySession(r.Context(), cookie.Value)
-if err != nil {
-http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
-return
-}
-userID := user.ID
+	user, err := h.authService.GetUserBySession(r.Context(), cookie.Value)
+	if err != nil {
+		http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
+	userID := user.ID
 
-// Resolve household
-hh, err := h.householdRepo.ListByUser(r.Context(), userID)
-if err != nil || len(hh) == 0 {
-http.Error(w, `{"error":"no household found"}`, http.StatusNotFound)
-return
-}
-householdID := hh[0].ID
+	// Resolve household
+	hh, err := h.householdRepo.ListByUser(r.Context(), userID)
+	if err != nil || len(hh) == 0 {
+		http.Error(w, `{"error":"no household found"}`, http.StatusNotFound)
+		return
+	}
+	householdID := hh[0].ID
 
-// Rate limiting
-if !h.rateLimiter.allow(userID) {
-w.Header().Set("Content-Type", "application/json")
-w.WriteHeader(http.StatusTooManyRequests)
-json.NewEncoder(w).Encode(map[string]string{"error": "demasiadas solicitudes, intenta en un momento"})
-return
-}
+	// Rate limiting
+	if !h.rateLimiter.allow(userID) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusTooManyRequests)
+		json.NewEncoder(w).Encode(map[string]string{"error": "demasiadas solicitudes, intenta en un momento"})
+		return
+	}
 
-// Parse request
-var req chatRequest
-if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Message == "" {
-http.Error(w, `{"error":"message is required"}`, http.StatusBadRequest)
-return
-}
+	// Parse request
+	var req chatRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Message == "" {
+		http.Error(w, `{"error":"message is required"}`, http.StatusBadRequest)
+		return
+	}
 
-// Process chat
-result, err := h.chatService.Chat(r.Context(), householdID, userID, req.Message)
-if err != nil {
-h.logger.Error("chat failed", "error", err, "user_id", userID)
-w.Header().Set("Content-Type", "application/json")
-w.WriteHeader(http.StatusInternalServerError)
-json.NewEncoder(w).Encode(map[string]string{"error": "error procesando tu pregunta"})
-return
-}
+	// Process chat
+	// Convert history to ChatMessage format
+	var history []ChatMessage
+	for _, h := range req.History {
+		if h.Role == "user" || h.Role == "assistant" {
+			history = append(history, ChatMessage{Role: h.Role, Content: h.Content})
+		}
+	}
 
-w.Header().Set("Content-Type", "application/json")
-json.NewEncoder(w).Encode(chatResponse{Message: result.Message, Draft: result.Draft})
+	result, err := h.chatService.Chat(r.Context(), householdID, userID, req.Message, history)
+	if err != nil {
+		h.logger.Error("chat failed", "error", err, "user_id", userID)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "error procesando tu pregunta"})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(chatResponse{Message: result.Message, Draft: result.Draft})
 }
 
 // HandleCreateMovement processes POST /chat/create-movement requests.
 func (h *Handler) HandleCreateMovement(w http.ResponseWriter, r *http.Request) {
-cookie, err := r.Cookie(h.cookieName)
-if err != nil {
-http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
-return
-}
+	cookie, err := r.Cookie(h.cookieName)
+	if err != nil {
+		http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
 
-user, err := h.authService.GetUserBySession(r.Context(), cookie.Value)
-if err != nil {
-http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
-return
-}
+	user, err := h.authService.GetUserBySession(r.Context(), cookie.Value)
+	if err != nil {
+		http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
 
-var draft MovementDraft
-if err := json.NewDecoder(r.Body).Decode(&draft); err != nil {
-http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
-return
-}
+	var draft MovementDraft
+	if err := json.NewDecoder(r.Body).Decode(&draft); err != nil {
+		http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
+		return
+	}
 
-// Parse date
-movDate, err := time.Parse("2006-01-02", draft.MovementDate)
-if err != nil {
-http.Error(w, `{"error":"invalid date format"}`, http.StatusBadRequest)
-return
-}
+	// Parse date
+	movDate, err := time.Parse("2006-01-02", draft.MovementDate)
+	if err != nil {
+		http.Error(w, `{"error":"invalid date format"}`, http.StatusBadRequest)
+		return
+	}
 
-// Create movement via existing service
-input := &movements.CreateMovementInput{
-Type:            movements.MovementType(draft.Type),
-Description:     draft.Description,
-Amount:          draft.Amount,
-MovementDate:    movDate,
-CategoryID:      &draft.CategoryID,
-PayerUserID:     &draft.PayerUserID,
-PaymentMethodID: &draft.PaymentMethodID,
-}
+	// Create movement via existing service
+	input := &movements.CreateMovementInput{
+		Type:            movements.MovementType(draft.Type),
+		Description:     draft.Description,
+		Amount:          draft.Amount,
+		MovementDate:    movDate,
+		CategoryID:      &draft.CategoryID,
+		PayerUserID:     &draft.PayerUserID,
+		PaymentMethodID: &draft.PaymentMethodID,
+	}
 
-movement, err := h.movementsService.Create(r.Context(), user.ID, input)
-if err != nil {
-h.logger.Error("failed to create movement from chat", "error", err, "user_id", user.ID)
-w.Header().Set("Content-Type", "application/json")
-w.WriteHeader(http.StatusBadRequest)
-json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
-return
-}
+	movement, err := h.movementsService.Create(r.Context(), user.ID, input)
+	if err != nil {
+		h.logger.Error("failed to create movement from chat", "error", err, "user_id", user.ID)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
 
-w.Header().Set("Content-Type", "application/json")
-json.NewEncoder(w).Encode(map[string]any{
-"success":     true,
-"movement_id": movement.ID,
-"message":     "Movimiento registrado exitosamente",
-})
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"success":     true,
+		"movement_id": movement.ID,
+		"message":     "Movimiento registrado exitosamente",
+	})
 }
 
 // --- Simple Rate Limiter ---
 
 type rateLimiter struct {
-mu       sync.Mutex
-limit    int
-window   time.Duration
-requests map[string][]time.Time
+	mu       sync.Mutex
+	limit    int
+	window   time.Duration
+	requests map[string][]time.Time
 }
 
 func newRateLimiter(limit int, window time.Duration) *rateLimiter {
-return &rateLimiter{
-limit:    limit,
-window:   window,
-requests: make(map[string][]time.Time),
-}
+	return &rateLimiter{
+		limit:    limit,
+		window:   window,
+		requests: make(map[string][]time.Time),
+	}
 }
 
 func (rl *rateLimiter) allow(key string) bool {
-rl.mu.Lock()
-defer rl.mu.Unlock()
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
 
-now := time.Now()
-cutoff := now.Add(-rl.window)
+	now := time.Now()
+	cutoff := now.Add(-rl.window)
 
-times := rl.requests[key]
-valid := times[:0]
-for _, t := range times {
-if t.After(cutoff) {
-valid = append(valid, t)
-}
-}
+	times := rl.requests[key]
+	valid := times[:0]
+	for _, t := range times {
+		if t.After(cutoff) {
+			valid = append(valid, t)
+		}
+	}
 
-if len(valid) >= rl.limit {
-rl.requests[key] = valid
-return false
-}
+	if len(valid) >= rl.limit {
+		rl.requests[key] = valid
+		return false
+	}
 
-rl.requests[key] = append(valid, now)
-return true
+	rl.requests[key] = append(valid, now)
+	return true
 }
