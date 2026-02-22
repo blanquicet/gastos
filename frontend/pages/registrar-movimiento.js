@@ -833,15 +833,17 @@ export async function setup() {
         freshCat.dispatchEvent(new Event('change'));
       }
 
-      // Payment method — ensure it's populated then set value
-      // showPaymentMethods may have already run during click, but call again to be safe
-      if (currentUser && currentUser.name) {
-        showPaymentMethods(currentUser.name, true);
-      }
-      await new Promise(r => setTimeout(r, 50));
-      const pmSelect = document.getElementById('metodo');
-      if (pmSelect && draft.payment_method_name) {
-        pmSelect.value = draft.payment_method_name;
+      // Payment method — find by ID in paymentMethods array, set by name (select uses name as value)
+      if (draft.payment_method_id) {
+        const pm = paymentMethods.find(p => p.id === draft.payment_method_id);
+        if (pm) {
+          // Ensure the select has been populated with this user's methods
+          if (currentUser && currentUser.name) {
+            showPaymentMethods(currentUser.name, true);
+          }
+          const pmSelect = document.getElementById('metodo');
+          if (pmSelect) pmSelect.value = pm.name;
+        }
       }
 
       hideFullScreenLoading();
