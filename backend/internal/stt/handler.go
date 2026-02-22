@@ -19,8 +19,8 @@ import (
 )
 
 const (
-maxUploadSize = 5 << 20  // 5MB
-maxWAVSize    = 2 << 20  // 2MB (30s PCM 16kHz mono ≈ 1MB)
+maxUploadSize = 10 << 20 // 10MB (60s recording)
+maxWAVSize    = 4 << 20  // 4MB (60s PCM 16kHz mono ≈ 2MB)
 ffmpegTimeout = 10 * time.Second
 speechTimeout = 15 * time.Second
 tokenScope    = "https://cognitiveservices.azure.com/.default"

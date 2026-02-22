@@ -41,6 +41,10 @@ export function render() {
             autocomplete="off"
             autofocus
           />
+          <div id="chat-voice-overlay" class="chat-voice-overlay" style="display:none">
+            <canvas id="chat-volume-canvas" class="chat-volume-canvas"></canvas>
+            <span id="chat-voice-label" class="chat-voice-label">🎙️ 0s</span>
+          </div>
           <button type="submit" id="chat-send-btn" aria-label="Enviar">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
           </button>
@@ -48,7 +52,6 @@ export function render() {
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
           </button>
         </form>
-        <div id="chat-recording-status" class="chat-recording-status" style="display:none"></div>
       </div>
     </div>
   `;
@@ -67,12 +70,18 @@ export function setup() {
 
   // --- Voice Recording ---
   const micBtn = document.getElementById('chat-mic-btn');
-  const recordingStatus = document.getElementById('chat-recording-status');
+  const sendBtn = document.getElementById('chat-send-btn');
+  const voiceOverlay = document.getElementById('chat-voice-overlay');
+  const voiceLabel = document.getElementById('chat-voice-label');
+  const volumeCanvas = document.getElementById('chat-volume-canvas');
   let mediaRecorder = null;
   let audioChunks = [];
   let recordingTimer = null;
   let durationInterval = null;
   let recordingSeconds = 0;
+  let audioContext = null;
+  let analyser = null;
+  let animFrameId = null;
 
   // Detect supported format
   const audioFormats = [
@@ -92,20 +101,62 @@ export function setup() {
     micBtn.disabled = true;
   }
 
+  function showVoiceOverlay(text) {
+    input.style.display = 'none';
+    voiceOverlay.style.display = 'flex';
+    voiceLabel.textContent = text;
+    sendBtn.disabled = true;
+  }
+
+  function hideVoiceOverlay() {
+    voiceOverlay.style.display = 'none';
+    input.style.display = '';
+    sendBtn.disabled = false;
+    if (animFrameId) { cancelAnimationFrame(animFrameId); animFrameId = null; }
+  }
+
+  function drawVolume() {
+    if (!analyser || !volumeCanvas) return;
+    const ctx = volumeCanvas.getContext('2d');
+    const w = volumeCanvas.width = volumeCanvas.offsetWidth * 2;
+    const h = volumeCanvas.height = volumeCanvas.offsetHeight * 2;
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    analyser.getByteFrequencyData(data);
+
+    ctx.clearRect(0, 0, w, h);
+    const bars = 24;
+    const barW = w / bars - 2;
+    const step = Math.floor(data.length / bars);
+
+    for (let i = 0; i < bars; i++) {
+      const val = data[i * step] / 255;
+      const barH = Math.max(2, val * h * 0.9);
+      ctx.fillStyle = `rgba(16, 185, 129, ${0.4 + val * 0.6})`;
+      ctx.fillRect(i * (barW + 2), (h - barH) / 2, barW, barH);
+    }
+
+    animFrameId = requestAnimationFrame(drawVolume);
+  }
+
   micBtn.addEventListener('click', async () => {
     if (!supportedFormat) return;
 
     if (mediaRecorder && mediaRecorder.state === 'recording') {
-      // Stop recording
       mediaRecorder.stop();
       return;
     }
 
-    // Start recording
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioChunks = [];
       recordingSeconds = 0;
+
+      // Setup volume analyser
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const source = audioContext.createMediaStreamSource(stream);
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
 
       mediaRecorder = new MediaRecorder(stream, { mimeType: supportedFormat.mime });
 
@@ -114,27 +165,25 @@ export function setup() {
       };
 
       mediaRecorder.onstop = async () => {
-        // Cleanup
         stream.getTracks().forEach(t => t.stop());
         clearTimeout(recordingTimer);
         clearInterval(durationInterval);
+        if (audioContext) { audioContext.close(); audioContext = null; }
+        if (animFrameId) { cancelAnimationFrame(animFrameId); animFrameId = null; }
         micBtn.classList.remove('recording');
 
         const blob = new Blob(audioChunks, { type: supportedFormat.mime });
         audioChunks = [];
 
-        if (blob.size > 5 * 1024 * 1024) {
-          recordingStatus.textContent = 'Audio muy largo. Intenta de nuevo.';
-          recordingStatus.style.display = 'block';
-          setTimeout(() => { recordingStatus.style.display = 'none'; }, 3000);
+        if (blob.size > 10 * 1024 * 1024) {
+          showVoiceOverlay('Audio muy largo. Intenta de nuevo.');
+          setTimeout(hideVoiceOverlay, 3000);
           return;
         }
 
-        // Transcribe
-        recordingStatus.textContent = 'Transcribiendo...';
-        recordingStatus.style.display = 'block';
+        // Transcribing state
+        showVoiceOverlay('Transcribiendo...');
         micBtn.disabled = true;
-        input.disabled = true;
 
         try {
           const formData = new FormData();
@@ -149,52 +198,52 @@ export function setup() {
 
           const data = await resp.json();
 
+          hideVoiceOverlay();
+
           if (resp.ok && data.text) {
             input.value = data.text;
             input.focus();
           } else if (resp.ok && !data.text) {
-            recordingStatus.textContent = 'No pude entenderte. Intenta de nuevo.';
-            setTimeout(() => { recordingStatus.style.display = 'none'; }, 3000);
+            input.placeholder = 'No pude entenderte. Intenta de nuevo.';
+            setTimeout(() => { input.placeholder = 'Escribe tu pregunta...'; }, 3000);
           } else {
-            recordingStatus.textContent = data.error || 'Error al transcribir';
-            setTimeout(() => { recordingStatus.style.display = 'none'; }, 3000);
+            input.placeholder = data.error || 'Error al transcribir';
+            setTimeout(() => { input.placeholder = 'Escribe tu pregunta...'; }, 3000);
           }
         } catch (err) {
-          recordingStatus.textContent = 'Error de conexión';
-          setTimeout(() => { recordingStatus.style.display = 'none'; }, 3000);
+          hideVoiceOverlay();
+          input.placeholder = 'Error de conexión';
+          setTimeout(() => { input.placeholder = 'Escribe tu pregunta...'; }, 3000);
         } finally {
           micBtn.disabled = false;
-          input.disabled = false;
-          if (input.value) recordingStatus.style.display = 'none';
         }
       };
 
       mediaRecorder.start();
       micBtn.classList.add('recording');
-      recordingStatus.textContent = '🎙️ 0s';
-      recordingStatus.style.display = 'block';
+      showVoiceOverlay('🎙️ 0s');
+      drawVolume();
 
-      // Duration counter
       durationInterval = setInterval(() => {
         recordingSeconds++;
-        recordingStatus.textContent = `🎙️ ${recordingSeconds}s`;
+        voiceLabel.textContent = `🎙️ ${recordingSeconds}s`;
       }, 1000);
 
-      // Auto-stop at 30 seconds
+      // Auto-stop at 60 seconds
       recordingTimer = setTimeout(() => {
         if (mediaRecorder && mediaRecorder.state === 'recording') {
           mediaRecorder.stop();
         }
-      }, 30000);
+      }, 60000);
 
     } catch (err) {
+      hideVoiceOverlay();
       if (err.name === 'NotAllowedError') {
-        recordingStatus.textContent = 'Permiso de micrófono denegado';
+        input.placeholder = 'Permiso de micrófono denegado';
       } else {
-        recordingStatus.textContent = 'No se pudo acceder al micrófono';
+        input.placeholder = 'No se pudo acceder al micrófono';
       }
-      recordingStatus.style.display = 'block';
-      setTimeout(() => { recordingStatus.style.display = 'none'; }, 3000);
+      setTimeout(() => { input.placeholder = 'Escribe tu pregunta...'; }, 3000);
     }
   });
 
