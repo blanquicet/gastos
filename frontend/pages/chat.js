@@ -292,12 +292,16 @@ export function setup() {
     const loadingId = showTypingIndicator();
 
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000);
       const response = await fetch(`${API_URL}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({ message, history: conversationHistory }),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
 
       removeMessage(loadingId);
 
@@ -322,7 +326,10 @@ export function setup() {
       }
     } catch (err) {
       removeMessage(loadingId);
-      appendMessage('assistant', 'No se pudo conectar con el servidor. Verifica tu conexión.');
+      const msg = err.name === 'AbortError'
+        ? 'La respuesta tardó demasiado. Intenta de nuevo.'
+        : 'No se pudo conectar con el servidor. Verifica tu conexión.';
+      appendMessage('assistant', msg);
     } finally {
       input.disabled = false;
       document.getElementById('chat-send-btn').disabled = false;

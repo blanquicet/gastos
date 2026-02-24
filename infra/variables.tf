@@ -110,7 +110,7 @@ variable "tags" {
 variable "openai_location" {
   description = "Azure region for OpenAI resource (must have OpenAI model quota)"
   type        = string
-  default     = "eastus"
+  default     = "brazilsouth"
 }
 
 variable "azure_openai_chat_deployment" {
