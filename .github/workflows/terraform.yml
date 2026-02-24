@@ -52,7 +52,7 @@ env:
   # Azure OpenAI (non-sensitive config for chat endpoint)
   TF_VAR_azure_openai_chat_deployment: ${{ vars.AZURE_OPENAI_CHAT_DEPLOYMENT || 'gpt-4.1-mini' }}
   TF_VAR_azure_openai_api_version: ${{ vars.AZURE_OPENAI_API_VERSION || '2024-10-21' }}
-  TF_VAR_openai_location: ${{ vars.AZURE_OPENAI_LOCATION || 'eastus' }}
+  TF_VAR_openai_location: ${{ vars.AZURE_OPENAI_LOCATION || 'brazilsouth' }}
   TF_VAR_azure_openai_embeddings_deployment: ${{ vars.AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT || 'text-embedding-3-small' }}
   TF_VERSION: "1.5.7"
 
