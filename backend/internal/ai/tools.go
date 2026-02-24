@@ -168,6 +168,24 @@ func ToolDefinitions() []Tool {
 				"required": []string{"amount"},
 			},
 		},
+		{
+			Name:        "prepare_loan",
+			Description: "Prepare a loan (SPLIT) or debt payment (DEBT_PAYMENT) movement. Use SPLIT when someone lends money to another person (creates a debt). Use DEBT_PAYMENT when someone pays back a debt. The 'person' is the other party (not the logged-in user). Category is optional for loans — if omitted, the tool returns options.",
+			Parameters: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"type":           map[string]any{"type": "string", "enum": []string{"SPLIT", "DEBT_PAYMENT"}, "description": "SPLIT = lending money (creates debt). DEBT_PAYMENT = paying back a debt."},
+					"direction":      map[string]any{"type": "string", "enum": []string{"I_TO_THEM", "THEM_TO_ME"}, "description": "I_TO_THEM = I lent/paid them. THEM_TO_ME = they lent/paid me."},
+					"person":         map[string]any{"type": "string", "description": "Name of the other person (household member or contact)."},
+					"amount":         map[string]any{"type": "number", "description": "Amount in COP"},
+					"description":    map[string]any{"type": "string", "description": "Description (e.g. 'Préstamo para compras')"},
+					"category":       map[string]any{"type": "string", "description": "Category name. Optional — if omitted, the tool returns available options."},
+					"payment_method": map[string]any{"type": "string", "description": "Payment method name. Optional — if omitted, the tool returns available options."},
+					"date":           map[string]any{"type": "string", "description": "Date in YYYY-MM-DD format. Defaults to today."},
+				},
+				"required": []string{"type", "direction", "person", "amount"},
+			},
+		},
 	}
 }
 
@@ -200,6 +218,8 @@ func (te *ToolExecutor) ExecuteTool(ctx context.Context, householdID, userID, na
 		result, err = te.getSpendingByMember(ctx, userID, args)
 	case "prepare_movement":
 		result, err = te.prepareMovement(ctx, householdID, userID, args)
+	case "prepare_loan":
+		result, err = te.prepareLoan(ctx, householdID, userID, args)
 	default:
 		return "", fmt.Errorf("unknown tool: %s", name)
 	}
@@ -722,11 +742,26 @@ type MovementDraft struct {
 	CategoryID        string  `json:"category_id"`
 	CategoryName      string  `json:"category_name"`
 	CategoryGroup     string  `json:"category_group,omitempty"`
-	PaymentMethodID   string  `json:"payment_method_id"`
-	PaymentMethodName string  `json:"payment_method_name"`
-	PayerUserID       string  `json:"payer_user_id"`
+	PaymentMethodID   string  `json:"payment_method_id,omitempty"`
+	PaymentMethodName string  `json:"payment_method_name,omitempty"`
+	PayerUserID       string  `json:"payer_user_id,omitempty"`
+	PayerContactID    string  `json:"payer_contact_id,omitempty"`
 	PayerName         string  `json:"payer_name"`
 	MovementDate      string  `json:"movement_date"`
+	// For DEBT_PAYMENT
+	CounterpartyUserID    string `json:"counterparty_user_id,omitempty"`
+	CounterpartyContactID string `json:"counterparty_contact_id,omitempty"`
+	CounterpartyName      string `json:"counterparty_name,omitempty"`
+	// For SPLIT
+	Participants []ParticipantDraft `json:"participants,omitempty"`
+}
+
+// ParticipantDraft holds participant info for SPLIT draft.
+type ParticipantDraft struct {
+	UserID    string  `json:"participant_user_id,omitempty"`
+	ContactID string  `json:"participant_contact_id,omitempty"`
+	Name      string  `json:"name"`
+	Percentage float64 `json:"percentage"` // 0.0 to 1.0
 }
 
 func (te *ToolExecutor) prepareMovement(ctx context.Context, householdID, userID string, args map[string]any) (any, error) {
@@ -960,7 +995,265 @@ func (te *ToolExecutor) prepareMovement(ctx context.Context, householdID, userID
 	}, nil
 }
 
-// --- Helpers ---
+func (te *ToolExecutor) prepareLoan(ctx context.Context, householdID, userID string, args map[string]any) (any, error) {
+	loanType := getString(args, "type")
+	direction := getString(args, "direction")
+	personName := getString(args, "person")
+	amount := getFloat(args, "amount")
+	description := getString(args, "description")
+	categoryName := getString(args, "category")
+	pmName := getString(args, "payment_method")
+	dateStr := getString(args, "date")
+
+	if amount <= 0 {
+		return map[string]string{"error": "El monto debe ser mayor a 0"}, nil
+	}
+	if loanType != "SPLIT" && loanType != "DEBT_PAYMENT" {
+		return map[string]string{"error": "type debe ser SPLIT o DEBT_PAYMENT"}, nil
+	}
+	if direction != "I_TO_THEM" && direction != "THEM_TO_ME" {
+		return map[string]string{"error": "direction debe ser I_TO_THEM o THEM_TO_ME"}, nil
+	}
+
+	if dateStr == "" {
+		dateStr = time.Now().In(Bogota).Format("2006-01-02")
+	}
+
+	// Resolve person: check members first, then contacts
+	members, err := te.householdRepo.GetMembers(ctx, householdID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get members: %w", err)
+	}
+	contacts, err := te.householdRepo.ListContacts(ctx, householdID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list contacts: %w", err)
+	}
+
+	var personUserID, personContactID, resolvedPersonName string
+	// Try member match
+	for _, m := range members {
+		if strings.EqualFold(m.UserName, personName) || containsInsensitive(m.UserName, personName) {
+			personUserID = m.UserID
+			resolvedPersonName = m.UserName
+			break
+		}
+	}
+	// Try contact match
+	if personUserID == "" {
+		for _, c := range contacts {
+			if strings.EqualFold(c.Name, personName) || containsInsensitive(c.Name, personName) {
+				personContactID = c.ID
+				resolvedPersonName = c.Name
+				break
+			}
+		}
+	}
+	if personUserID == "" && personContactID == "" {
+		// Return available people as options
+		var names []string
+		for _, m := range members {
+			if m.UserID != userID {
+				names = append(names, m.UserName+" (miembro)")
+			}
+		}
+		for _, c := range contacts {
+			names = append(names, c.Name+" (contacto)")
+		}
+		sort.Strings(names)
+		return map[string]any{
+			"error":            fmt.Sprintf("No encontré a '%s'", personName),
+			"available_people": names,
+		}, nil
+	}
+
+	// Get current user name
+	userName := "Usuario"
+	for _, m := range members {
+		if m.UserID == userID {
+			userName = m.UserName
+			break
+		}
+	}
+
+	// Default description
+	if description == "" {
+		if loanType == "SPLIT" {
+			description = fmt.Sprintf("Préstamo a %s", resolvedPersonName)
+			if direction == "THEM_TO_ME" {
+				description = fmt.Sprintf("Préstamo de %s", resolvedPersonName)
+			}
+		} else {
+			description = fmt.Sprintf("Pago de préstamo a %s", resolvedPersonName)
+			if direction == "THEM_TO_ME" {
+				description = fmt.Sprintf("Pago de préstamo de %s", resolvedPersonName)
+			}
+		}
+	}
+
+	// Resolve category (optional for loans, but needed)
+	cats, err := te.categoriesRepo.ListByHousehold(ctx, householdID, false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list categories: %w", err)
+	}
+
+	var matchedCat *categories.Category
+	if categoryName != "" {
+		groupNames := make(map[string]string)
+		groups, _ := te.categoryGroupRepo.ListByHousehold(ctx, householdID, false)
+		for _, g := range groups {
+			groupNames[g.ID] = g.Name
+		}
+		// Handle "Group > Name" format
+		groupFilter := ""
+		catNameFilter := categoryName
+		if parts := strings.SplitN(categoryName, " > ", 2); len(parts) == 2 {
+			groupFilter = parts[0]
+			catNameFilter = parts[1]
+		}
+		for _, c := range cats {
+			if strings.EqualFold(c.Name, catNameFilter) {
+				if groupFilter == "" || (c.CategoryGroupID != nil && strings.EqualFold(groupNames[*c.CategoryGroupID], groupFilter)) {
+					matchedCat = c
+					break
+				}
+			}
+		}
+		if matchedCat == nil {
+			for _, c := range cats {
+				if containsInsensitive(c.Name, catNameFilter) {
+					matchedCat = c
+					break
+				}
+			}
+		}
+	}
+	if matchedCat == nil {
+		groupNames := make(map[string]string)
+		groups, _ := te.categoryGroupRepo.ListByHousehold(ctx, householdID, false)
+		for _, g := range groups {
+			groupNames[g.ID] = g.Name
+		}
+		var names []string
+		for _, c := range cats {
+			displayName := c.Name
+			if c.CategoryGroupID != nil {
+				if gn, ok := groupNames[*c.CategoryGroupID]; ok {
+					displayName = gn + " > " + c.Name
+				}
+			}
+			names = append(names, displayName)
+		}
+		sort.Strings(names)
+		msg := "Selecciona la categoría para el préstamo"
+		if categoryName != "" {
+			msg = fmt.Sprintf("No encontré la categoría '%s'", categoryName)
+		}
+		return map[string]any{
+			"error":                msg,
+			"available_categories": names,
+		}, nil
+	}
+
+	// Resolve payment method (for the payer)
+	pms, err := te.paymentMethodRepo.ListByHousehold(ctx, householdID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list payment methods: %w", err)
+	}
+
+	// Only ask for payment method if the payer is a household member
+	payerIsMember := (direction == "I_TO_THEM") || (direction == "THEM_TO_ME" && personUserID != "")
+	var matchedPM *paymentmethods.PaymentMethod
+	if payerIsMember {
+		if pmName != "" {
+			for _, pm := range pms {
+				if strings.EqualFold(pm.Name, pmName) || containsInsensitive(pm.Name, pmName) {
+					matchedPM = pm
+					break
+				}
+			}
+		}
+		if matchedPM == nil {
+			var names []string
+			for _, pm := range pms {
+				names = append(names, pm.Name)
+			}
+			msg := "Selecciona el método de pago"
+			if pmName != "" {
+				msg = fmt.Sprintf("No encontré el método de pago '%s'", pmName)
+			}
+			return map[string]any{
+				"error":                     msg,
+				"available_payment_methods": names,
+			}, nil
+		}
+	}
+
+	// Build draft based on type and direction
+	draft := &MovementDraft{
+		Action:       "confirm_movement",
+		Type:         loanType,
+		Description:  description,
+		Amount:       amount,
+		CategoryID:   matchedCat.ID,
+		CategoryName: matchedCat.Name,
+		MovementDate: dateStr,
+	}
+
+	if matchedPM != nil {
+		draft.PaymentMethodID = matchedPM.ID
+		draft.PaymentMethodName = matchedPM.Name
+	}
+
+	if loanType == "SPLIT" {
+		if direction == "I_TO_THEM" {
+			// I lent them: payer=me, participant=them
+			draft.PayerUserID = userID
+			draft.PayerName = userName
+			p := ParticipantDraft{Name: resolvedPersonName, Percentage: 1.0}
+			if personUserID != "" {
+				p.UserID = personUserID
+			} else {
+				p.ContactID = personContactID
+			}
+			draft.Participants = []ParticipantDraft{p}
+		} else {
+			// They lent me: payer=them, participant=me
+			draft.PayerName = resolvedPersonName
+			if personUserID != "" {
+				draft.PayerUserID = personUserID
+			} else {
+				draft.PayerContactID = personContactID
+			}
+			draft.Participants = []ParticipantDraft{
+				{UserID: userID, Name: userName, Percentage: 1.0},
+			}
+		}
+	} else { // DEBT_PAYMENT
+		if direction == "I_TO_THEM" {
+			// I paid them back: payer=me, counterparty=them
+			draft.PayerUserID = userID
+			draft.PayerName = userName
+			draft.CounterpartyName = resolvedPersonName
+			if personUserID != "" {
+				draft.CounterpartyUserID = personUserID
+			} else {
+				draft.CounterpartyContactID = personContactID
+			}
+		} else {
+			// They paid me back: payer=them, counterparty=me
+			draft.PayerName = resolvedPersonName
+			if personUserID != "" {
+				draft.PayerUserID = personUserID
+			} else {
+				draft.PayerContactID = personContactID
+			}
+			draft.CounterpartyUserID = userID
+			draft.CounterpartyName = userName
+		}
+	}
+
+	return draft, nil
+}
 
 func movementToEvidence(m *movements.Movement) map[string]any {
 	group := ""

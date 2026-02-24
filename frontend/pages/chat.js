@@ -390,15 +390,34 @@ export function setup() {
     const dateObj = new Date(draft.date || draft.movement_date);
     const formattedDate = dateObj.toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
 
+    // Build header and extra rows based on type
+    let headerIcon = '🏠';
+    let headerText = 'Gasto del hogar';
+    let extraRows = '';
+    if (draft.type === 'SPLIT') {
+      headerIcon = '🤝';
+      headerText = 'Préstamo';
+      const participantNames = (draft.participants || []).map(p => p.name).join(', ');
+      extraRows += `<div class="draft-row"><span class="draft-label">Pagador</span><span class="draft-value">${escapeHtml(draft.payer_name)}</span></div>`;
+      extraRows += `<div class="draft-row"><span class="draft-label">Participante</span><span class="draft-value">${escapeHtml(participantNames)}</span></div>`;
+    } else if (draft.type === 'DEBT_PAYMENT') {
+      headerIcon = '💸';
+      headerText = 'Pago de préstamo';
+      extraRows += `<div class="draft-row"><span class="draft-label">Pagador</span><span class="draft-value">${escapeHtml(draft.payer_name)}</span></div>`;
+      extraRows += `<div class="draft-row"><span class="draft-label">Contraparte</span><span class="draft-value">${escapeHtml(draft.counterparty_name || '')}</span></div>`;
+    }
+    const pmRow = draft.payment_method_name ? `<div class="draft-row"><span class="draft-label">Método de pago</span><span class="draft-value">${escapeHtml(draft.payment_method_name)}</span></div>` : '';
+
     div.innerHTML = `
       <div class="chat-bubble-row">
         <div class="chat-ai-mark">AI</div>
         <div class="chat-draft-card">
-          <div class="draft-header">🏠 Gasto del hogar</div>
+          <div class="draft-header">${headerIcon} ${headerText}</div>
           <div class="draft-row"><span class="draft-label">Descripción</span><span class="draft-value">${escapeHtml(draft.description)}</span></div>
           <div class="draft-row"><span class="draft-label">Monto</span><span class="draft-value draft-amount">${formattedAmount}</span></div>
           <div class="draft-row"><span class="draft-label">Categoría</span><span class="draft-value">${escapeHtml(draft.category_name)}</span></div>
-          <div class="draft-row"><span class="draft-label">Método de pago</span><span class="draft-value">${escapeHtml(draft.payment_method_name)}</span></div>
+          ${extraRows}
+          ${pmRow}
           <div class="draft-row"><span class="draft-label">Fecha</span><span class="draft-value">${formattedDate}</span></div>
           <div class="draft-actions">
             <button class="draft-btn-confirm" data-draft='${JSON.stringify(draft)}'>✓ Registrar</button>

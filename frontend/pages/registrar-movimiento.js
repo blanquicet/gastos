@@ -1525,14 +1525,9 @@ function onTipoChange(keepTemplate = false) {
     renderIngresoCuentaSelect(null);
   }
 
-  // Show/hide category field
-  // Hidden when: no tipo selected or INGRESO
-  // Show for HOUSEHOLD, SPLIT, and DEBT_PAYMENT/LOAN (so templates can be used)
-  const categoriaWrap = document.getElementById('categoriaWrap');
-  if (categoriaWrap) {
-    const shouldHideCategoria = !tipo || isIngreso;
-    categoriaWrap.classList.toggle('hidden', shouldHideCategoria);
-  }
+  // Show/hide category field - will be updated by updateCategoryVisibility()
+  // Initial call here, subsequent calls when pagador changes
+  updateCategoryVisibility();
 
   // Show/hide payment method field
   // Hidden for INGRESO (payment method is not needed for income)
@@ -1614,11 +1609,67 @@ function showPaymentMethods(payerName, required) {
 }
 
 /**
+ * Update category field visibility based on type and payer
+ * 
+ * Rules:
+ * - INGRESO: Hide (income doesn't need category)
+ * - HOUSEHOLD, SPLIT: Show always
+ * - LOAN + LEND:
+ *   - Payer is member (lending to contact): Hide (not a household expense)
+ *   - Payer is contact (receiving loan from contact): Show (is a household expense)
+ * - LOAN + REPAY: Hide always (expense was already categorized when loan was created)
+ */
+function updateCategoryVisibility() {
+  const categoriaWrap = document.getElementById('categoriaWrap');
+  const categoriaEl = document.getElementById('categoria');
+  if (!categoriaWrap) return;
+
+  const tipo = document.getElementById('tipo').value;
+  const loanDirection = document.getElementById('loanDirection')?.value || 'LEND';
+  const payer = getCurrentPayer();
+  const isIngreso = tipo === 'INGRESO';
+  const isLoan = tipo === 'LOAN';
+  const isLend = loanDirection === 'LEND';
+  const isRepay = loanDirection === 'REPAY';
+
+  let shouldHide = false;
+
+  if (!tipo || isIngreso) {
+    // No type or income: hide
+    shouldHide = true;
+  } else if (isLoan) {
+    if (isRepay) {
+      // Paying back debt: always hide (was categorized when loan was created)
+      shouldHide = true;
+    } else if (isLend) {
+      // Lending: hide only if payer is a member (we're lending to contact)
+      // Show if payer is a contact (contact is lending to us = we receive loan = expense)
+      const payerIsMember = primaryUsers.includes(payer);
+      shouldHide = payerIsMember;
+    }
+  }
+  // For HOUSEHOLD, SPLIT: shouldHide stays false (show)
+
+  categoriaWrap.classList.toggle('hidden', shouldHide);
+  
+  // Also update required attribute
+  if (categoriaEl) {
+    categoriaEl.required = !shouldHide;
+    if (shouldHide) {
+      categoriaEl.value = '';
+    }
+  }
+}
+
+/**
  * Handle pagador change
  */
 function onPagadorChange() {
   const tipo = document.getElementById('tipo').value;
   const payer = getCurrentPayer();
+
+  // Update category visibility based on new payer
+  updateCategoryVisibility();
 
   if (tipo !== 'HOUSEHOLD') {
     const isMember = primaryUsers.includes(payer);
@@ -1634,9 +1685,6 @@ function onPagadorChange() {
       metodoEl.required = false;
       metodoEl.value = '';
     }
-    
-    // For LOAN type: category is never required or shown
-    // (This was causing confusion - loans don't need categories)
   }
 
   if (tipo === 'SPLIT') {

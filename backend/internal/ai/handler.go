@@ -162,8 +162,39 @@ func (h *Handler) HandleCreateMovement(w http.ResponseWriter, r *http.Request) {
 		Amount:          draft.Amount,
 		MovementDate:    movDate,
 		CategoryID:      &draft.CategoryID,
-		PayerUserID:     &draft.PayerUserID,
-		PaymentMethodID: &draft.PaymentMethodID,
+	}
+
+	// Payer
+	if draft.PayerUserID != "" {
+		input.PayerUserID = &draft.PayerUserID
+	}
+	if draft.PayerContactID != "" {
+		input.PayerContactID = &draft.PayerContactID
+	}
+
+	// Payment method (optional for some types)
+	if draft.PaymentMethodID != "" {
+		input.PaymentMethodID = &draft.PaymentMethodID
+	}
+
+	// Counterparty (for DEBT_PAYMENT)
+	if draft.CounterpartyUserID != "" {
+		input.CounterpartyUserID = &draft.CounterpartyUserID
+	}
+	if draft.CounterpartyContactID != "" {
+		input.CounterpartyContactID = &draft.CounterpartyContactID
+	}
+
+	// Participants (for SPLIT)
+	for _, p := range draft.Participants {
+		pi := movements.ParticipantInput{Percentage: p.Percentage}
+		if p.UserID != "" {
+			pi.ParticipantUserID = &p.UserID
+		}
+		if p.ContactID != "" {
+			pi.ParticipantContactID = &p.ContactID
+		}
+		input.Participants = append(input.Participants, pi)
 	}
 
 	movement, err := h.movementsService.Create(r.Context(), user.ID, input)
