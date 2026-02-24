@@ -5,11 +5,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 )
 
 const systemPromptTemplate = `Eres un asistente financiero para un hogar en la aplicación de Conti.
 La fecha de hoy es %s. Ayer fue %s. El mes actual es %s.
+IDENTIDAD:
+El usuario que te habla se llama %s. Cuando diga "yo" o "mi", se refiere a %s.
+Los miembros del hogar son: %s. Cuando diga "nosotros" o "nuestro", se refiere a todos los miembros del hogar.
 Respondes en español usando formato colombiano para montos (ej: $345.000,45 COP).
 SIEMPRE usa las herramientas disponibles para consultar datos antes de responder. No respondas sin consultar primero.
 Cuando el usuario diga "este mes" se refiere a %s. Cuando diga "el mes pasado" se refiere a %s.
@@ -65,7 +69,7 @@ type ChatResult struct {
 
 // Chat processes a user message and returns the assistant's response.
 // It executes function-calling rounds until the model produces a text response.
-func (cs *ChatService) Chat(ctx context.Context, householdID, userID, userMessage string, history []ChatMessage) (*ChatResult, error) {
+func (cs *ChatService) Chat(ctx context.Context, householdID, userID, userName string, memberNames []string, userMessage string, history []ChatMessage) (*ChatResult, error) {
 	tools := ToolDefinitions()
 
 	now := time.Now().In(Bogota)
@@ -73,8 +77,13 @@ func (cs *ChatService) Chat(ctx context.Context, householdID, userID, userMessag
 	yesterday := now.AddDate(0, 0, -1).Format("2006-01-02")
 	currentMonth := now.Format("2006-01")
 	lastMonth := now.AddDate(0, -1, 0).Format("2006-01")
+	allMembers := userName
+	if len(memberNames) > 0 {
+		allMembers = userName + ", " + strings.Join(memberNames, ", ")
+	}
 	systemPrompt := fmt.Sprintf(systemPromptTemplate,
-		today, yesterday, currentMonth, currentMonth, lastMonth, yesterday, today, today, yesterday)
+		today, yesterday, currentMonth, userName, userName, allMembers,
+		currentMonth, lastMonth, yesterday, today, today, yesterday)
 
 	messages := []ChatMessage{
 		{Role: "system", Content: systemPrompt},

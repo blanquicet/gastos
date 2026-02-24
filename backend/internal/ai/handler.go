@@ -81,6 +81,16 @@ func (h *Handler) HandleChat(w http.ResponseWriter, r *http.Request) {
 	}
 	householdID := hh[0].ID
 
+	// Fetch household members for identity context
+	members, _ := h.householdRepo.GetMembers(r.Context(), householdID)
+	var memberNames []string
+	userName := user.Name
+	for _, m := range members {
+		if m.UserID != userID {
+			memberNames = append(memberNames, m.UserName)
+		}
+	}
+
 	// Rate limiting
 	if !h.rateLimiter.allow(userID) {
 		w.Header().Set("Content-Type", "application/json")
@@ -105,7 +115,7 @@ func (h *Handler) HandleChat(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	result, err := h.chatService.Chat(r.Context(), householdID, userID, req.Message, history)
+	result, err := h.chatService.Chat(r.Context(), householdID, userID, userName, memberNames, req.Message, history)
 	if err != nil {
 		h.logger.Error("chat failed", "error", err, "user_id", userID)
 		w.Header().Set("Content-Type", "application/json")
