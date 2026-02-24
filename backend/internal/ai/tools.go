@@ -767,25 +767,69 @@ func (te *ToolExecutor) prepareMovement(ctx context.Context, householdID, userID
 		}
 
 		// Exact match (with optional group filter)
+		var exactMatches []*categories.Category
 		for _, c := range cats {
 			if strings.EqualFold(c.Name, catNameFilter) {
-				if groupFilter == "" {
-					matchedCat = c
-					break
-				}
-				if c.CategoryGroupID != nil && strings.EqualFold(groupNames[*c.CategoryGroupID], groupFilter) {
-					matchedCat = c
-					break
+				if groupFilter != "" {
+					if c.CategoryGroupID != nil && strings.EqualFold(groupNames[*c.CategoryGroupID], groupFilter) {
+						matchedCat = c
+						break
+					}
+				} else {
+					exactMatches = append(exactMatches, c)
 				}
 			}
 		}
+		// If no group filter and multiple exact matches → return options for disambiguation
+		if matchedCat == nil && len(exactMatches) > 1 {
+			var names []string
+			for _, c := range exactMatches {
+				displayName := c.Name
+				if c.CategoryGroupID != nil {
+					if gn, ok := groupNames[*c.CategoryGroupID]; ok {
+						displayName = gn + " > " + c.Name
+					}
+				}
+				names = append(names, displayName)
+			}
+			sort.Strings(names)
+			return map[string]any{
+				"error":                fmt.Sprintf("Hay %d categorías llamadas '%s'. ¿Cuál?", len(exactMatches), catNameFilter),
+				"available_categories": names,
+			}, nil
+		}
+		if matchedCat == nil && len(exactMatches) == 1 {
+			matchedCat = exactMatches[0]
+		}
+
 		// Fuzzy match
 		if matchedCat == nil {
+			var fuzzyMatches []*categories.Category
 			for _, c := range cats {
 				if containsInsensitive(c.Name, catNameFilter) {
-					matchedCat = c
-					break
+					fuzzyMatches = append(fuzzyMatches, c)
 				}
+			}
+			if len(fuzzyMatches) > 1 {
+				// Check if all fuzzy matches have different groups
+				var names []string
+				for _, c := range fuzzyMatches {
+					displayName := c.Name
+					if c.CategoryGroupID != nil {
+						if gn, ok := groupNames[*c.CategoryGroupID]; ok {
+							displayName = gn + " > " + c.Name
+						}
+					}
+					names = append(names, displayName)
+				}
+				sort.Strings(names)
+				return map[string]any{
+					"error":                fmt.Sprintf("Hay %d categorías que coinciden con '%s'. ¿Cuál?", len(fuzzyMatches), catNameFilter),
+					"available_categories": names,
+				}, nil
+			}
+			if len(fuzzyMatches) == 1 {
+				matchedCat = fuzzyMatches[0]
 			}
 		}
 	}
