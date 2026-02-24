@@ -374,10 +374,11 @@ async function testTemplatePrefill() {
     // TEST 4: LOAN mode with SPLIT template (role inversion scenario)
     // This is the user's main use case:
     // 1. User starts in LOAN mode (Préstamo)
-    // 2. Selects a category
-    // 3. Selects a SPLIT template (like "Arriendo")
-    // 4. The type should STAY as LOAN (not change to SPLIT)
-    // 5. Roles are INVERTED: template payer → receiver, participant → payer
+    // 2. Selects a member as tomador (receiver) - this shows category field
+    // 3. Selects a category
+    // 4. Selects a SPLIT template (like "Arriendo")
+    // 5. The type should STAY as LOAN (not change to SPLIT)
+    // 6. Roles are INVERTED: template payer → receiver, participant → payer
     // ==================================================================
     console.log('\n📝 Test 4: LOAN mode with SPLIT template (role inversion)');
     
@@ -408,8 +409,31 @@ async function testTemplatePrefill() {
     const tipoAfterLoan = await page.locator('#tipo').inputValue();
     console.log('  Movement type after LOAN click:', tipoAfterLoan);
     
-    // SECOND: Select category (should show template dropdown even in LOAN mode)
-    console.log('  Step 2: Selecting category...');
+    // Category should be HIDDEN at this point (LOAN + LEND + no tomador)
+    const categoryHidden = await page.locator('#categoriaWrap').evaluate(el => el.classList.contains('hidden'));
+    console.log('  Category hidden (expected true):', categoryHidden);
+    
+    // SECOND: Select a member as tomador (receiver) - this shows category field
+    // In LOAN+LEND mode: when tomador is a member, it means contact is lending to member = expense
+    console.log('  Step 2: Selecting tomador (member) to show category...');
+    const tomadorSelect = page.locator('#tomador');
+    await tomadorSelect.waitFor({ timeout: 5000 });
+    // Select the user "Prefill Tester" as tomador
+    await tomadorSelect.selectOption({ label: 'Prefill Tester' });
+    await page.waitForTimeout(1000);
+    
+    // Now category should be VISIBLE
+    const categoryVisibleAfterTomador = await page.locator('#categoriaWrap').evaluate(el => !el.classList.contains('hidden'));
+    console.log('  Category visible after tomador selected:', categoryVisibleAfterTomador);
+    
+    if (!categoryVisibleAfterTomador) {
+      await page.screenshot({ path: '/tmp/test4-category-not-visible.png' });
+      console.log('  📸 Screenshot saved to /tmp/test4-category-not-visible.png');
+      throw new Error('Category field should be visible after selecting member as tomador');
+    }
+    
+    // THIRD: Select category
+    console.log('  Step 3: Selecting category...');
     const categorySelect4 = page.locator('#categoria');
     await categorySelect4.waitFor({ timeout: 5000 });
     await categorySelect4.selectOption(categoryId);
@@ -425,7 +449,7 @@ async function testTemplatePrefill() {
       console.log('  Available templates:', options4);
       
       // Select the SPLIT template
-      console.log('  Step 3: Selecting Renta SPLIT Test template...');
+      console.log('  Step 4: Selecting Renta SPLIT Test template...');
       await templateSelect4.first().selectOption({ label: 'Renta SPLIT Test' });
       await page.waitForTimeout(3000);
       
