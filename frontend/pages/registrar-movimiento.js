@@ -1537,9 +1537,9 @@ function onTipoChange(keepTemplate = false) {
   document.getElementById('ingresoTipoWrap').classList.toggle('hidden', !isIngreso);
   document.getElementById('ingresoCuentaWrap').classList.toggle('hidden', !isIngreso);
   
-  // Receiver account field - hide unless DEBT_PAYMENT
-  // Will be shown by onTomadorChange when receiver is selected and is a member
-  if (!isPagoDeuda || isLoan) {
+  // Receiver account field - hide unless LOAN type (controlled by onTomadorChange)
+  // For non-LOAN types, always hide. For LOAN, onTomadorChange handles visibility.
+  if (!isLoan) {
     const cuentaReceptoraWrap = document.getElementById('cuentaReceptoraWrap');
     if (cuentaReceptoraWrap) {
       cuentaReceptoraWrap.classList.add('hidden');
@@ -2681,10 +2681,11 @@ async function loadMovementForEdit(movementId) {
               }
               
               if (selectedAccountName) {
-                const optionIndex = Array.from(cuentaReceptoraEl.options).findIndex(opt => opt.value === selectedAccountName);
+                // Match by ID first (option values are IDs), then by name
+                const optionByID = Array.from(cuentaReceptoraEl.options).findIndex(opt => opt.value === movement.receiver_account_id);
                 
-                if (optionIndex >= 0) {
-                  cuentaReceptoraEl.selectedIndex = optionIndex;
+                if (optionByID >= 0) {
+                  cuentaReceptoraEl.selectedIndex = optionByID;
                 } else {
                   // Account not in dropdown - add it as unavailable option
                   console.warn('Receiver account not found in dropdown, adding as unavailable:', selectedAccountName);
