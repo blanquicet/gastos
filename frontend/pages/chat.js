@@ -432,6 +432,8 @@ export function setup() {
         // Replace card with success message
         div.querySelector('.chat-draft-card').innerHTML = `
           <div class="draft-success">✅ Movimiento registrado exitosamente</div>`;
+        // Flag that home page data needs refreshing
+        sessionStorage.setItem('chat-data-changed', 'true');
       } catch (err) {
         e.target.disabled = false;
         e.target.textContent = '✓ Registrar';

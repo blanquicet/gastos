@@ -6250,6 +6250,12 @@ export async function setup() {
     });
   }
 
+  // Check if chat created movements — invalidate cached data
+  if (sessionStorage.getItem('chat-data-changed')) {
+    sessionStorage.removeItem('chat-data-changed');
+    clearTabData();
+  }
+
   // Load household members and category groups in parallel
   await Promise.all([loadHouseholdMembers(), loadCategoryGroups()]);
   
