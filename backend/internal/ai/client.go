@@ -15,7 +15,7 @@ import (
 // Config holds Azure OpenAI connection settings.
 type Config struct {
 	Endpoint   string // e.g. "https://xxx.openai.azure.com"
-	Deployment string // e.g. "gpt-4o-mini"
+	Deployment string // e.g. "gpt-4.1-mini"
 	APIVersion string // defaults to "2024-10-21"
 }
 

@@ -116,19 +116,19 @@ variable "openai_location" {
 variable "azure_openai_chat_deployment" {
   description = "Deployment name for the chat model"
   type        = string
-  default     = "gpt-4o-mini"
+  default     = "gpt-4.1-mini"
 }
 
 variable "openai_chat_model_name" {
   description = "OpenAI model name for chat"
   type        = string
-  default     = "gpt-4o-mini"
+  default     = "gpt-4.1-mini"
 }
 
 variable "openai_chat_model_version" {
   description = "OpenAI model version for chat"
   type        = string
-  default     = "2024-07-18"
+  default     = "2025-04-14"
 }
 
 variable "openai_chat_capacity" {

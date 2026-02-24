@@ -21,7 +21,7 @@ The app emphasizes **clarity over complexity** and **trust over cleverness**.
 graph TD
     A[Frontend<br/>Azure Static Web Apps<br/>conti.blanquicet.com.co] -->|HTTPS + CORS| B[Go API<br/>Azure Container Apps<br/>api.conti.blanquicet.com.co]
     B -->|SQL| C[(PostgreSQL<br/>Azure Flexible Server<br/>brazilsouth)]
-    B -->|Managed Identity| D[Azure OpenAI<br/>GPT-4o-mini]
+    B -->|Managed Identity| D[Azure OpenAI<br/>GPT-4.1-mini]
 ```
 
 | Component | Technology | Hosting |
@@ -29,7 +29,7 @@ graph TD
 | **Frontend** | Vanilla HTML/CSS/JavaScript (ES6 modules, mobile-first) | Azure Static Web Apps (CDN) |
 | **Backend** | Go with pgx driver | Azure Container Apps |
 | **Database** | PostgreSQL 16 | Azure Flexible Server |
-| **AI Chat** | GPT-4o-mini | Azure OpenAI (Managed Identity) |
+| **AI Chat** | GPT-4.1-mini | Azure OpenAI (Managed Identity) |
 | **Auth** | Session-based with HttpOnly cookies | — |
 | **IaC** | Terraform | Azure Storage (remote state) |
 | **CI/CD** | GitHub Actions | — |
@@ -47,7 +47,7 @@ graph TD
 - **Recurring Movements** — Templates with auto-generation (monthly/yearly schedules)
 - **Credit Card Tracking** — Statement periods, payment tracking, installments
 - **Audit Logging** — Complete audit trail for all CRUD operations
-- **AI Chat** — Financial assistant powered by GPT-4o-mini with tool use
+- **AI Chat** — Financial assistant powered by GPT-4.1-mini with tool use
 - **Email Notifications** — Password reset via Resend
 
 ### Coming Soon

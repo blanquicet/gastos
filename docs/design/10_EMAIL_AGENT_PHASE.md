@@ -45,7 +45,7 @@ Agregar dos capacidades al backend Go existente:
                      │         ▼                      ▼                  │
                      │  ┌──────────────────────────────────────────┐    │
                      │  │ internal/ai/                              │    │
-                     │  │ - Azure OpenAI client (GPT-4o-mini)      │    │
+                     │  │ - Azure OpenAI client (GPT-4.1-mini)      │    │
                      │  │ - Function calling (tools)                │    │
                      │  │ - Email categorization                    │    │
                      │  └──────────────────────────────────────────┘    │
@@ -413,7 +413,7 @@ frontend/pages/
    ```env
    AZURE_OPENAI_ENDPOINT=https://xxx.openai.azure.com
    AZURE_OPENAI_API_KEY=xxx
-   AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
+   AZURE_OPENAI_DEPLOYMENT=gpt-4.1-mini
    GMAIL_CREDENTIALS_JSON='{...}'    # OAuth2 client credentials (from Google Cloud Console)
    EMAIL_PROCESSOR_ENABLED=true
    ```

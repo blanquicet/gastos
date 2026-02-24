@@ -23,7 +23,7 @@ type Config struct {
 
 	// CORS configuration
 	AllowedOrigins []string
-	
+
 	// Rate limiting configuration
 	RateLimitEnabled bool
 
@@ -122,7 +122,7 @@ func Load() (*Config, error) {
 
 	// Static directory for serving frontend in development
 	staticDir := os.Getenv("STATIC_DIR")
-	
+
 	// Rate limiting - disabled only if explicitly set to "false", enabled by default
 	rateLimitEnabled := os.Getenv("RATE_LIMIT_ENABLED") != "false"
 
@@ -131,7 +131,7 @@ func Load() (*Config, error) {
 	azureOpenAIEndpoint := os.Getenv("AZURE_OPENAI_ENDPOINT")
 	azureOpenAIDeployment := os.Getenv("AZURE_OPENAI_CHAT_DEPLOYMENT")
 	if azureOpenAIDeployment == "" {
-		azureOpenAIDeployment = "gpt-4o-mini"
+		azureOpenAIDeployment = "gpt-4.1-mini"
 	}
 	azureOpenAIAPIVersion := os.Getenv("AZURE_OPENAI_API_VERSION")
 	if azureOpenAIAPIVersion == "" {
@@ -147,22 +147,22 @@ func Load() (*Config, error) {
 	speechResourceID := os.Getenv("SPEECH_RESOURCE_ID")
 
 	return &Config{
-		ServerAddr:          serverAddr,
-		DatabaseURL:         databaseURL,
-		SessionDuration:     sessionDuration,
-		SessionCookieName:   sessionCookieName,
-		SessionCookieSecure: sessionCookieSecure,
-		AllowedOrigins:      allowedOrigins,
-		RateLimitEnabled:    rateLimitEnabled,
-		EmailProvider:       emailProvider,
-		EmailFromAddress:    emailFromAddress,
-		EmailFromName:       emailFromName,
-		EmailBaseURL:        emailBaseURL,
-		EmailAPIKey:         emailAPIKey,
-		SMTPHost:            smtpHost,
-		SMTPPort:            smtpPort,
-		SMTPUsername:        smtpUsername,
-		SMTPPassword:        smtpPassword,
+		ServerAddr:            serverAddr,
+		DatabaseURL:           databaseURL,
+		SessionDuration:       sessionDuration,
+		SessionCookieName:     sessionCookieName,
+		SessionCookieSecure:   sessionCookieSecure,
+		AllowedOrigins:        allowedOrigins,
+		RateLimitEnabled:      rateLimitEnabled,
+		EmailProvider:         emailProvider,
+		EmailFromAddress:      emailFromAddress,
+		EmailFromName:         emailFromName,
+		EmailBaseURL:          emailBaseURL,
+		EmailAPIKey:           emailAPIKey,
+		SMTPHost:              smtpHost,
+		SMTPPort:              smtpPort,
+		SMTPUsername:          smtpUsername,
+		SMTPPassword:          smtpPassword,
 		StaticDir:             staticDir,
 		AzureOpenAIEndpoint:   azureOpenAIEndpoint,
 		AzureOpenAIDeployment: azureOpenAIDeployment,

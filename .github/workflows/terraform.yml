@@ -11,7 +11,7 @@
 # - Configurar secrets: ALLOWED_ORIGINS
 #
 # Variables opcionales (GitHub Variables, no Secrets):
-# - AZURE_OPENAI_CHAT_DEPLOYMENT: deployment name (default: gpt-4o-mini)
+# - AZURE_OPENAI_CHAT_DEPLOYMENT: deployment name (default: gpt-4.1-mini)
 # - AZURE_OPENAI_API_VERSION: API version (default: 2024-10-21)
 # - AZURE_OPENAI_LOCATION: Azure region for OpenAI (default: eastus)
 # - AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT: embeddings deployment name (default: text-embedding-3-small)
@@ -50,7 +50,7 @@ env:
   TF_VAR_email_from_name: "Conti"
   TF_VAR_email_base_url: "https://conti.blanquicet.com.co"
   # Azure OpenAI (non-sensitive config for chat endpoint)
-  TF_VAR_azure_openai_chat_deployment: ${{ vars.AZURE_OPENAI_CHAT_DEPLOYMENT || 'gpt-4o-mini' }}
+  TF_VAR_azure_openai_chat_deployment: ${{ vars.AZURE_OPENAI_CHAT_DEPLOYMENT || 'gpt-4.1-mini' }}
   TF_VAR_azure_openai_api_version: ${{ vars.AZURE_OPENAI_API_VERSION || '2024-10-21' }}
   TF_VAR_openai_location: ${{ vars.AZURE_OPENAI_LOCATION || 'eastus' }}
   TF_VAR_azure_openai_embeddings_deployment: ${{ vars.AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT || 'text-embedding-3-small' }}
