@@ -1660,7 +1660,7 @@ function updateCategoryVisibility() {
 
   const tipo = document.getElementById('tipo').value;
   const loanDirection = document.getElementById('loanDirection')?.value || 'LEND';
-  const payer = getCurrentPayer();
+  const tomador = document.getElementById('tomador')?.value || '';
   const isIngreso = tipo === 'INGRESO';
   const isLoan = tipo === 'LOAN';
   const isLend = loanDirection === 'LEND';
@@ -1676,10 +1676,10 @@ function updateCategoryVisibility() {
       // Paying back debt: always hide (was categorized when loan was created)
       shouldHide = true;
     } else if (isLend) {
-      // Lending: hide only if payer is a member (we're lending to contact)
-      // Show if payer is a contact (contact is lending to us = we receive loan = expense)
-      const payerIsMember = primaryUsers.includes(payer);
-      shouldHide = payerIsMember;
+      // Lending: show category only when a member receives the loan (tomador is member)
+      // This means a contact is lending to us = household expense that needs category
+      const tomadorIsMember = tomador && primaryUsers.includes(tomador);
+      shouldHide = !tomadorIsMember; // Hide unless tomador is a member
     }
   }
   // For HOUSEHOLD, SPLIT: shouldHide stays false (show)
@@ -1701,9 +1701,6 @@ function updateCategoryVisibility() {
 function onPagadorChange() {
   const tipo = document.getElementById('tipo').value;
   const payer = getCurrentPayer();
-
-  // Update category visibility based on new payer
-  updateCategoryVisibility();
 
   if (tipo !== 'HOUSEHOLD') {
     const isMember = primaryUsers.includes(payer);
@@ -1746,6 +1743,9 @@ function onTomadorChange() {
   
   const tomadorName = tomadorEl.value;
   const tomadorUser = usersMap[tomadorName];
+  
+  // Update category visibility based on tomador for LOAN+LEND
+  updateCategoryVisibility();
   
   // Show receiver account selector when receiver is a household member
   // - DEBT_PAYMENT (LOAN+REPAY): REQUIRED - when you pay back a debt, money goes to their account
