@@ -394,7 +394,8 @@ export function setup() {
     div.id = id;
 
     const formattedAmount = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(draft.amount);
-    const dateObj = new Date(draft.date || draft.movement_date);
+    const dateStr = draft.date || draft.movement_date;
+    const dateObj = new Date(dateStr + 'T12:00:00'); // Parse as local noon to avoid timezone shift
     const formattedDate = dateObj.toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
 
     // Build header and extra rows based on type
