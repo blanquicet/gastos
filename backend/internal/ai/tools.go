@@ -1297,9 +1297,11 @@ func (te *ToolExecutor) prepareLoan(ctx context.Context, householdID, userID str
 		if err != nil {
 			return nil, fmt.Errorf("failed to list accounts: %w", err)
 		}
+
+		// Filter to accounts owned by the counterparty that can receive income
 		var eligible []*accounts.Account
 		for _, a := range allAccounts {
-			if a.Type.CanReceiveIncome() {
+			if a.Type.CanReceiveIncome() && a.OwnerID == draft.CounterpartyUserID {
 				eligible = append(eligible, a)
 			}
 		}
@@ -1319,6 +1321,7 @@ func (te *ToolExecutor) prepareLoan(ctx context.Context, householdID, userID str
 			draft.ReceiverAccountID = matchedAccount.ID
 			draft.ReceiverAccountName = matchedAccount.Name
 		} else if len(eligible) == 1 {
+			// Auto-select the counterparty's only account
 			draft.ReceiverAccountID = eligible[0].ID
 			draft.ReceiverAccountName = eligible[0].Name
 		} else if len(eligible) > 1 {
