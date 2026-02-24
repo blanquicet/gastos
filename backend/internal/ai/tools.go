@@ -185,6 +185,7 @@ func ToolDefinitions() []Tool {
 					"description":    map[string]any{"type": "string", "description": "Description (e.g. 'Préstamo para compras')"},
 					"category":       map[string]any{"type": "string", "description": "Category name. Only needed when type=SPLIT and direction=THEM_TO_ME and person is a contact (they lend us = household expense). Not needed for DEBT_PAYMENT or when I lend to someone."},
 					"payment_method": map[string]any{"type": "string", "description": "Payment method name. Optional — if omitted, the tool returns available options."},
+					"account":        map[string]any{"type": "string", "description": "Receiver account name (for DEBT_PAYMENT when counterparty is a household member). Optional — if omitted and multiple accounts exist, the tool returns available options."},
 					"date":           map[string]any{"type": "string", "description": "Date in YYYY-MM-DD format. Defaults to today."},
 				},
 				"required": []string{"type", "direction", "person", "amount"},
@@ -1009,6 +1010,7 @@ func (te *ToolExecutor) prepareLoan(ctx context.Context, householdID, userID str
 	description := getString(args, "description")
 	categoryName := getString(args, "category")
 	pmName := getString(args, "payment_method")
+	accountName := getString(args, "account")
 	dateStr := getString(args, "date")
 
 	if amount <= 0 {
@@ -1285,7 +1287,22 @@ func (te *ToolExecutor) prepareLoan(ctx context.Context, householdID, userID str
 				eligible = append(eligible, a)
 			}
 		}
-		if len(eligible) == 1 {
+
+		// Try to match by name if user provided one
+		var matchedAccount *accounts.Account
+		if accountName != "" {
+			for _, a := range eligible {
+				if strings.EqualFold(a.Name, accountName) || containsInsensitive(a.Name, accountName) {
+					matchedAccount = a
+					break
+				}
+			}
+		}
+
+		if matchedAccount != nil {
+			draft.ReceiverAccountID = matchedAccount.ID
+			draft.ReceiverAccountName = matchedAccount.Name
+		} else if len(eligible) == 1 {
 			draft.ReceiverAccountID = eligible[0].ID
 			draft.ReceiverAccountName = eligible[0].Name
 		} else if len(eligible) > 1 {
@@ -1293,8 +1310,12 @@ func (te *ToolExecutor) prepareLoan(ctx context.Context, householdID, userID str
 			for _, a := range eligible {
 				names = append(names, a.Name)
 			}
+			msg := "Selecciona la cuenta donde recibe el pago"
+			if accountName != "" {
+				msg = fmt.Sprintf("No encontré la cuenta '%s'", accountName)
+			}
 			return map[string]any{
-				"error":              "Selecciona la cuenta donde recibe el pago",
+				"error":              msg,
 				"available_accounts": names,
 			}, nil
 		}
