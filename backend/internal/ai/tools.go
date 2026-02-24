@@ -179,7 +179,7 @@ func ToolDefinitions() []Tool {
 					"person":         map[string]any{"type": "string", "description": "Name of the other person (household member or contact)."},
 					"amount":         map[string]any{"type": "number", "description": "Amount in COP"},
 					"description":    map[string]any{"type": "string", "description": "Description (e.g. 'Préstamo para compras')"},
-					"category":       map[string]any{"type": "string", "description": "Category name. Optional — if omitted, the tool returns available options."},
+					"category":       map[string]any{"type": "string", "description": "Category name. Only needed when type=SPLIT and direction=THEM_TO_ME and person is a contact (they lend us = household expense). Not needed for DEBT_PAYMENT or when I lend to someone."},
 					"payment_method": map[string]any{"type": "string", "description": "Payment method name. Optional — if omitted, the tool returns available options."},
 					"date":           map[string]any{"type": "string", "description": "Date in YYYY-MM-DD format. Defaults to today."},
 				},
@@ -1090,68 +1090,80 @@ func (te *ToolExecutor) prepareLoan(ctx context.Context, householdID, userID str
 		}
 	}
 
-	// Resolve category (optional for loans, but needed)
-	cats, err := te.categoriesRepo.ListByHousehold(ctx, householdID, false)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list categories: %w", err)
+	// Determine if category is needed based on type and direction
+	// Rules (matching frontend updateCategoryVisibility):
+	// - DEBT_PAYMENT: never (expense was categorized when loan was created)
+	// - SPLIT + I_TO_THEM: payer is me (member) → no category (just a loan, not an expense)
+	// - SPLIT + THEM_TO_ME + person is contact: payer is contact → needs category (we receive something)
+	// - SPLIT + THEM_TO_ME + person is member: payer is member → no category
+	needsCategory := false
+	if loanType == "SPLIT" && direction == "THEM_TO_ME" && personContactID != "" {
+		needsCategory = true
 	}
 
 	var matchedCat *categories.Category
-	if categoryName != "" {
-		groupNames := make(map[string]string)
-		groups, _ := te.categoryGroupRepo.ListByHousehold(ctx, householdID, false)
-		for _, g := range groups {
-			groupNames[g.ID] = g.Name
+	if needsCategory {
+		cats, err := te.categoriesRepo.ListByHousehold(ctx, householdID, false)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list categories: %w", err)
 		}
-		// Handle "Group > Name" format
-		groupFilter := ""
-		catNameFilter := categoryName
-		if parts := strings.SplitN(categoryName, " > ", 2); len(parts) == 2 {
-			groupFilter = parts[0]
-			catNameFilter = parts[1]
-		}
-		for _, c := range cats {
-			if strings.EqualFold(c.Name, catNameFilter) {
-				if groupFilter == "" || (c.CategoryGroupID != nil && strings.EqualFold(groupNames[*c.CategoryGroupID], groupFilter)) {
-					matchedCat = c
-					break
+
+		if categoryName != "" {
+			groupNames := make(map[string]string)
+			groups, _ := te.categoryGroupRepo.ListByHousehold(ctx, householdID, false)
+			for _, g := range groups {
+				groupNames[g.ID] = g.Name
+			}
+			// Handle "Group > Name" format
+			groupFilter := ""
+			catNameFilter := categoryName
+			if parts := strings.SplitN(categoryName, " > ", 2); len(parts) == 2 {
+				groupFilter = parts[0]
+				catNameFilter = parts[1]
+			}
+			for _, c := range cats {
+				if strings.EqualFold(c.Name, catNameFilter) {
+					if groupFilter == "" || (c.CategoryGroupID != nil && strings.EqualFold(groupNames[*c.CategoryGroupID], groupFilter)) {
+						matchedCat = c
+						break
+					}
+				}
+			}
+			if matchedCat == nil {
+				for _, c := range cats {
+					if containsInsensitive(c.Name, catNameFilter) {
+						matchedCat = c
+						break
+					}
 				}
 			}
 		}
 		if matchedCat == nil {
+			groupNames := make(map[string]string)
+			groups, _ := te.categoryGroupRepo.ListByHousehold(ctx, householdID, false)
+			for _, g := range groups {
+				groupNames[g.ID] = g.Name
+			}
+			var names []string
 			for _, c := range cats {
-				if containsInsensitive(c.Name, catNameFilter) {
-					matchedCat = c
-					break
+				displayName := c.Name
+				if c.CategoryGroupID != nil {
+					if gn, ok := groupNames[*c.CategoryGroupID]; ok {
+						displayName = gn + " > " + c.Name
+					}
 				}
+				names = append(names, displayName)
 			}
-		}
-	}
-	if matchedCat == nil {
-		groupNames := make(map[string]string)
-		groups, _ := te.categoryGroupRepo.ListByHousehold(ctx, householdID, false)
-		for _, g := range groups {
-			groupNames[g.ID] = g.Name
-		}
-		var names []string
-		for _, c := range cats {
-			displayName := c.Name
-			if c.CategoryGroupID != nil {
-				if gn, ok := groupNames[*c.CategoryGroupID]; ok {
-					displayName = gn + " > " + c.Name
-				}
+			sort.Strings(names)
+			msg := "Selecciona la categoría para el préstamo"
+			if categoryName != "" {
+				msg = fmt.Sprintf("No encontré la categoría '%s'", categoryName)
 			}
-			names = append(names, displayName)
+			return map[string]any{
+				"error":                msg,
+				"available_categories": names,
+			}, nil
 		}
-		sort.Strings(names)
-		msg := "Selecciona la categoría para el préstamo"
-		if categoryName != "" {
-			msg = fmt.Sprintf("No encontré la categoría '%s'", categoryName)
-		}
-		return map[string]any{
-			"error":                msg,
-			"available_categories": names,
-		}, nil
 	}
 
 	// Resolve payment method (for the payer)
@@ -1194,9 +1206,12 @@ func (te *ToolExecutor) prepareLoan(ctx context.Context, householdID, userID str
 		Type:         loanType,
 		Description:  description,
 		Amount:       amount,
-		CategoryID:   matchedCat.ID,
-		CategoryName: matchedCat.Name,
 		MovementDate: dateStr,
+	}
+
+	if matchedCat != nil {
+		draft.CategoryID = matchedCat.ID
+		draft.CategoryName = matchedCat.Name
 	}
 
 	if matchedPM != nil {

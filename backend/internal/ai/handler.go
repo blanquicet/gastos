@@ -161,7 +161,11 @@ func (h *Handler) HandleCreateMovement(w http.ResponseWriter, r *http.Request) {
 		Description:     draft.Description,
 		Amount:          draft.Amount,
 		MovementDate:    movDate,
-		CategoryID:      &draft.CategoryID,
+	}
+
+	// Category (optional for some loan types)
+	if draft.CategoryID != "" {
+		input.CategoryID = &draft.CategoryID
 	}
 
 	// Payer

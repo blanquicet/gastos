@@ -145,7 +145,7 @@ func (cs *ChatService) Chat(ctx context.Context, householdID, userID, userName s
 			}
 
 			// Detect movement draft in tool result
-			if tc.Function == "prepare_movement" {
+			if tc.Function == "prepare_movement" || tc.Function == "prepare_loan" {
 				var draft MovementDraft
 				if json.Unmarshal([]byte(result), &draft) == nil && draft.Action == "confirm_movement" {
 					lastDraft = &draft
@@ -153,7 +153,7 @@ func (cs *ChatService) Chat(ctx context.Context, householdID, userID, userName s
 				// Detect available options (when category/PM not found)
 				var opts map[string]any
 				if json.Unmarshal([]byte(result), &opts) == nil {
-					for _, key := range []string{"available_categories", "available_payment_methods"} {
+					for _, key := range []string{"available_categories", "available_payment_methods", "available_people"} {
 						if arr, ok := opts[key]; ok {
 							if items, ok := arr.([]any); ok {
 								lastOptions = nil
