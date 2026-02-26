@@ -715,7 +715,7 @@ function showPaymentMethodModal(paymentMethod = null) {
             placeholder="1234">
         </label>
 
-        <div id="pm-account-field" style="${paymentMethod?.type === 'debit_card' ? '' : 'display: none;'}">
+         <div id="pm-account-field" style="${paymentMethod?.type === 'debit_card' ? '' : 'display: none;'}">
           <label class="field">
             <span>Cuenta asociada</span>
             <select id="pm-account">
@@ -727,6 +727,16 @@ function showPaymentMethodModal(paymentMethod = null) {
               `).join('')}
             </select>
             <small class="hint" style="color: #6b7280; font-size: 12px;">Los gastos con esta tarjeta se descontarán del balance de la cuenta</small>
+          </label>
+        </div>
+
+        <div id="pm-cutoff-field" style="${paymentMethod?.type === 'credit_card' ? '' : 'display: none;'}">
+          <label class="field">
+            <span>Día de corte</span>
+            <input type="number" id="pm-cutoff" min="1" max="31"
+              value="${paymentMethod?.cutoff_day || ''}" 
+              placeholder="ej: 15">
+            <small class="hint" style="color: #6b7280; font-size: 12px;">Día del mes en que cierra el ciclo de facturación</small>
           </label>
         </div>
         
@@ -764,16 +774,16 @@ function showPaymentMethodModal(paymentMethod = null) {
   const cancelBtn = document.getElementById('pm-cancel');
   const typeSelect = document.getElementById('pm-type');
   const accountField = document.getElementById('pm-account-field');
+  const cutoffField = document.getElementById('pm-cutoff-field');
   const last4Input = document.getElementById('pm-last4');
 
-  // Show/hide account field based on type
+  // Show/hide fields based on type
   typeSelect?.addEventListener('change', (e) => {
-    if (e.target.value === 'debit_card') {
-      accountField.style.display = '';
-    } else {
-      accountField.style.display = 'none';
-      document.getElementById('pm-account').value = '';
-    }
+    const val = e.target.value;
+    accountField.style.display = val === 'debit_card' ? '' : 'none';
+    cutoffField.style.display = val === 'credit_card' ? '' : 'none';
+    if (val !== 'debit_card') document.getElementById('pm-account').value = '';
+    if (val !== 'credit_card') document.getElementById('pm-cutoff').value = '';
   });
   
   // Last4 validation - only digits
@@ -797,6 +807,7 @@ function showPaymentMethodModal(paymentMethod = null) {
     const isShared = document.getElementById('pm-shared').checked;
     const isActive = document.getElementById('pm-active')?.checked;
     const accountId = document.getElementById('pm-account').value || null;
+    const cutoffDay = document.getElementById('pm-cutoff').value ? parseInt(document.getElementById('pm-cutoff').value) : null;
 
     if (!name || !type) {
       errorEl.textContent = 'Por favor completa los campos requeridos';
@@ -816,7 +827,8 @@ function showPaymentMethodModal(paymentMethod = null) {
       last4,
       institution,
       notes,
-      linked_account_id: type === 'debit_card' ? accountId : null
+      linked_account_id: type === 'debit_card' ? accountId : null,
+      cutoff_day: type === 'credit_card' ? cutoffDay : null
     };
 
     if (isEdit) {

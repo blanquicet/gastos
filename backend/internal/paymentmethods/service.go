@@ -131,6 +131,7 @@ type UpdateInput struct {
 	Notes                 *string
 	IsActive              *bool
 	LinkedAccountID       *string
+	CutoffDay             *int
 	OwnerID               string // for authorization
 }
 
@@ -207,6 +208,9 @@ if input.Institution != nil {
 	}
 	if input.LinkedAccountID != nil {
 		existing.LinkedAccountID = input.LinkedAccountID
+	}
+	if input.CutoffDay != nil {
+		existing.CutoffDay = input.CutoffDay
 	}
 
 	updated, err := s.repo.Update(ctx, existing)

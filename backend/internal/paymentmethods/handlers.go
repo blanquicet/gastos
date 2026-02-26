@@ -59,6 +59,7 @@ type UpdatePaymentMethodRequest struct {
 	Notes                 *string `json:"notes,omitempty"`
 	IsActive              *bool   `json:"is_active,omitempty"`
 	LinkedAccountID       *string `json:"linked_account_id,omitempty"`
+	CutoffDay             *int    `json:"cutoff_day,omitempty"`
 }
 
 type ErrorResponse struct {
@@ -255,6 +256,7 @@ input := &UpdateInput{
 		Notes:                 req.Notes,
 		IsActive:              req.IsActive,
 		LinkedAccountID:       req.LinkedAccountID,
+		CutoffDay:             req.CutoffDay,
 		OwnerID:               user.ID,
 	}
 
