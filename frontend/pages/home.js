@@ -3861,8 +3861,13 @@ function setupCardsListeners() {
   // Add card payment button
   const addPaymentBtn = document.getElementById('add-card-payment-btn');
   if (addPaymentBtn) {
-    addPaymentBtn.addEventListener('click', () => {
-      showCardPaymentModal();
+    addPaymentBtn.addEventListener('click', async () => {
+      try {
+        await showCardPaymentModal();
+      } catch (error) {
+        console.error('Error showing card payment modal:', error);
+        showError('Error', 'No se pudo abrir el formulario de pago');
+      }
     });
   }
   
