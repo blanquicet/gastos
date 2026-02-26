@@ -278,13 +278,15 @@ func (r *repository) FindByName(ctx context.Context, householdID, name string) (
 }
 
 // GetBalance calculates the current balance of an account
-// Current balance = initial_balance + SUM(income) - SUM(movements via debit cards) - SUM(credit card payments)
+// Current balance = initial_balance + SUM(income) + SUM(DEBT_PAYMENTs received) - SUM(movements via debit cards) - SUM(credit card payments)
 func (r *repository) GetBalance(ctx context.Context, id string) (float64, error) {
 	var balance float64
 	err := r.pool.QueryRow(ctx, `
 		SELECT 
 			a.initial_balance 
 			+ COALESCE((SELECT SUM(i.amount) FROM income i WHERE i.account_id = a.id), 0)
+			+ COALESCE((SELECT SUM(m.amount) FROM movements m 
+			            WHERE m.receiver_account_id = a.id), 0)
 			- COALESCE((SELECT SUM(m.amount) FROM movements m 
 			            JOIN payment_methods pm ON m.payment_method_id = pm.id 
 			            WHERE COALESCE(pm.linked_account_id, pm.account_id) = a.id), 0)
