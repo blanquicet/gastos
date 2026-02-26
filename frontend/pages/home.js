@@ -2612,7 +2612,8 @@ function renderMovementCategories() {
     if (!byGroup[groupName].categories[category]) {
       byGroup[groupName].categories[category] = {
         total: 0,
-        movements: []
+        movements: [],
+        category_id: movement.category_id
       };
     }
     
@@ -2666,7 +2667,7 @@ function renderMovementCategories() {
             let categoryBudget = 0;
             let hasCategoryBudget = false;
             if (budgetsData && budgetsData.budgets) {
-              const budgetItem = budgetsData.budgets.find(b => b.category_name === category && b.amount > 0);
+              const budgetItem = budgetsData.budgets.find(b => b.category_id === categoryData.category_id && b.amount > 0);
               if (budgetItem) {
                 categoryBudget = budgetItem.amount;
                 hasCategoryBudget = true;
