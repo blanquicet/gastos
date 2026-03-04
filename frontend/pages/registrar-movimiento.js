@@ -1832,6 +1832,7 @@ function computeEquitablePcts() {
     let pct = base;
     total += pct;
     participants[i].pct = pct;
+    delete participants[i].amount; // Clear stored amounts so they get recalculated from pct
   }
 
   const diff = Math.round((100 - total) * 100) / 100;
