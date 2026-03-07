@@ -135,46 +135,11 @@ type DefaultCategory struct {
 // GetDefaultCategories returns the default categories to create for new households
 func GetDefaultCategories() []DefaultCategory {
 	return []DefaultCategory{
-		// Casa group
-		{"Casa - Gastos fijos", "Casa", 1},
-		{"Casa - Cositas para casa", "Casa", 2},
-		{"Casa - Provisionar mes entrante", "Casa", 3},
-		{"Casa - Imprevistos", "Casa", 4},
-		{"Kellys", "Casa", 5},
-		{"Mercado", "Casa", 6},
-		
-		// Jose group
-		{"Jose - Vida cotidiana", "Jose", 10},
-		{"Jose - Gastos fijos", "Jose", 11},
-		{"Jose - Imprevistos", "Jose", 12},
-		
-		// Caro group
-		{"Caro - Vida cotidiana", "Caro", 20},
-		{"Caro - Gastos fijos", "Caro", 21},
-		{"Caro - Imprevistos", "Caro", 22},
-		
-		// Carro group
-		{"Uber/Gasolina/Peajes/Parqueaderos", "Carro", 30},
-		{"Pago de SOAT/impuestos/mantenimiento", "Carro", 31},
-		{"Carro - Seguro", "Carro", 32},
-		{"Carro - Imprevistos", "Carro", 33},
-		
-		// Ahorros group
-		{"Ahorros para SOAT/impuestos/mantenimiento", "Ahorros", 40},
-		{"Ahorros para cosas de la casa", "Ahorros", 41},
-		{"Ahorros para vacaciones", "Ahorros", 42},
-		{"Ahorros para regalos", "Ahorros", 43},
-		
-		// Inversiones group
-		{"Inversiones Caro", "Inversiones", 50},
-		{"Inversiones Jose", "Inversiones", 51},
-		{"Inversiones Juntos", "Inversiones", 52},
-		
+		// Hogar group
+		{"Mercado", "Hogar", 1},
+		{"Subscripciones", "Hogar", 2},
+
 		// Diversión group
-		{"Vacaciones", "Diversión", 60},
-		{"Salidas juntos", "Diversión", 61},
-		
-		// Ungrouped — assign to a suitable group or remove
-		// (All categories now require a group)
+		{"Vacaciones", "Diversión", 10},
 	}
 }
