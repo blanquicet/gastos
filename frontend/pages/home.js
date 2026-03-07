@@ -317,7 +317,8 @@ function showOnboardingWizard() {
  * Inject checklist banner into the current page (after wizard dismiss)
  */
 function injectChecklistBanner() {
-  if (document.getElementById('onboarding-checklist')) return;
+  // Remove existing banner to re-render with updated step
+  document.getElementById('onboarding-checklist')?.remove();
 
   const html = renderOnboardingChecklist();
   if (!html) return;
