@@ -1,6 +1,7 @@
 import { chromium } from 'playwright';
 import pg from 'pg';
-import { createGroupsAndCategoriesViaUI } from './helpers/category-helpers.js';
+import { createCategoryViaUI } from './helpers/category-helpers.js';
+import { skipOnboardingWizard } from './helpers/onboarding-helpers.js';
 const { Pool } = pg;
 
 /**
@@ -80,12 +81,7 @@ async function testBudgetManagement() {
     await page.locator('#modal-ok').click();
     await page.waitForTimeout(2000);
 
-    // Skip onboarding wizard if it appears
-    const wizardSkip = page.locator('[data-testid="skip-wizard"]');
-    if (await wizardSkip.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await wizardSkip.click();
-      await page.waitForTimeout(500);
-    }
+    await skipOnboardingWizard(page);
     
     console.log('✅ Household created');
 
@@ -101,11 +97,11 @@ async function testBudgetManagement() {
     );
     const householdId = householdQuery.rows[0].id;
     
-    // Create category groups and categories via UI
-    await createGroupsAndCategoriesViaUI(page, appUrl, [
-      { name: 'Casa', icon: '🏠', categories: ['Mercado', 'Transporte'] },
-      { name: 'Diversión', icon: '🎉', categories: ['Restaurantes'] }
-    ]);
+    // Create only the categories that don't exist by default
+    // "Mercado" already exists in default "Hogar" group
+    // "Diversión" group already exists by default
+    await createCategoryViaUI(page, appUrl, 'Hogar', 'Transporte');
+    await createCategoryViaUI(page, appUrl, 'Diversión', 'Restaurantes');
     
     console.log('✅ Created category groups and categories via UI');
 

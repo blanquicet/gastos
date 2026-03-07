@@ -1,5 +1,6 @@
 import { chromium } from 'playwright';
 import pg from 'pg';
+import { skipOnboardingWizard } from './helpers/onboarding-helpers.js';
 const { Pool } = pg;
 
 /**
@@ -83,12 +84,7 @@ async function testContactActivation() {
     await page.locator('#modal-ok').click();
     await page.waitForTimeout(2000);
 
-    // Skip onboarding wizard if it appears
-    const wizardSkip = page.locator('[data-testid="skip-wizard"]');
-    if (await wizardSkip.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await wizardSkip.click();
-      await page.waitForTimeout(500);
-    }
+    await skipOnboardingWizard(page);
     
     // Navigate to household page to continue test
     await page.goto(`${appUrl}/hogar`);

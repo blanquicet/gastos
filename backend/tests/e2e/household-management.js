@@ -1,5 +1,6 @@
 import { chromium } from 'playwright';
 import pg from 'pg';
+import { skipOnboardingWizard } from './helpers/onboarding-helpers.js';
 const { Pool } = pg;
 
 /**
@@ -118,12 +119,7 @@ async function testHouseholdManagement() {
     await page1.locator('#modal-ok').click();
     await page1.waitForTimeout(2000);
 
-    // Skip onboarding wizard if it appears
-    const wizardSkip1 = page1.locator('[data-testid="skip-wizard"]');
-    if (await wizardSkip1.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await wizardSkip1.click();
-      await page1.waitForTimeout(500);
-    }
+    await skipOnboardingWizard(page1);
     
     // Navigate to household page to continue test
     await page1.goto(`${apiUrl}/hogar`);
@@ -489,12 +485,7 @@ async function testHouseholdManagement() {
     await page2.locator('#modal-ok').click();
     await page2.waitForTimeout(2000);
 
-    // Skip onboarding wizard if it appears
-    const wizardSkip1 = page1.locator('[data-testid="skip-wizard"]');
-    if (await wizardSkip1.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await wizardSkip1.click();
-      await page1.waitForTimeout(500);
-    }
+    await skipOnboardingWizard(page1);
     
     // Navigate to household page to verify
     await page2.goto(`${apiUrl}/hogar`);

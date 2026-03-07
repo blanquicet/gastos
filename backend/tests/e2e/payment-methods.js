@@ -1,5 +1,6 @@
 import { chromium } from 'playwright';
 import pg from 'pg';
+import { skipOnboardingWizard } from './helpers/onboarding-helpers.js';
 const { Pool } = pg;
 
 /**
@@ -83,12 +84,7 @@ async function testPaymentMethods() {
     await page1.locator('#modal-ok').click();
     await page1.waitForTimeout(2000);
 
-    // Skip onboarding wizard if it appears
-    const wizardSkip1 = page1.locator('[data-testid="skip-wizard"]');
-    if (await wizardSkip1.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await wizardSkip1.click();
-      await page1.waitForTimeout(500);
-    }
+    await skipOnboardingWizard(page1);
     
     console.log('✅ User 1 registered and household created');
 

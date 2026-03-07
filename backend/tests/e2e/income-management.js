@@ -1,5 +1,6 @@
 import { chromium } from 'playwright';
 import pg from 'pg';
+import { skipOnboardingWizard } from './helpers/onboarding-helpers.js';
 const { Pool } = pg;
 
 /**
@@ -85,12 +86,7 @@ async function testIncomeManagement() {
     await page.locator('#modal-ok').click();
     await page.waitForTimeout(2000);
 
-    // Skip onboarding wizard if it appears
-    const wizardSkip = page.locator('[data-testid="skip-wizard"]');
-    if (await wizardSkip.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await wizardSkip.click();
-      await page.waitForTimeout(500);
-    }
+    await skipOnboardingWizard(page);
     
     // Get user ID and household ID from database
     const userResult = await pool.query('SELECT id FROM users WHERE email = $1', [userEmail]);
