@@ -237,6 +237,9 @@ const ONBOARDING_STEPS = [
  * Show onboarding wizard modal
  */
 function showOnboardingWizard() {
+  // Prevent duplicate wizards
+  if (document.querySelector('[data-testid="onboarding-wizard"]')) return;
+
   // Resume from saved step if user navigated away and came back
   let currentStep = parseInt(localStorage.getItem('onboarding_current_step') || '0');
   if (currentStep >= ONBOARDING_STEPS.length) currentStep = 0;
