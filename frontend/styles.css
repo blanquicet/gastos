@@ -5124,6 +5124,8 @@ input[type="number"] {
 .section-highlight {
   animation: section-pulse 3s ease-out;
   border-radius: 12px;
+  padding: 12px;
+  margin: -12px;
 }
 
 @keyframes section-pulse {
