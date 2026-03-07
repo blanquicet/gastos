@@ -6474,7 +6474,8 @@ export async function setup() {
         const household = await showCreateHouseholdModal(API_URL);
         if (household) {
           await showSuccess('¡Hogar creado!', `Tu hogar <strong>${household.name}</strong> ha sido creado exitosamente.`);
-          showOnboardingWizard();
+          // Reload page so dashboard loads behind the wizard
+          window.location.reload();
         }
       });
     }
