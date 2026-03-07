@@ -199,28 +199,28 @@ const ONBOARDING_STEPS = [
   {
     icon: '📂',
     title: 'Categorías',
-    desc: 'Ya creamos categorías comunes para ti: Casa, Mercado, Transporte, y más.<br><br>Puedes personalizarlas después en <strong>Mi hogar</strong>.',
-    actionLabel: 'Ver categorías',
+    desc: 'Las <strong>categorías</strong> te ayudan a organizar tus gastos (ej: Mercado, Subscripciones, Vacaciones, etc.).<br><br>Ya creamos unas de ejemplo para que empieces. Puedes editarlas o crear nuevas.',
+    actionLabel: 'Gestionar categorías',
     actionRoute: '/hogar?section=categorias',
-  },
-  {
-    icon: '💳',
-    title: 'Método de pago',
-    desc: 'Para registrar gastos necesitas al menos un método de pago.<br><br>Ejemplo: Débito, Crédito, Efectivo.',
-    actionLabel: 'Agregar método de pago',
-    actionRoute: '/perfil?action=add-payment-method',
   },
   {
     icon: '🏦',
     title: 'Cuenta bancaria',
-    desc: 'Las cuentas se usan para registrar ingresos y recibir pagos de deudas.<br><br>Ejemplo: Cuenta de ahorros, Efectivo.',
+    desc: 'Las <strong>cuentas bancarias</strong> es donde vive tu dinero. Se usan para registrar ingresos y recibir pagos de deudas. Ejemplo: Cuenta de ahorros, Efectivo.<br><br>Necesitas al menos una cuenta para registrar tu primer ingreso.',
     actionLabel: 'Agregar cuenta',
     actionRoute: '/perfil?action=add-account',
   },
   {
+    icon: '💳',
+    title: 'Método de pago',
+    desc: 'Para registrar gastos necesitas al menos un <strong>método de pago</strong>. Ejemplo: Tarjeta Débito de Bancolombia, Tarjeta Crédito de Nu.<br><br>Recuerda asociar las tarjetas de débito a una cuenta para que resten automáticamente el dinero de tu saldo disponible.',
+    actionLabel: 'Agregar método de pago',
+    actionRoute: '/perfil?action=add-payment-method',
+  },
+  {
     icon: '👥',
     title: 'Miembros y contactos',
-    desc: '<strong>Miembros</strong> son las personas de tu hogar que comparten finanzas.<br><br><strong>Contactos</strong> son personas externas con las que divides gastos o tienes deudas.',
+    desc: '<strong>Miembros</strong> son las personas que viven en este hogar con acceso a todos los movimientos.<br><br><strong>Contactos</strong> son personas con las que tienes transacciones ocasionales (amigos, familia externa, etc.).',
     actionLabel: 'Ir a Mi hogar',
     actionRoute: '/hogar',
   },
@@ -237,7 +237,9 @@ const ONBOARDING_STEPS = [
  * Show onboarding wizard modal
  */
 function showOnboardingWizard() {
-  let currentStep = 0;
+  // Resume from saved step if user navigated away and came back
+  let currentStep = parseInt(localStorage.getItem('onboarding_current_step') || '0');
+  if (currentStep >= ONBOARDING_STEPS.length) currentStep = 0;
 
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
@@ -277,20 +279,31 @@ function showOnboardingWizard() {
       const action = e.target.closest('[data-wiz]')?.dataset.wiz;
       if (!action) return;
       e.stopPropagation();
-      if (action === 'next') { currentStep++; renderStep(); }
-      else if (action === 'prev') { currentStep--; renderStep(); }
-      else if (action === 'skip') { closeWizard(); }
-      else if (action === 'action' || action === 'finish') { closeWizard(); router.navigate(step.actionRoute); }
+      if (action === 'next') { currentStep++; localStorage.setItem('onboarding_current_step', currentStep); renderStep(); }
+      else if (action === 'prev') { currentStep--; localStorage.setItem('onboarding_current_step', currentStep); renderStep(); }
+      else if (action === 'skip') { finishWizard(); }
+      else if (action === 'action') {
+        // Save progress and navigate — wizard will resume on next home visit
+        localStorage.setItem('onboarding_current_step', currentStep + 1);
+        overlay.remove();
+        router.navigate(step.actionRoute);
+      }
+      else if (action === 'finish') { finishWizard(); router.navigate(step.actionRoute); }
     });
   }
 
-  function closeWizard() {
+  function finishWizard() {
     localStorage.setItem('onboarding_wizard_completed', 'true');
+    localStorage.removeItem('onboarding_current_step');
     overlay.remove();
   }
 
   overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) closeWizard();
+    if (e.target === overlay) {
+      // Save progress when clicking overlay to close
+      localStorage.setItem('onboarding_current_step', String(currentStep));
+      overlay.remove();
+    }
   });
 
   document.body.appendChild(overlay);
