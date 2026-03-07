@@ -349,7 +349,7 @@ function renderOnboardingChecklist() {
   const progress = `${stepIndex + 1}/${stepTitles.length}`;
 
   return `
-    <div class="link-request-banner-stack" id="onboarding-checklist">
+    <div class="link-request-banner-stack" id="onboarding-checklist" style="margin-bottom:0;">
       <div class="link-request-banner" id="onboarding-checklist-click" style="position:relative; cursor:pointer;">
         <div class="link-request-banner-icon">📋</div>
         <div class="link-request-banner-content">
@@ -1414,7 +1414,7 @@ export function render(user) {
 
       ${renderTabs()}
 
-      <div id="onboarding-banner-home"></div>
+      <div id="onboarding-banner-home" style="margin: 16px 0 0;"></div>
       
       <div class="dashboard-content">
         ${activeTab === 'gastos' && movementsData ? `
