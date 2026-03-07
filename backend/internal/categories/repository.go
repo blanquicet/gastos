@@ -336,10 +336,10 @@ func (r *PostgresRepository) CreateDefaultCategories(ctx context.Context, househ
 		if _, exists := groupIDs[def.CategoryGroup]; !exists {
 			var groupID string
 			err := tx.QueryRow(ctx, `
-				INSERT INTO category_groups (household_id, name)
-				VALUES ($1, $2)
+				INSERT INTO category_groups (household_id, name, icon)
+				VALUES ($1, $2, $3)
 				RETURNING id
-			`, householdID, def.CategoryGroup).Scan(&groupID)
+			`, householdID, def.CategoryGroup, def.GroupIcon).Scan(&groupID)
 			if err != nil {
 				return err
 			}

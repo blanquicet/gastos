@@ -129,17 +129,15 @@ type Service interface {
 type DefaultCategory struct {
 	Name          string
 	CategoryGroup string
+	GroupIcon     string
 	DisplayOrder  int
 }
 
 // GetDefaultCategories returns the default categories to create for new households
 func GetDefaultCategories() []DefaultCategory {
 	return []DefaultCategory{
-		// Hogar group
-		{"Mercado", "Hogar", 1},
-		{"Subscripciones", "Hogar", 2},
-
-		// Diversión group
-		{"Vacaciones", "Diversión", 10},
+		{"Mercado", "Hogar", "🏠", 1},
+		{"Subscripciones", "Hogar", "🏠", 2},
+		{"Vacaciones", "Diversión", "🎉", 10},
 	}
 }
