@@ -187,7 +187,7 @@ export function render(user) {
             <h1 id="pageTitle">${title}</h1>
             ${Navbar.render(user, '/registrar-movimiento')}
           </div>
-          <p class="subtitle">Registra ingresos, gastos o préstamos <button type="button" class="help-btn" id="show-types-help" title="¿Qué tipo elegir?">?</button></p>
+          <p class="subtitle">Registra ingresos, gastos o préstamos</p>
         </header>
 
         <div id="fullScreenLoading" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 400px; gap: 16px;">
@@ -203,7 +203,7 @@ export function render(user) {
         </div>
         <div class="grid">
           <div class="field col-span-2">
-            <span>¿Qué deseas registrar?</span>
+            <span>¿Qué deseas registrar? <button type="button" class="help-btn" id="show-types-help" title="¿Qué tipo elegir?">?</button></span>
             <div class="tipo-selector">
               <button type="button" class="tipo-btn" data-tipo="HOUSEHOLD">
                 <div class="tipo-icon">🏠</div>
@@ -396,13 +396,13 @@ export function render(user) {
           <h1 id="pageTitle">Registrar movimiento</h1>
           ${Navbar.render(user, '/registrar-movimiento')}
         </div>
-        <p class="subtitle">Registra ingresos, gastos o préstamos <button type="button" class="help-btn" id="show-types-help" title="¿Qué tipo elegir?">?</button></p>
+        <p class="subtitle">Registra ingresos, gastos o préstamos</p>
       </header>
 
       <form id="movForm" novalidate>
         <div class="grid">
           <div class="field col-span-2">
-            <span>¿Qué deseas registrar?</span>
+            <span>¿Qué deseas registrar? <button type="button" class="help-btn" id="show-types-help" title="¿Qué tipo elegir?">?</button></span>
             <div class="tipo-selector">
               <button type="button" class="tipo-btn" data-tipo="HOUSEHOLD">
                 <div class="tipo-icon">🏠</div>
