@@ -5140,19 +5140,18 @@ input[type="number"] {
   30% { outline: 3px solid rgba(99, 102, 241, 0.4); outline-offset: 12px; }
   100% { outline: 3px solid rgba(99, 102, 241, 0); outline-offset: 16px; }
 }
-}
 
 .btn-help-floating {
   position: fixed;
   bottom: 40px;
   right: 32px;
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  background: #e2e8f0 !important;
-  color: #64748b !important;
-  border: none !important;
-  font-size: 16px;
+  background: #e2e8f0;
+  color: #64748b;
+  border: none;
+  font-size: 18px;
   font-weight: 600;
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -5161,11 +5160,11 @@ input[type="number"] {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 !important;
+  padding: 0;
 }
 
 .btn-help-floating:hover {
   transform: scale(1.08);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  background: #cbd5e1 !important;
+  background: #cbd5e1;
 }
