@@ -301,7 +301,6 @@ function showOnboardingWizard() {
     overlay.remove();
     document.getElementById('onboarding-checklist')?.remove();
   }
-  }
 
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) {
