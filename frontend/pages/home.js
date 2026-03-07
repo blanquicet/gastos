@@ -226,8 +226,8 @@ const ONBOARDING_STEPS = [
   },
   {
     icon: '✨',
-    title: '¡Listo!',
-    desc: 'Ya tienes todo lo necesario para empezar.<br><br>Registra tu primer gasto y lleva el control de tus finanzas.',
+    title: 'Registra tu primer gasto',
+    desc: '¡Listo! Ya tienes todo lo necesario para empezar.<br><br>Registra tu primer gasto y lleva el control de tus finanzas.',
     actionLabel: 'Registrar mi primer gasto',
     actionRoute: '/registrar-movimiento',
   },
