@@ -6481,9 +6481,8 @@ export async function setup() {
     return; // Don't load any data
   }
 
-  // Show onboarding wizard automatically only on first visit (no saved step yet)
-  if (!currentUser?.onboarding_completed 
-      && localStorage.getItem('onboarding_current_step') === null) {
+  // Show onboarding wizard if not completed
+  if (!currentUser?.onboarding_completed) {
     showOnboardingWizard();
   }
   
