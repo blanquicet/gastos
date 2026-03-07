@@ -178,7 +178,7 @@ function renderHouseholdContent() {
       </div>
     </div>
 
-    <div class="household-section">
+    <div class="household-section" id="section-miembros">
       <div class="section-header">
         <h3 class="section-title">Miembros</h3>
         ${isOwner ? '<button id="invite-member-btn" class="btn-secondary btn-small">+ Invitar miembro</button>' : ''}
@@ -203,16 +203,6 @@ function renderHouseholdContent() {
       </div>
     </div>
 
-    <div class="household-section">
-      <div class="section-header">
-        <h3 class="section-title">Métodos de Pago Compartidos</h3>
-      </div>
-      <p class="section-description">Métodos de pago que todos los miembros del hogar pueden usar para registrar movimientos. Gestiona tus métodos de pago desde tu perfil.</p>
-      <div class="scroll-fade-container">
-        ${renderSharedPaymentMethods()}
-      </div>
-    </div>
-
     <div class="household-section" id="section-categorias">
       <div class="section-header">
         <h3 class="section-title">Categorías</h3>
@@ -223,6 +213,16 @@ function renderHouseholdContent() {
         <div id="categories-content">
           ${renderCategoriesSection()}
         </div>
+      </div>
+    </div>
+
+    <div class="household-section">
+      <div class="section-header">
+        <h3 class="section-title">Métodos de Pago Compartidos</h3>
+      </div>
+      <p class="section-description">Métodos de pago que todos los miembros del hogar pueden usar para registrar movimientos. Gestiona tus métodos de pago desde tu perfil.</p>
+      <div class="scroll-fade-container">
+        ${renderSharedPaymentMethods()}
       </div>
     </div>
   `;

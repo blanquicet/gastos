@@ -222,7 +222,7 @@ const ONBOARDING_STEPS = [
     title: 'Miembros y contactos',
     desc: '<strong>Miembros</strong> son las personas que viven en este hogar con acceso a todos los movimientos.<br><br><strong>Contactos</strong> son personas con las que tienes transacciones ocasionales (amigos, familia externa, etc.).',
     actionLabel: 'Ir a Mi hogar',
-    actionRoute: '/hogar',
+    actionRoute: '/hogar?section=miembros',
   },
   {
     icon: '✨',
