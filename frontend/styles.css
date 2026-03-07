@@ -5146,20 +5146,25 @@ input[type="number"] {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1em;
-  height: 1em;
+  width: 13px !important;
+  height: 13px !important;
+  min-width: 13px;
+  min-height: 13px;
+  max-width: 13px;
+  max-height: 13px;
   border-radius: 50%;
   border: 1px solid #cbd5e1;
   background: none;
   color: #a0aec0;
-  font-size: 0.65em;
-  font-weight: 700;
+  font-size: 8px !important;
+  font-weight: 400 !important;
   cursor: pointer;
-  margin-left: 3px;
-  vertical-align: middle;
+  margin-left: 2px;
+  vertical-align: text-top;
   transition: all 0.15s;
   padding: 0;
   line-height: 1;
+  box-sizing: border-box;
 }
 
 .help-btn:hover {
