@@ -42,7 +42,7 @@ export function render(user) {
         <p class="subtitle">Administra tu hogar, miembros y contactos.</p>
       </header>
 
-      <div id="onboarding-banner-container">${renderOnboardingBanner()}</div>
+      <div id="onboarding-banner-container">${renderOnboardingBanner(currentUser?.onboarding_completed)}</div>
 
       <div id="household-content">
         <div class="loading-section">

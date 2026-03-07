@@ -314,6 +314,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 	mux.Handle("POST /auth/login", rateLimitAuth(http.HandlerFunc(authHandler.Login)))
 	mux.HandleFunc("POST /auth/logout", authHandler.Logout)
 	mux.HandleFunc("GET /me", authHandler.Me)
+	mux.HandleFunc("POST /me/onboarding/complete", authHandler.CompleteOnboarding)
 	mux.Handle("POST /auth/forgot-password", rateLimitReset(http.HandlerFunc(authHandler.ForgotPassword)))
 	mux.Handle("POST /auth/reset-password", rateLimitReset(http.HandlerFunc(authHandler.ResetPassword)))
 	mux.HandleFunc("DELETE /auth/account", authHandler.DeleteAccount)

@@ -35,6 +35,7 @@ const MOVEMENT_TYPE_STEPS = [
 ];
 
 function showMovementTypesWizard() {
+  if (currentUser?.onboarding_completed) return;
   if (localStorage.getItem('movement_types_wizard_done') === 'true') return;
   if (document.querySelector('[data-testid="movement-types-wizard"]')) return;
 

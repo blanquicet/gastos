@@ -15,11 +15,10 @@ const ONBOARDING_STEP_TITLES = [
 
 /**
  * Render the onboarding continue banner HTML.
- * Returns empty string if wizard is completed or not started.
+ * @param {boolean} onboardingCompleted - from user.onboarding_completed
  */
-export function renderOnboardingBanner() {
-  const completed = localStorage.getItem('onboarding_wizard_completed') === 'true';
-  if (completed) return '';
+export function renderOnboardingBanner(onboardingCompleted) {
+  if (onboardingCompleted) return '';
 
   const currentStep = parseInt(localStorage.getItem('onboarding_current_step') || '-1');
   if (currentStep < 0) return '';

@@ -63,7 +63,7 @@ export function render(user) {
         <p class="subtitle">Información de tu cuenta y hogar.</p>
       </header>
 
-      <div id="onboarding-banner-container">${renderOnboardingBanner()}</div>
+      <div id="onboarding-banner-container">${renderOnboardingBanner(currentUser?.onboarding_completed)}</div>
 
       <div id="profile-content">
         <div class="loading-section">

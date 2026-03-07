@@ -26,12 +26,13 @@ func (r *Repository) Create(ctx context.Context, email, name, passwordHash strin
 	err := r.pool.QueryRow(ctx, `
 		INSERT INTO users (email, name, password_hash)
 		VALUES ($1, $2, $3)
-		RETURNING id, email, name, password_hash, created_at, updated_at
+		RETURNING id, email, name, password_hash, onboarding_completed_at, created_at, updated_at
 	`, email, name, passwordHash).Scan(
 		&user.ID,
 		&user.Email,
 		&user.Name,
 		&user.PasswordHash,
+		&user.OnboardingCompletedAt,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -45,7 +46,7 @@ func (r *Repository) Create(ctx context.Context, email, name, passwordHash strin
 func (r *Repository) GetByID(ctx context.Context, id string) (*auth.User, error) {
 	var user auth.User
 	err := r.pool.QueryRow(ctx, `
-		SELECT id, email, name, password_hash, created_at, updated_at
+		SELECT id, email, name, password_hash, onboarding_completed_at, created_at, updated_at
 		FROM users
 		WHERE id = $1
 	`, id).Scan(
@@ -53,6 +54,7 @@ func (r *Repository) GetByID(ctx context.Context, id string) (*auth.User, error)
 		&user.Email,
 		&user.Name,
 		&user.PasswordHash,
+		&user.OnboardingCompletedAt,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -69,7 +71,7 @@ func (r *Repository) GetByID(ctx context.Context, id string) (*auth.User, error)
 func (r *Repository) GetByEmail(ctx context.Context, email string) (*auth.User, error) {
 	var user auth.User
 	err := r.pool.QueryRow(ctx, `
-		SELECT id, email, name, password_hash, created_at, updated_at
+		SELECT id, email, name, password_hash, onboarding_completed_at, created_at, updated_at
 		FROM users
 		WHERE email = $1
 	`, email).Scan(
@@ -77,6 +79,7 @@ func (r *Repository) GetByEmail(ctx context.Context, email string) (*auth.User, 
 		&user.Email,
 		&user.Name,
 		&user.PasswordHash,
+		&user.OnboardingCompletedAt,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -96,6 +99,16 @@ func (r *Repository) UpdatePassword(ctx context.Context, id, passwordHash string
 		SET password_hash = $1, updated_at = $2
 		WHERE id = $3
 	`, passwordHash, time.Now(), id)
+	return err
+}
+
+// CompleteOnboarding marks the user's onboarding as completed.
+func (r *Repository) CompleteOnboarding(ctx context.Context, id string) error {
+	_, err := r.pool.Exec(ctx, `
+		UPDATE users
+		SET onboarding_completed_at = NOW(), updated_at = NOW()
+		WHERE id = $1
+	`, id)
 	return err
 }
 

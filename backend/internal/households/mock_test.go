@@ -391,6 +391,16 @@ func (m *MockUserRepository) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
+func (m *MockUserRepository) CompleteOnboarding(ctx context.Context, id string) error {
+	user, ok := m.users[id]
+	if !ok {
+		return auth.ErrUserNotFound
+	}
+	now := time.Now()
+	user.OnboardingCompletedAt = &now
+	return nil
+}
+
 // AddTestUser is a helper to add users for testing
 func (m *MockUserRepository) AddTestUser(id, email, name string) *auth.User {
 	user := &auth.User{

@@ -299,10 +299,12 @@ function showOnboardingWizard() {
   }
 
   function finishWizard() {
-    localStorage.setItem('onboarding_wizard_completed', 'true');
     localStorage.removeItem('onboarding_current_step');
     overlay.remove();
     document.getElementById('onboarding-checklist')?.remove();
+    // Mark onboarding as completed on server
+    fetch(`${API_URL}/me/onboarding/complete`, { method: 'POST', credentials: 'include' });
+    if (currentUser) currentUser.onboarding_completed = true;
   }
 
   overlay.addEventListener('click', (e) => {
@@ -337,12 +339,11 @@ function injectChecklistBanner() {
 /**
  * Render onboarding checklist banner (shown in home until setup is complete)
  */
-function renderOnboardingChecklist(formConfig, hasMovements) {
-  if (localStorage.getItem('onboarding_dismissed') === 'true') return '';
+function renderOnboardingChecklist() {
+  if (currentUser?.onboarding_completed) return '';
   
-  const wizardCompleted = localStorage.getItem('onboarding_wizard_completed') === 'true';
   const currentStep = parseInt(localStorage.getItem('onboarding_current_step') || '-1');
-  if (wizardCompleted || currentStep < 0) return '';
+  if (currentStep < 0) return '';
 
   const stepTitles = ONBOARDING_STEPS.map(s => s.title);
   const stepIndex = Math.min(currentStep, stepTitles.length - 1);
@@ -370,8 +371,9 @@ function setupOnboardingChecklist() {
   if (dismissBtn) {
     dismissBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      localStorage.setItem('onboarding_dismissed', 'true');
       document.getElementById('onboarding-checklist')?.remove();
+      fetch(`${API_URL}/me/onboarding/complete`, { method: 'POST', credentials: 'include' });
+      if (currentUser) currentUser.onboarding_completed = true;
     });
   }
 
@@ -6480,10 +6482,8 @@ export async function setup() {
   }
 
   // Show onboarding wizard automatically only on first visit (no saved step yet)
-  // If user already started and dismissed, the checklist banner handles it
-  if (localStorage.getItem('onboarding_wizard_completed') !== 'true' 
-      && localStorage.getItem('onboarding_current_step') === null
-      && localStorage.getItem('onboarding_dismissed') !== 'true') {
+  if (!currentUser?.onboarding_completed 
+      && localStorage.getItem('onboarding_current_step') === null) {
     showOnboardingWizard();
   }
   
