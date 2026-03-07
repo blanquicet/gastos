@@ -64,7 +64,7 @@ func TestCreateHousehold(t *testing.T) {
 			repo := NewMockRepository()
 			userRepo := NewMockUserRepository()
 			auditSvc := &MockAuditService{}
-			svc := NewService(repo, userRepo, auditSvc, &MockEmailSender{})
+			svc := NewService(repo, userRepo, &MockCategoriesRepo{}, auditSvc, &MockEmailSender{})
 			userRepo.AddTestUser("user-1", "test@example.com", "Test User")
 
 			household, err := svc.CreateHousehold(context.Background(), tt.input)
@@ -119,7 +119,7 @@ func TestGetHousehold(t *testing.T) {
 	repo := NewMockRepository()
 	userRepo := NewMockUserRepository()
 	auditSvc := &MockAuditService{}
-	svc := NewService(repo, userRepo, auditSvc, &MockEmailSender{})
+	svc := NewService(repo, userRepo, &MockCategoriesRepo{}, auditSvc, &MockEmailSender{})
 
 	userRepo.AddTestUser("user-1", "test@example.com", "Test User")
 	household, _ := svc.CreateHousehold(context.Background(), &CreateHouseholdInput{
@@ -175,7 +175,7 @@ func TestRemoveMember(t *testing.T) {
 	repo := NewMockRepository()
 	userRepo := NewMockUserRepository()
 	auditSvc := &MockAuditService{}
-	svc := NewService(repo, userRepo, auditSvc, &MockEmailSender{})
+	svc := NewService(repo, userRepo, &MockCategoriesRepo{}, auditSvc, &MockEmailSender{})
 
 	user1 := userRepo.AddTestUser("user-1", "user1@example.com", "User 1")
 	user2 := userRepo.AddTestUser("user-2", "user2@example.com", "User 2")
@@ -392,7 +392,7 @@ func TestUpdateMemberRole(t *testing.T) {
 			repo := NewMockRepository()
 			userRepo := NewMockUserRepository()
 			auditSvc := &MockAuditService{}
-			svc := NewService(repo, userRepo, auditSvc, &MockEmailSender{})
+			svc := NewService(repo, userRepo, &MockCategoriesRepo{}, auditSvc, &MockEmailSender{})
 
 			householdID, user1ID, user2ID := tt.setup(repo, userRepo)
 			input := tt.input(householdID, user1ID, user2ID)
@@ -425,7 +425,7 @@ func TestCreateContact(t *testing.T) {
 	repo := NewMockRepository()
 	userRepo := NewMockUserRepository()
 	auditSvc := &MockAuditService{}
-	svc := NewService(repo, userRepo, auditSvc, &MockEmailSender{})
+	svc := NewService(repo, userRepo, &MockCategoriesRepo{}, auditSvc, &MockEmailSender{})
 
 	user1 := userRepo.AddTestUser("user-1", "user1@example.com", "User 1")
 	user2 := userRepo.AddTestUser("user-2", "user2@example.com", "User 2")
@@ -529,7 +529,7 @@ func TestPromoteContactToMember(t *testing.T) {
 	repo := NewMockRepository()
 	userRepo := NewMockUserRepository()
 	auditSvc := &MockAuditService{}
-	svc := NewService(repo, userRepo, auditSvc, &MockEmailSender{})
+	svc := NewService(repo, userRepo, &MockCategoriesRepo{}, auditSvc, &MockEmailSender{})
 
 	owner := userRepo.AddTestUser("owner", "owner@example.com", "Owner")
 	member := userRepo.AddTestUser("member", "member@example.com", "Member")
@@ -646,7 +646,7 @@ func TestDeleteHousehold(t *testing.T) {
 	repo := NewMockRepository()
 	userRepo := NewMockUserRepository()
 	auditSvc := &MockAuditService{}
-	svc := NewService(repo, userRepo, auditSvc, &MockEmailSender{})
+	svc := NewService(repo, userRepo, &MockCategoriesRepo{}, auditSvc, &MockEmailSender{})
 
 	owner := userRepo.AddTestUser("owner", "owner@example.com", "Owner")
 	member := userRepo.AddTestUser("member", "member@example.com", "Member")

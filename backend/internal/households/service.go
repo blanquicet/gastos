@@ -13,21 +13,28 @@ import (
 	"github.com/blanquicet/conti/backend/internal/email"
 )
 
+// DefaultCategoriesCreator creates default categories for a new household
+type DefaultCategoriesCreator interface {
+	CreateDefaultCategories(ctx context.Context, householdID string) error
+}
+
 // Service handles household business logic
 type Service struct {
-	repo         HouseholdRepository
-	userRepo     auth.UserRepository
-	auditService audit.Service
-	emailSender  email.Sender
+	repo           HouseholdRepository
+	userRepo       auth.UserRepository
+	categoriesRepo DefaultCategoriesCreator
+	auditService   audit.Service
+	emailSender    email.Sender
 }
 
 // NewService creates a new household service
-func NewService(repo HouseholdRepository, userRepo auth.UserRepository, auditService audit.Service, emailSender email.Sender) *Service {
+func NewService(repo HouseholdRepository, userRepo auth.UserRepository, categoriesRepo DefaultCategoriesCreator, auditService audit.Service, emailSender email.Sender) *Service {
 	return &Service{
-		repo:         repo,
-		userRepo:     userRepo,
-		auditService: auditService,
-		emailSender:  emailSender,
+		repo:           repo,
+		userRepo:       userRepo,
+		categoriesRepo: categoriesRepo,
+		auditService:   auditService,
+		emailSender:    emailSender,
 	}
 }
 
@@ -89,6 +96,18 @@ func (s *Service) CreateHousehold(ctx context.Context, input *CreateHouseholdInp
 		Success:      true,
 		NewValues:    audit.StructToMap(household),
 	})
+
+	// Create default categories for the new household
+	if err := s.categoriesRepo.CreateDefaultCategories(ctx, household.ID); err != nil {
+		// Log but don't fail — household is created, categories can be added manually
+		s.auditService.LogAsync(ctx, &audit.LogInput{
+			Action:       "DEFAULT_CATEGORIES_FAILED",
+			ResourceType: "category",
+			HouseholdID:  audit.StringPtr(household.ID),
+			Success:      false,
+			ErrorMessage: audit.StringPtr(err.Error()),
+		})
+	}
 
 	return household, nil
 }
