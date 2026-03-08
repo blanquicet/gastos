@@ -1,6 +1,6 @@
 import { chromium } from 'playwright';
 import pg from 'pg';
-import { skipOnboardingWizard } from './helpers/onboarding-helpers.js';
+import { skipOnboardingWizard, completeOnboardingViaDB } from './helpers/onboarding-helpers.js';
 const { Pool } = pg;
 
 /**
@@ -97,6 +97,7 @@ async function testMovementFamiliar() {
     // Get user ID from database
     const userResult = await pool.query('SELECT id FROM users WHERE email = $1', [userEmail]);
     userId = userResult.rows[0].id;
+    await completeOnboardingViaDB(pool, userId);
     
     // Create household
     await page.locator('#hamburger-btn').click();
@@ -113,8 +114,6 @@ async function testMovementFamiliar() {
     await page.locator('#modal-ok').click();
     await page.waitForTimeout(2000);
 
-    await skipOnboardingWizard(page);
-    
     // Get household ID from database
     const householdResult = await pool.query('SELECT id FROM households WHERE name = $1', [householdName]);
     householdId = householdResult.rows[0].id;

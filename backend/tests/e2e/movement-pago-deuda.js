@@ -1,6 +1,6 @@
 import { chromium } from 'playwright';
 import pg from 'pg';
-import { skipOnboardingWizard } from './helpers/onboarding-helpers.js';
+import { skipOnboardingWizard, completeOnboardingViaDB } from './helpers/onboarding-helpers.js';
 const { Pool } = pg;
 
 /**
@@ -99,6 +99,7 @@ async function testMovementPagoDeuda() {
     // Get user ID from database
     const user1Result = await pool.query('SELECT id FROM users WHERE email = $1', [user1Email]);
     user1Id = user1Result.rows[0].id;
+    await completeOnboardingViaDB(pool, user1Id);
     
     // Create household
     await page1.locator('#hamburger-btn').click();
@@ -115,8 +116,6 @@ async function testMovementPagoDeuda() {
     await page1.locator('#modal-ok').click();
     await page1.waitForTimeout(2000);
 
-    await skipOnboardingWizard(page1);
-    
     // Get household ID from database
     const householdResult = await pool.query('SELECT id FROM households WHERE name = $1', [householdName]);
     householdId = householdResult.rows[0].id;
@@ -147,6 +146,7 @@ async function testMovementPagoDeuda() {
     // Get user2 ID from database
     const user2Result = await pool.query('SELECT id FROM users WHERE email = $1', [user2Email]);
     user2Id = user2Result.rows[0].id;
+    await completeOnboardingViaDB(pool, user2Id);
     
     // User 1 invites User 2 (auto-accepted since email matches)
     await page1.goto(`${appUrl}/hogar`);

@@ -14,3 +14,16 @@ export async function skipOnboardingWizard(page) {
     await page.waitForTimeout(500);
   }
 }
+
+/**
+ * Complete onboarding via DB so the wizard never appears.
+ * Call this after household creation for tests that don't test onboarding.
+ * @param {import('pg').Pool} pool
+ * @param {string} userId
+ */
+export async function completeOnboardingViaDB(pool, userId) {
+  await pool.query(
+    `UPDATE users SET onboarding_completed_at = NOW() WHERE id = $1`,
+    [userId]
+  );
+}
