@@ -472,14 +472,20 @@ async function handleDelete(id) {
     });
     
     if (!response.ok) {
-      throw new Error('Error al eliminar');
+      if (response.status === 403) {
+        throw new Error('Solo el dueño del método de pago puede eliminarlo.');
+      } else if (response.status === 404) {
+        throw new Error('El método de pago no fue encontrado. Es posible que ya haya sido eliminado.');
+      }
+      const body = await response.text().catch(() => '');
+      throw new Error(body || 'Ocurrió un error inesperado al eliminar el método de pago.');
     }
     
-    showSuccess('Método de pago eliminado', 'El método de pago ha sido eliminado correctamente.');
+    showSuccess('Método de pago eliminado', `"${pm.name}" ya no aparecerá como opción.`);
     await loadPaymentMethods();
     
   } catch (error) {
     console.error('Error deleting payment method:', error);
-    showError('Error al eliminar el método de pago');
+    showError(error.message);
   }
 }
