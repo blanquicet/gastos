@@ -151,21 +151,22 @@ func (r *repository) Update(ctx context.Context, pm *PaymentMethod) (*PaymentMet
 	return &result, nil
 }
 
-// Delete deletes a payment method
+// Delete soft-deletes a payment method by setting is_active = false.
+// This preserves referential integrity with movements that reference it.
 func (r *repository) Delete(ctx context.Context, id string) error {
-result, err := r.pool.Exec(ctx, `
-DELETE FROM payment_methods WHERE id = $1
-`, id)
+	result, err := r.pool.Exec(ctx, `
+		UPDATE payment_methods SET is_active = false, updated_at = NOW() WHERE id = $1 AND is_active = true
+	`, id)
 
-if err != nil {
-return err
-}
+	if err != nil {
+		return err
+	}
 
-if result.RowsAffected() == 0 {
-return ErrPaymentMethodNotFound
-}
+	if result.RowsAffected() == 0 {
+		return ErrPaymentMethodNotFound
+	}
 
-return nil
+	return nil
 }
 
 // ListByHousehold retrieves all payment methods for a household
@@ -178,7 +179,7 @@ SELECT pm.id, pm.household_id, pm.owner_id, pm.name, pm.type,
 FROM payment_methods pm
 JOIN users u ON pm.owner_id = u.id
 LEFT JOIN accounts a ON pm.linked_account_id = a.id
-WHERE pm.household_id = $1
+WHERE pm.household_id = $1 AND pm.is_active = true
 ORDER BY pm.is_shared_with_household DESC, pm.name ASC
 `, householdID)
 
@@ -229,7 +230,7 @@ SELECT id, household_id, owner_id, name, type, is_shared_with_household,
        last4, institution, notes, is_active, created_at, updated_at,
        cutoff_day, linked_account_id
 FROM payment_methods
-WHERE household_id = $1 AND name = $2
+WHERE household_id = $1 AND name = $2 AND is_active = true
 `, householdID, name).Scan(
 &pm.ID,
 &pm.HouseholdID,

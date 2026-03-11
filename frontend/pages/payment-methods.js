@@ -460,7 +460,7 @@ async function handleDelete(id) {
   
   const confirmed = await showConfirmation(
     '¿Eliminar método de pago?',
-    `¿Estás seguro de que deseas eliminar "${pm.name}"? Esta acción no se puede deshacer.`
+    `¿Estás seguro de que deseas eliminar "${pm.name}"? No aparecerá más como opción al registrar movimientos.`
   );
   
   if (!confirmed) return;
