@@ -155,6 +155,9 @@ type BudgetItemsRepository interface {
 	// UpdateAllMonths updates the same-named item across all months
 	UpdateAllMonths(ctx context.Context, householdID, categoryID, name string, input *UpdateBudgetItemInput) (int64, error)
 
+	// GetDistinctMonths returns distinct months that have items for a category
+	GetDistinctMonths(ctx context.Context, householdID, categoryID string) ([]string, error)
+
 	// GetMostRecentMonth returns the most recent month that has items
 	GetMostRecentMonth(ctx context.Context, householdID string, beforeMonth string) (string, error)
 }

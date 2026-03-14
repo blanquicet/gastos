@@ -231,3 +231,31 @@ func (r *PostgresRepository) GetSpentForCategory(ctx context.Context, householdI
 
 	return spent, nil
 }
+
+// DeleteFutureRecords deletes all budget records for a category after the specified month
+func (r *PostgresRepository) DeleteFutureRecords(ctx context.Context, householdID, categoryID, afterMonth string) (int64, error) {
+	monthDate, err := ParseMonth(afterMonth)
+	if err != nil {
+		return 0, ErrInvalidMonth
+	}
+	result, err := r.pool.Exec(ctx, `
+		DELETE FROM monthly_budgets
+		WHERE household_id = $1 AND category_id = $2 AND month > $3
+	`, householdID, categoryID, monthDate)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+// UpdateAllRecords updates all budget records for a category to a new amount
+func (r *PostgresRepository) UpdateAllRecords(ctx context.Context, householdID, categoryID string, amount float64) (int64, error) {
+	result, err := r.pool.Exec(ctx, `
+		UPDATE monthly_budgets SET amount = $3, updated_at = NOW()
+		WHERE household_id = $1 AND category_id = $2
+	`, householdID, categoryID, amount)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}

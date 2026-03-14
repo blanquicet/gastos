@@ -57,8 +57,21 @@ func (s *BudgetItemsService) GetItemsForMonth(ctx context.Context, householdID, 
 						"items_copied", copied,
 					)
 
-					// Also copy the manual budget (monthly_budgets) for the category totals
-					_, _ = s.repo.CopyBudgets(ctx, householdID, mostRecent, month)
+					// Recalculate budget totals per category from the copied items
+					items, err := s.itemsRepo.ListByMonth(ctx, householdID, month)
+					if err == nil {
+						categoryTotals := make(map[string]float64)
+						for _, item := range items {
+							categoryTotals[item.CategoryID] += item.Amount
+						}
+						for catID, total := range categoryTotals {
+							_, _ = s.repo.Set(ctx, householdID, &SetBudgetInput{
+								CategoryID: catID,
+								Month:      month,
+								Amount:     total,
+							})
+						}
+					}
 				}
 			}
 		}
@@ -257,10 +270,11 @@ func (s *BudgetItemsService) updateBudgetTotal(ctx context.Context, householdID,
 		}
 	}
 
-	// Set budget to max of (items total, existing manual budget)
-	// This preserves any manual buffer the user added
+	// If items exist, set budget to max of (items total, existing budget)
+	// This preserves any manual buffer the user added above the items sum
+	// If NO items remain, set budget to items total (0)
 	newAmount := total
-	if existingAmount > total {
+	if total > 0 && existingAmount > total {
 		newAmount = existingAmount
 	}
 
@@ -276,11 +290,14 @@ func (s *BudgetItemsService) updateBudgetTotal(ctx context.Context, householdID,
 
 // updateBudgetTotalAllMonths recalculates budgets for a category across all months
 func (s *BudgetItemsService) updateBudgetTotalAllMonths(ctx context.Context, householdID, categoryID string) {
-	// Get all distinct months that have items for this category
-	// For simplicity, we update all months that have items
-	// This is called rarely (only on scope=ALL operations)
-	s.logger.Info("updating budget totals for all months", "category_id", categoryID)
-	// TODO: implement if needed — for now the individual month updates handle most cases
+	months, err := s.itemsRepo.GetDistinctMonths(ctx, householdID, categoryID)
+	if err != nil {
+		s.logger.Warn("failed to get months for budget recalc", "error", err)
+		return
+	}
+	for _, month := range months {
+		s.updateBudgetTotal(ctx, householdID, categoryID, month)
+	}
 }
 
 // syncMasterTemplate updates the recurring_movement_templates record to match

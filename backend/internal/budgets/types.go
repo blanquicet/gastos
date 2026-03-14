@@ -70,9 +70,10 @@ type GetBudgetResponse struct {
 
 // SetBudgetInput represents input for setting/updating a budget
 type SetBudgetInput struct {
-	CategoryID string  `json:"category_id"`
-	Month      string  `json:"month"` // YYYY-MM format
-	Amount     float64 `json:"amount"`
+	CategoryID string      `json:"category_id"`
+	Month      string      `json:"month"` // YYYY-MM format
+	Amount     float64     `json:"amount"`
+	Scope      BudgetScope `json:"scope,omitempty"` // THIS, FUTURE, ALL (default: FUTURE)
 }
 
 // Validate validates the set budget input
@@ -143,6 +144,12 @@ type Repository interface {
 	
 	// GetSpentForCategory returns total spent for a category in a month
 	GetSpentForCategory(ctx context.Context, householdID, categoryID, month string) (float64, error)
+	
+	// DeleteFutureRecords deletes budget records for a category after a month
+	DeleteFutureRecords(ctx context.Context, householdID, categoryID, afterMonth string) (int64, error)
+	
+	// UpdateAllRecords updates all budget records for a category to a new amount
+	UpdateAllRecords(ctx context.Context, householdID, categoryID string, amount float64) (int64, error)
 }
 
 // Service defines the interface for budget business logic

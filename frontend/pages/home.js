@@ -1794,17 +1794,43 @@ async function loadLoansData() {
  */
 async function loadBudgetsData() {
   try {
-    // Load budgets and budget items (monthly snapshots) in parallel
-    const [budgetsResponse, itemsResponse] = await Promise.all([
-      fetch(`${API_URL}/budgets/${currentMonth}`, {
-        credentials: 'include'
-      }),
-      fetch(`${API_URL}/api/budget-items/${currentMonth}`, {
-        credentials: 'include'
-      })
-    ]);
+    // Load budget items FIRST (triggers lazy copy which may create budget records)
+    const itemsResponse = await fetch(`${API_URL}/api/budget-items/${currentMonth}`, {
+      credentials: 'include'
+    });
 
-    // Handle budgets response
+    // Handle budget items response
+    if (!itemsResponse.ok) {
+      console.error('Error loading budget items');
+      templatesData = {};
+    } else {
+      try {
+        const itemsArray = await itemsResponse.json();
+        templatesData = {};
+        if (Array.isArray(itemsArray)) {
+          itemsArray.forEach(t => {
+            if (!templatesData[t.category_id]) {
+              templatesData[t.category_id] = [];
+            }
+            templatesData[t.category_id].push(t);
+          });
+        }
+        Object.keys(templatesData).forEach(categoryId => {
+          templatesData[categoryId].sort((a, b) => {
+            if (a.auto_generate !== b.auto_generate) return a.auto_generate ? -1 : 1;
+            return (b.amount || 0) - (a.amount || 0);
+          });
+        });
+      } catch (jsonError) {
+        console.error('Error parsing budget items:', jsonError);
+        templatesData = {};
+      }
+    }
+
+    // THEN load budget totals (after lazy copy may have created records)
+    const budgetsResponse = await fetch(`${API_URL}/budgets/${currentMonth}`, {
+      credentials: 'include'
+    });
     if (!budgetsResponse.ok) {
       if (budgetsResponse.status === 404) {
         budgetsData = { month: currentMonth, budgets: [], totals: { total_budget: 0, total_spent: 0, percentage: 0 }, _loadedMonth: currentMonth };
@@ -1815,43 +1841,6 @@ async function loadBudgetsData() {
     } else {
       budgetsData = await budgetsResponse.json();
       budgetsData._loadedMonth = currentMonth;
-    }
-
-    // Handle budget items response (replaces old recurring-movements fetch)
-    if (!itemsResponse.ok) {
-      console.error('Error loading budget items');
-      templatesData = {};
-    } else {
-      try {
-        const itemsArray = await itemsResponse.json();
-        
-        // Group items by category_id (same structure as before)
-        templatesData = {};
-        if (Array.isArray(itemsArray)) {
-          itemsArray.forEach(t => {
-            if (!templatesData[t.category_id]) {
-              templatesData[t.category_id] = [];
-            }
-            templatesData[t.category_id].push(t);
-          });
-        }
-        
-        // Sort items within each category
-        Object.keys(templatesData).forEach(categoryId => {
-          templatesData[categoryId].sort((a, b) => {
-            if (a.auto_generate !== b.auto_generate) {
-              return a.auto_generate ? -1 : 1;
-            }
-            const amountA = a.amount || 0;
-            const amountB = b.amount || 0;
-            return amountB - amountA;
-          });
-        });
-      
-      } catch (jsonError) {
-        console.error('Error parsing budget items response:', jsonError);
-        templatesData = {};
-      }
     }
   } catch (error) {
     console.error('Error loading budgets data:', error);

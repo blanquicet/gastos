@@ -510,6 +510,29 @@ func (r *budgetItemsRepository) UpdateAllMonths(ctx context.Context, householdID
 	return result.RowsAffected(), nil
 }
 
+func (r *budgetItemsRepository) GetDistinctMonths(ctx context.Context, householdID, categoryID string) ([]string, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT DISTINCT TO_CHAR(month, 'YYYY-MM') as m
+		FROM monthly_budget_items
+		WHERE household_id = $1 AND category_id = $2
+		ORDER BY m
+	`, householdID, categoryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var months []string
+	for rows.Next() {
+		var m string
+		if err := rows.Scan(&m); err != nil {
+			return nil, err
+		}
+		months = append(months, m)
+	}
+	return months, rows.Err()
+}
+
 func (r *budgetItemsRepository) GetMostRecentMonth(ctx context.Context, householdID string, beforeMonth string) (string, error) {
 	var month string
 	err := r.pool.QueryRow(ctx, `

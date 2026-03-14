@@ -143,6 +143,22 @@ func (s *BudgetService) Set(ctx context.Context, userID string, input *SetBudget
 		NewValues:    audit.StructToMap(budget),
 	})
 
+	// Apply scope side-effects
+	scope := input.Scope
+	if scope == "" {
+		scope = ScopeThis // Default: only affect this month
+	}
+	switch scope {
+	case ScopeFuture:
+		// Delete future budget records — future months will get lazy-copied
+		s.repo.DeleteFutureRecords(ctx, householdID, input.CategoryID, input.Month)
+	case ScopeAll:
+		// Update all existing budget records for this category
+		s.repo.UpdateAllRecords(ctx, householdID, input.CategoryID, input.Amount)
+	case ScopeThis:
+		// No side effects — only the specified month was set
+	}
+
 	return budget, nil
 }
 

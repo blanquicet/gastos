@@ -33,6 +33,17 @@ func NewBudgetItemsHandler(service *BudgetItemsService, authSvc *auth.Service, h
 	}
 }
 
+func (h *BudgetItemsHandler) getScope(r *http.Request) BudgetScope {
+	scope := r.URL.Query().Get("budget_scope")
+	if scope == "" {
+		scope = r.URL.Query().Get("scope")
+	}
+	if scope == "" {
+		return ScopeFuture
+	}
+	return BudgetScope(scope)
+}
+
 func (h *BudgetItemsHandler) getUserAndHousehold(r *http.Request) (string, string, error) {
 	cookie, err := r.Cookie(h.cookieName)
 	if err != nil {
@@ -110,10 +121,7 @@ func (h *BudgetItemsHandler) HandleCreate(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	scope := BudgetScope(r.URL.Query().Get("scope"))
-	if scope == "" {
-		scope = ScopeFuture
-	}
+	scope := h.getScope(r)
 
 	item, err := h.service.CreateItem(r.Context(), householdID, &input, scope)
 	if err != nil {
@@ -148,10 +156,7 @@ func (h *BudgetItemsHandler) HandleUpdate(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	scope := BudgetScope(r.URL.Query().Get("scope"))
-	if scope == "" {
-		scope = ScopeFuture
-	}
+	scope := h.getScope(r)
 
 	item, err := h.service.UpdateItem(r.Context(), id, &input, scope)
 	if err != nil {
@@ -179,7 +184,7 @@ func (h *BudgetItemsHandler) HandleDelete(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	scope := BudgetScope(r.URL.Query().Get("scope"))
+	scope := h.getScope(r)
 	deleteMovements := r.URL.Query().Get("delete_movements") == "true"
 
 	if err := h.service.DeleteItem(r.Context(), id, scope, deleteMovements); err != nil {
