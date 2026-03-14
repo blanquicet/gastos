@@ -245,6 +245,19 @@ export function render(user) {
             
           </label>
 
+
+          <!-- Pagador y Tomador en fila (para DEBT_PAYMENT) -->
+          <div class="field-row col-span-2 hidden" id="pagadorTomadorRow">
+            <label class="field">
+              <span id="pagadorLabel">¿Quién pagó?</span>
+              <select name="pagador" id="pagador"></select>
+            </label>
+            <label class="field">
+              <span>¿Quién recibió?</span>
+              <select name="tomador" id="tomador"></select>
+            </label>
+          </div>
+
           <label class="field col-span-2 hidden" id="categoriaWrap">
             <span>Categoría</span>
             <select name="categoria" id="categoria" required>
@@ -312,19 +325,6 @@ export function render(user) {
               <option value="" selected>Seleccionar</option>
             </select>
           </label>
-
-          <!-- Pagador y Tomador en fila (para DEBT_PAYMENT) -->
-          <div class="field-row col-span-2 hidden" id="pagadorTomadorRow">
-            <label class="field">
-              <span id="pagadorLabel">¿Quién pagó?</span>
-              <select name="pagador" id="pagador"></select>
-            </label>
-            <label class="field">
-              <span>¿Quién recibió?</span>
-              <select name="tomador" id="tomador"></select>
-            </label>
-          </div>
-
           <!-- Cuenta receptora (para DEBT_PAYMENT cuando el receptor es miembro) -->
           <label class="field col-span-2 hidden" id="cuentaReceptoraWrap">
             <span>Cuenta donde recibe</span>
@@ -444,6 +444,19 @@ export function render(user) {
             
           </label>
 
+
+          <!-- Pagador y Tomador en fila (para DEBT_PAYMENT) -->
+          <div class="field-row col-span-2 hidden" id="pagadorTomadorRow">
+            <label class="field">
+              <span id="pagadorLabel">¿Quién pagó?</span>
+              <select name="pagador" id="pagador"></select>
+            </label>
+            <label class="field">
+              <span>¿Quién recibió?</span>
+              <select name="tomador" id="tomador"></select>
+            </label>
+          </div>
+
           <label class="field col-span-2 hidden" id="categoriaWrap">
             <span>Categoría</span>
             <select name="categoria" id="categoria" required>
@@ -511,19 +524,6 @@ export function render(user) {
               <option value="" selected>Seleccionar</option>
             </select>
           </label>
-
-          <!-- Pagador y Tomador en fila (para DEBT_PAYMENT) -->
-          <div class="field-row col-span-2 hidden" id="pagadorTomadorRow">
-            <label class="field">
-              <span id="pagadorLabel">¿Quién pagó?</span>
-              <select name="pagador" id="pagador"></select>
-            </label>
-            <label class="field">
-              <span>¿Quién recibió?</span>
-              <select name="tomador" id="tomador"></select>
-            </label>
-          </div>
-
           <!-- Cuenta receptora (para DEBT_PAYMENT cuando el receptor es miembro) -->
           <label class="field col-span-2 hidden" id="cuentaReceptoraWrap">
             <span>Cuenta donde recibe</span>
