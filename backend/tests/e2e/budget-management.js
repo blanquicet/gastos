@@ -7,15 +7,15 @@ const { Pool } = pg;
 /**
  * Test Budget Management (Phase 6B Frontend)
  * 
- * Tests the budget editing and copying functionality:
+ * Tests the budget editing functionality:
  * 1. Register user and create household
  * 2. Create categories
  * 3. Navigate to Presupuesto tab
- * 4. Add budget using three-dots menu and modal
- * 5. Edit budget using three-dots menu and modal
- * 6. Copy budgets to next month
- * 7. Verify budgets were copied
- * 8. Test "Gestionar categorías" button navigation
+ * 4. Verify budget cards appear
+ * 5. Add budget using action button (with scope modal)
+ * 6. Edit budget using action button (with scope modal)
+ * 7. Verify via API
+ * 8. Verify budget inheritance in next month
  */
 
 async function testBudgetManagement() {
@@ -203,7 +203,15 @@ async function testBudgetManagement() {
     // Click confirm button in modal
     const addConfirmBtn = page.locator('.modal button#modal-confirm').first();
     await addConfirmBtn.click();
-    await page.waitForTimeout(2000); // Wait for API call and success modal
+    await page.waitForTimeout(1000);
+    
+    // Handle scope modal (appears for add budget)
+    const addScopeModal = page.locator('#scope-modal-overlay');
+    if (await addScopeModal.count() > 0) {
+      await page.locator('input[name="scope"][value="FUTURE"]').check();
+      await page.locator('#scope-confirm-btn').click();
+      await page.waitForTimeout(2000);
+    }
     
     // Close success modal (showSuccess uses modal-ok)
     const addSuccessOkBtn = page.locator('.modal button#modal-ok').first();
@@ -250,7 +258,15 @@ async function testBudgetManagement() {
     // Click confirm button in modal
     const editConfirmBtn = page.locator('.modal button#modal-confirm').first();
     await editConfirmBtn.click();
-    await page.waitForTimeout(2000); // Wait for API call and success modal
+    await page.waitForTimeout(1000);
+    
+    // Handle scope modal (appears for edit budget)
+    const editScopeModal = page.locator('#scope-modal-overlay');
+    if (await editScopeModal.count() > 0) {
+      await page.locator('input[name="scope"][value="FUTURE"]').check();
+      await page.locator('#scope-confirm-btn').click();
+      await page.waitForTimeout(2000);
+    }
     
     // Close success modal (showSuccess uses modal-ok)
     const editSuccessOkBtn = page.locator('.modal button#modal-ok').first();
@@ -299,107 +315,32 @@ async function testBudgetManagement() {
     await page.waitForTimeout(2000);
 
     // ==================================================================
-    // STEP 8: Navigate to Next Month
+    // STEP 8: Verify Budget Inheritance in Next Month
     // ==================================================================
-    console.log('📝 Step 8: Navigating to next month...');
+    console.log('📝 Step 8: Verifying budget inheritance in next month...');
     
-    // Click next month button
+    // Navigate to next month
     await page.locator('#next-month-btn').click();
     await page.waitForTimeout(2000);
     
-    // Expand all groups again in the new month
+    // Expand all groups
     const nextMonthGroups = await page.locator('.expense-group-header').all();
     for (const header of nextMonthGroups) {
       await header.click();
       await page.waitForTimeout(300);
     }
     
-    // Verify budgets are empty for next month
-    const nextMonthCards = await page.locator('.expense-category-item').count();
-    if (nextMonthCards !== 5) {
-      throw new Error(`Expected 5 budget cards in next month, found ${nextMonthCards}`);
-    }
-    
-    // Check that amounts show "Sin presupuesto" (no budgets set yet)
-    const firstCard = page.locator('.expense-category-item').first();
-    const amountEl = firstCard.locator('.expense-category-header .expense-category-amount');
-    const amountText = await amountEl.textContent();
-    
-    console.log('  First card amount text:', amountText.trim());
-    
-    if (!amountText.includes('Sin presupuesto')) {
-      console.log('  ⚠️  Warning: Expected "Sin presupuesto" but got:', amountText.trim());
-    }
-    
-    console.log('✅ Navigated to next month (budgets should be empty)');
+    // The first category should inherit the 750k budget we set (scope=FUTURE means it applies to future)
+    const inheritedCard = page.locator('.expense-category-item').first();
+    const inheritedAmountEl = inheritedCard.locator('.expense-category-header .expense-category-amount');
+    const inheritedAmount = await inheritedAmountEl.textContent();
+    console.log(`  Inherited budget amount: ${inheritedAmount.trim()}`);
 
-    // ==================================================================
-    // STEP 9: Copy Budgets from Previous Month
-    // ==================================================================
-    console.log('📝 Step 9: Copying budgets from previous month...');
-    
-    // Click "Copiar del mes anterior" button
-    const copyBtn = page.locator('#copy-prev-month-budget');
-    await copyBtn.click();
-    await page.waitForTimeout(500);
-    
-    // Wait for custom confirmation modal to appear
-    await page.waitForSelector('.modal', { timeout: 3000 });
-    
-    // Click confirm button in modal (showConfirmation uses modal-confirm)
-    const copyConfirmBtn = page.locator('.modal button#modal-confirm').first();
-    await copyConfirmBtn.click();
-    await page.waitForTimeout(2000); // Wait for API call
-    
-    // Wait for success modal and click OK (showSuccess uses modal-ok)
-    await page.waitForSelector('.modal', { timeout: 5000 });
-    const copyOkBtn = page.locator('.modal button#modal-ok').first();
-    await copyOkBtn.click();
-    await page.waitForTimeout(3000); // Wait for modal to close and data to reload
-    
-    console.log('✅ Copy budgets button clicked and confirmed');
-
-    // ==================================================================
-    // STEP 10: Verify Budgets Were Copied
-    // ==================================================================
-    console.log('📝 Step 10: Verifying budgets were copied...');
-    
-    // Expand all groups to see categories
-    const copiedMonthGroups = await page.locator('.expense-group-header').all();
-    for (const header of copiedMonthGroups) {
-      await header.click();
-      await page.waitForTimeout(300);
+    if (!inheritedAmount.includes('750.000') && !inheritedAmount.includes('750,000')) {
+      throw new Error(`Expected inherited budget of 750,000 but got: ${inheritedAmount}`);
     }
     
-    // Check that amounts are now populated
-    const copiedCards = await page.locator('.expense-category-item').all();
-    
-    for (let i = 0; i < copiedCards.length; i++) {
-      const cardAmountEl = copiedCards[i].locator('.expense-category-header .expense-category-amount');
-      const cardAmount = await cardAmountEl.textContent();
-      console.log(`  Category ${i + 1} amount:`, cardAmount.trim());
-      
-      // Check that budget amount is not empty and not 0
-      // Format is now: "$ 500.000" or "$ 750.000" (for first category)
-      if (!cardAmount || cardAmount.trim() === '' || cardAmount.includes('Sin presupuesto')) {
-        throw new Error(`Category ${i + 1} shows invalid budget after copy: ${cardAmount}`);
-      }
-    }
-    
-    console.log('✅ All budgets successfully copied to next month');
-
-    // ==================================================================
-    // STEP 11: Verify "Gestionar categorías" Button Navigation
-    // ==================================================================
-    console.log('📝 Step 11: Testing "Gestionar categorías" button...');
-    
-    const manageCategoriesBtn = page.locator('#manage-categories-btn');
-    await manageCategoriesBtn.click();
-    await page.waitForTimeout(2000);
-    
-    // Should navigate to /hogar page
-    await page.waitForURL('**/hogar');
-    console.log('✅ "Gestionar categorías" button navigates to /hogar page');
+    console.log('✅ Budget correctly inherited in next month');
 
     // ==================================================================
     // Cleanup: Delete test data
@@ -417,7 +358,7 @@ async function testBudgetManagement() {
     
     console.log('✅ Cleanup complete');
     console.log('');
-    console.log('✅ ✅ ✅ ALL BUDGET MANAGEMENT TESTS PASSED! ✅ ✅ ✅');
+    console.log('✅ ✅ ✅ ALL BUDGET MANAGEMENT TESTS PASSED! ✅ ✅ ✅ (8 steps)');
     
     return true;
   } catch (error) {

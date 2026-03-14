@@ -5174,3 +5174,78 @@ input[type="number"] {
   transform: scale(1.05);
   box-shadow: 0 6px 16px rgba(148, 163, 184, 0.4);
 }
+
+/* Scope Modal */
+.scope-modal {
+  max-width: 420px;
+  width: 90%;
+  padding: 24px;
+}
+
+.scope-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.scope-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+  background: #fff;
+}
+
+.scope-option:hover {
+  border-color: #93c5fd;
+  background: #f0f7ff;
+}
+
+.scope-option input[type="radio"] {
+  margin-top: 3px;
+  accent-color: #2563eb;
+}
+
+.scope-option input[type="radio"]:checked ~ .scope-option-content strong {
+  color: #2563eb;
+}
+
+.scope-option:has(input:checked) {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.scope-option-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.scope-option-content strong {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.scope-option-content span {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.scope-option-danger {
+  border-color: #fecaca;
+}
+
+.scope-option-danger:hover {
+  border-color: #ef4444;
+  background: #fef2f2;
+}
+
+.scope-option-danger:has(input:checked) {
+  border-color: #ef4444;
+  background: #fef2f2;
+}

@@ -108,7 +108,6 @@ let currentUser = null;
 let currentEditMovement = null; // Movement being edited (if in edit mode)
 let currentEditIncome = null; // Income being edited (if in edit mode)
 let pendingTimeouts = []; // Track setTimeout IDs to cancel on cleanup
-let scopeParam = null; // Scope parameter from URL (for edit mode)
 
 // Recurring templates
 let recurringTemplatesMap = {}; // Map of category_id -> templates (from formConfig)
@@ -804,7 +803,6 @@ export async function setup() {
   // Check URL params for edit mode and tipo pre-selection
   const urlParams = new URLSearchParams(window.location.search);
   const editId = urlParams.get('edit');
-  scopeParam = urlParams.get('scope'); // Extract scope parameter and assign to global variable
   const isEditMode = !!editId;
   const tipoParam = urlParams.get('tipo');
 
@@ -3158,7 +3156,7 @@ async function onSubmit(e) {
           updatePayload.generated_from_template_id = payload.generated_from_template_id;
         }
         
-        res = await fetch(`${API_URL}/movements/${currentEditMovement.id}${scopeParam ? `?scope=${scopeParam}` : ''}`, {
+        res = await fetch(`${API_URL}/movements/${currentEditMovement.id}`, {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json'

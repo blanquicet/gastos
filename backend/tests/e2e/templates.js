@@ -345,6 +345,13 @@ async function testTemplates() {
     const editBudgetBtn = page.locator('.budget-edit-btn[data-category-name="Mercado"]');
     await editBudgetBtn.waitFor({ state: 'visible', timeout: 5000 });
     await editBudgetBtn.click();
+    await page.waitForTimeout(500);
+    
+    // Scope modal appears first — select FUTURE
+    const scopeModal4 = page.locator('#scope-modal-overlay');
+    await scopeModal4.waitFor({ state: 'visible', timeout: 5000 });
+    await page.locator('input[name="scope"][value="FUTURE"]').check();
+    await page.locator('#scope-confirm-btn').click();
     await page.waitForTimeout(1000);
     
     // Try to set budget to 700,000 (less than 800,000 templates sum)
@@ -418,13 +425,19 @@ async function testTemplates() {
     const editBudgetBtn2 = page.locator('.budget-edit-btn[data-category-name="Mercado"]');
     await editBudgetBtn2.waitFor({ state: 'visible', timeout: 5000 });
     await editBudgetBtn2.click();
-    await page.waitForTimeout(800);
+    await page.waitForTimeout(500);
+    
+    // Scope modal appears first — select THIS
+    const scopeModal5 = page.locator('#scope-modal-overlay');
+    await scopeModal5.waitFor({ state: 'visible', timeout: 5000 });
+    await page.locator('input[name="scope"][value="THIS"]').click();
+    await page.locator('#scope-confirm-btn').click();
     await page.waitForTimeout(1000);
     
     // Set budget to exactly 800,000
     await modalInput.fill('800000');
     await modalConfirmBtn.click();
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(1000);
     
     // Should show success modal, not error
     const successModalVisible = await page.locator('.modal-overlay').isVisible();
@@ -481,13 +494,19 @@ async function testTemplates() {
     const editBudgetBtn3 = page.locator('.budget-edit-btn[data-category-name="Mercado"]');
     await editBudgetBtn3.waitFor({ state: 'visible', timeout: 5000 });
     await editBudgetBtn3.click();
-    await page.waitForTimeout(800);
+    await page.waitForTimeout(500);
+    
+    // Scope modal appears first — select THIS
+    const scopeModal6 = page.locator('#scope-modal-overlay');
+    await scopeModal6.waitFor({ state: 'visible', timeout: 5000 });
+    await page.locator('input[name="scope"][value="THIS"]').click();
+    await page.locator('#scope-confirm-btn').click();
     await page.waitForTimeout(1000);
     
     // Set budget to 1,000,000 (200k buffer above templates)
     await modalInput.fill('1000000');
     await modalConfirmBtn.click();
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(1000);
     
     // Close success modal if shown
     if (await okBtn.count() > 0) {
@@ -545,6 +564,13 @@ async function testTemplates() {
     const addBudgetBtn = page.locator('.budget-edit-btn[data-category-name="Gastos fijos"]');
     await addBudgetBtn.waitFor({ state: 'visible', timeout: 5000 });
     await addBudgetBtn.click();
+    await page.waitForTimeout(500);
+    
+    // Scope modal appears first — select FUTURE
+    const scopeModal7 = page.locator('#scope-modal-overlay');
+    await scopeModal7.waitFor({ state: 'visible', timeout: 5000 });
+    await page.locator('input[name="scope"][value="FUTURE"]').check();
+    await page.locator('#scope-confirm-btn').click();
     await page.waitForTimeout(1000);
     
     // Try to set budget to 2,000,000 (less than 3,200,000 template)
@@ -626,6 +652,13 @@ async function testTemplates() {
     const editOptionBtn = arrendoTemplateItem.locator('.menu-item[data-action="edit-template"]');
     await editOptionBtn.waitFor({ state: 'visible', timeout: 5000 });
     await editOptionBtn.click();
+    await page.waitForTimeout(500);
+    
+    // Handle scope modal (appears BEFORE the edit form now)
+    const scopeModal = page.locator('#scope-modal-overlay');
+    await scopeModal.waitFor({ state: 'visible', timeout: 5000 });
+    await page.locator('input[name="scope"][value="FUTURE"]').check();
+    await page.locator('#scope-confirm-btn').click();
     await page.waitForTimeout(1500);
     
     // Verify form is pre-filled with existing data
@@ -645,11 +678,11 @@ async function testTemplates() {
     await templateAmountInput.blur();
     await page.waitForTimeout(300);
     
-    // Submit the edit
+    // Submit the edit (no scope modal — already selected before form)
     const updateBtn = page.locator('button[type="submit"]').filter({ hasText: /Guardar|Actualizar/i }).first();
     await updateBtn.waitFor({ state: 'visible', timeout: 5000 });
     await updateBtn.click();
-    await page.waitForTimeout(5000); // Wait longer for backend processing
+    await page.waitForTimeout(3000);
     
     // Close success modal
     if (await okBtn.count() > 0) {
@@ -728,17 +761,17 @@ async function testTemplates() {
     await deleteOptionBtn.click();
     await page.waitForTimeout(1000);
     
-    // Handle the delete confirmation modal (new custom modal)
-    const deleteModal = page.locator('#delete-template-modal');
-    await deleteModal.waitFor({ state: 'visible', timeout: 5000 });
-    console.log(`  Delete modal shown`);
+    // Handle the delete scope modal
+    const scopeModalDel = page.locator('#scope-modal-overlay');
+    await scopeModalDel.waitFor({ state: 'visible', timeout: 5000 });
+    console.log(`  Delete scope modal shown`);
     
-    // Click "Eliminar" button in the modal
-    const confirmDeleteBtn = page.locator('#delete-template-confirm');
-    await confirmDeleteBtn.click();
+    // Select THIS (delete template only, keep movements)
+    await page.locator('input[name="scope"][value="THIS"]').check();
+    await page.locator('#scope-confirm-btn').click();
     await page.waitForTimeout(3000);
     
-    // Verify the template was deleted
+    // Verify the template was hard-deleted (scope=THIS now deletes, not deactivates)
     const templateQuery9 = await pool.query(
       `SELECT COUNT(*) as count FROM recurring_movement_templates 
        WHERE household_id = $1 AND name = 'Compras Exito'`,
@@ -746,7 +779,7 @@ async function testTemplates() {
     );
     
     if (parseInt(templateQuery9.rows[0].count) !== 0) {
-      throw new Error('Template should have been deleted');
+      throw new Error('Template should have been hard-deleted with scope=THIS');
     }
     
     // Verify the budget was updated (should be reduced by 500k, but since we set it to 1,000,000 in Test 6,
@@ -763,7 +796,7 @@ async function testTemplates() {
     console.log(`  Budget after deletion: $ ${budget9.toLocaleString('es-CO')}`);
     console.log(`  Remaining templates sum: $ 300.000 (only Compras Carulla)`);
     
-    console.log('✅ Test 9 PASSED: Template deleted successfully');
+    console.log('✅ Test 9 PASSED: Template deleted successfully (scope=THIS)');
     
     // ==================================================================
     // SUMMARY
@@ -779,7 +812,7 @@ async function testTemplates() {
     console.log('✅ Test 6: Edit budget > templates → SUCCESS (buffer allowed) ✅');
     console.log('✅ Test 7: Create budget < templates → VALIDATION ERROR ✅');
     console.log('✅ Test 8: Edit template → Amount updated, budget auto-updated ✅');
-    console.log('✅ Test 9: Delete template → Template removed ✅');
+    console.log('✅ Test 9: Delete template (scope=THIS) → Template deleted ✅');
     console.log('='.repeat(60));
     console.log('\n🎯 KEY FINDINGS:');
     console.log('- Backend auto-calculates budget = SUM(templates)');
@@ -789,7 +822,7 @@ async function testTemplates() {
     console.log('- ✨ Budget validation: budget >= SUM(templates) enforced');
     console.log('- ✨ Users can add buffer for uncategorized expenses');
     console.log('- ✨ Edit template updates amount and auto-recalculates budget');
-    console.log('- ✨ Delete template removes it from the database');
+    console.log('- ✨ Delete template removes it from the database (scope=THIS keeps movements, scope=ALL deletes both)');
     console.log('\n✅ ✅ ✅ TEMPLATE CRUD COMPLETE! ✅ ✅ ✅\n');
     
     // ==================================================================

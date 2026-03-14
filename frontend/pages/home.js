@@ -724,7 +724,7 @@ function renderBudgets() {
       <div class="empty-state">
         <div class="empty-icon">💰</div>
         <p>No hay categorías disponibles</p>
-        <p class="empty-hint">Crea categorías desde "Gestionar categorías" para configurar presupuestos</p>
+        <p class="empty-hint">Configura categorías desde la página de Hogar para configurar presupuestos</p>
       </div>
     `;
   }
@@ -736,7 +736,7 @@ function renderBudgets() {
       <div class="empty-state">
         <div class="empty-icon">💰</div>
         <p>No hay categorías disponibles</p>
-        <p class="empty-hint">Crea categorías desde "Gestionar categorías" para configurar presupuestos</p>
+        <p class="empty-hint">Configura categorías desde la página de Hogar para configurar presupuestos</p>
       </div>
     `;
   }
@@ -878,16 +878,6 @@ function renderBudgets() {
     .join('');
 
   return `
-    <!-- Action buttons - same style as registrar-movimiento -->
-    <div class="footer-buttons" style="margin-bottom: 24px;">
-      <button type="button" id="copy-prev-month-budget">
-        📋 Copiar del mes anterior
-      </button>
-      <button type="button" id="manage-categories-btn">
-        ⚙️ Gestionar categorías
-      </button>
-    </div>
-
     <!-- Total Presupuestado -->
     <div class="total-display" style="margin-bottom: 24px;">
       <div class="total-label">Total Presupuestado</div>
@@ -2517,7 +2507,7 @@ async function loadCategoryGroups() {
 /**
  * Set/update budget for a category
  */
-async function setBudget(categoryId, month, amount) {
+async function setBudget(categoryId, month, amount, scope = 'FUTURE') {
   try {
     const response = await fetch(`${API_URL}/budgets`, {
       method: 'PUT',
@@ -2526,7 +2516,8 @@ async function setBudget(categoryId, month, amount) {
       body: JSON.stringify({
         category_id: categoryId,
         month: month,
-        amount: parseFloat(amount)
+        amount: parseFloat(amount),
+        scope: scope
       })
     });
 
@@ -2576,68 +2567,6 @@ async function deleteBudget(budgetId) {
     console.error('Error deleting budget:', error);
     showError('Error al eliminar', error.message);
     return false;
-  }
-}
-
-/**
- * Copy budgets from previous month to current month
- */
-async function copyBudgetsFromPrevMonth() {
-  const [year, month] = currentMonth.split('-');
-  const prevMonthDate = new Date(year, month - 2, 1); // month - 1 for 0-indexed, -1 more for previous
-  const prevMonth = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
-  
-  try {
-    const response = await fetch(`${API_URL}/budgets/copy`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({
-        from_month: prevMonth,
-        to_month: currentMonth
-      })
-    });
-
-    if (!response.ok) {
-      let errorMessage = 'Error al copiar presupuestos';
-      try {
-        const error = await response.json();
-        errorMessage = error.error || error.message || errorMessage;
-        
-        // Make specific errors more user-friendly
-        if (errorMessage.includes('already exist')) {
-          errorMessage = 'Ya existen presupuestos para este mes. Elimínalos primero si quieres copiarlos de nuevo.';
-        } else if (errorMessage.includes('must be after')) {
-          errorMessage = 'No se pueden copiar presupuestos: el mes destino debe ser posterior al mes origen.';
-        }
-      } catch (e) {
-        // If response is not JSON, try to get text
-        try {
-          const text = await response.text();
-          if (text.includes('already exist')) {
-            errorMessage = 'Ya existen presupuestos para este mes. Elimínalos primero si quieres copiarlos de nuevo.';
-          } else {
-            errorMessage = text || errorMessage;
-          }
-        } catch (textError) {
-          // Use default message
-        }
-      }
-      throw new Error(errorMessage);
-    }
-
-    const result = await response.json();
-    showSuccess('Presupuestos copiados', `Se copiaron ${result.count} presupuestos del mes anterior exitosamente`);
-    
-    // Reload budgets data
-    await loadBudgetsData();
-    refreshDisplay();
-    
-    return result;
-  } catch (error) {
-    console.error('Error copying budgets:', error);
-    showError('Error al copiar presupuestos', error.message);
-    return null;
   }
 }
 
@@ -3034,8 +2963,8 @@ function renderChronologicalMovements() {
           }
           <button class="three-dots-btn" data-movement-id="${movement.id}">⋮</button>
           <div class="three-dots-menu" id="movement-menu-${movement.id}">
-            <button class="menu-item" data-action="edit" data-id="${movement.id}" data-has-template="${movement.generated_from_template_id ? 'true' : 'false'}">Editar</button>
-            <button class="menu-item" data-action="delete" data-id="${movement.id}" data-has-template="${movement.generated_from_template_id ? 'true' : 'false'}">Eliminar</button>
+            <button class="menu-item" data-action="edit" data-id="${movement.id}">Editar</button>
+            <button class="menu-item" data-action="delete" data-id="${movement.id}">Eliminar</button>
           </div>
         </div>
       </div>
@@ -3232,7 +3161,7 @@ async function handleEditMovement(movementId) {
 /**
  * Handle delete movement
  */
-async function handleDeleteMovement(movementId, scope = null) {
+async function handleDeleteMovement(movementId) {
   const confirmed = await showConfirmation(
     '¿Eliminar gasto?',
     '¿Estás seguro de que quieres eliminar este gasto? Esta acción no se puede deshacer.'
@@ -3241,11 +3170,7 @@ async function handleDeleteMovement(movementId, scope = null) {
   if (!confirmed) return;
 
   try {
-    const url = scope 
-      ? `${API_URL}/movements/${movementId}?scope=${scope}`
-      : `${API_URL}/movements/${movementId}`;
-      
-    const response = await fetch(url, {
+    const response = await fetch(`${API_URL}/movements/${movementId}`, {
       method: 'DELETE',
       credentials: 'include'
     });
@@ -3265,109 +3190,6 @@ async function handleDeleteMovement(movementId, scope = null) {
     console.error('Error deleting movement:', error);
     showError('Error al eliminar', error.message || 'Error al eliminar el movimiento');
   }
-}
-
-/**
- * Show scope modal for auto-generated movements
- */
-function showScopeModal(action, movementId) {
-  const actionText = action === 'edit' ? 'editar' : 'eliminar';
-  const actionTextCap = action === 'edit' ? 'Editar' : 'Eliminar';
-  
-  const modalHtml = `
-    <div class="modal-overlay" id="scope-modal-overlay">
-      <div class="modal-content scope-modal">
-        <h3 style="margin: 0 0 16px 0; font-size: 18px; font-weight: 600;">
-          ${actionTextCap} Movimiento Auto-generado
-        </h3>
-        <p style="margin: 0 0 20px 0; font-size: 14px; color: #6b7280; line-height: 1.5;">
-          Este movimiento fue generado automáticamente desde un template. ¿Qué movimientos quieres ${actionText}?
-        </p>
-        
-        <div class="scope-options">
-          <label class="scope-option">
-            <input type="radio" name="scope" value="THIS" checked />
-            <div class="scope-option-content">
-              <strong>Solo este movimiento</strong>
-              <span>No afecta el template ni otros movimientos</span>
-            </div>
-          </label>
-          
-          <label class="scope-option">
-            <input type="radio" name="scope" value="FUTURE" />
-            <div class="scope-option-content">
-              <strong>Este y futuros movimientos</strong>
-              <span>Actualiza el template y todos los movimientos futuros</span>
-            </div>
-          </label>
-          
-          <label class="scope-option ${action === 'delete' ? 'scope-option-danger' : ''}">
-            <input type="radio" name="scope" value="ALL" />
-            <div class="scope-option-content">
-              <strong>Todos los movimientos</strong>
-              <span>${action === 'delete' ? 'Desactiva el template y elimina TODOS los movimientos' : 'Actualiza el template y TODOS los movimientos (pasados y futuros)'}</span>
-            </div>
-          </label>
-        </div>
-        
-        <div class="modal-actions" style="display: flex; gap: 12px; margin-top: 24px;">
-          <button id="scope-cancel-btn" class="btn-secondary" style="flex: 1;">
-            Cancelar
-          </button>
-          <button id="scope-confirm-btn" class="btn-primary" style="flex: 1;">
-            Continuar
-          </button>
-        </div>
-      </div>
-    </div>
-  `;
-  
-  // Insert modal into DOM
-  document.body.insertAdjacentHTML('beforeend', modalHtml);
-  
-  // Setup event listeners
-  const overlay = document.getElementById('scope-modal-overlay');
-  const cancelBtn = document.getElementById('scope-cancel-btn');
-  const confirmBtn = document.getElementById('scope-confirm-btn');
-  
-  const closeModal = () => {
-    overlay.remove();
-  };
-  
-  cancelBtn.addEventListener('click', closeModal);
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) closeModal();
-  });
-  
-  confirmBtn.addEventListener('click', async () => {
-    const selectedScope = document.querySelector('input[name="scope"]:checked').value;
-    
-    // Extra confirmation for scope=ALL delete
-    if (action === 'delete' && selectedScope === 'ALL') {
-      const confirmed = confirm(
-        '⚠️ ADVERTENCIA: Estás a punto de eliminar TODAS las instancias de este gasto presupuestado.\n\n' +
-        'Esto incluirá:\n' +
-        '• El template original\n' +
-        '• Todos los movimientos pasados generados automáticamente\n' +
-        '• Todos los movimientos futuros (no se crearán más)\n\n' +
-        '¿Estás completamente seguro de que deseas continuar?'
-      );
-      
-      if (!confirmed) {
-        return; // Don't close modal, user can choose different scope
-      }
-    }
-    
-    closeModal();
-    
-    if (action === 'edit') {
-      // For edit, navigate to edit page with scope parameter
-      router.navigate(`/registrar-movimiento?tipo=GASTO&edit=${movementId}&scope=${selectedScope}`);
-    } else {
-      // For delete, call delete with scope
-      await handleDeleteMovement(movementId, selectedScope);
-    }
-  });
 }
 
 
@@ -3537,25 +3359,14 @@ function setupCategoryListeners() {
       e.stopPropagation();
       const action = e.currentTarget.dataset.action;
       const id = e.currentTarget.dataset.id;
-      const hasTemplate = e.currentTarget.dataset.hasTemplate === 'true';
 
       // Close menu
       document.querySelectorAll('.three-dots-menu').forEach(m => m.style.display = 'none');
 
-      if (hasTemplate) {
-        // Show scope modal for auto-generated movements
-        if (action === 'edit') {
-          showScopeModal('edit', id);
-        } else if (action === 'delete') {
-          showScopeModal('delete', id);
-        }
-      } else {
-        // No template - proceed directly
-        if (action === 'edit') {
-          await handleEditMovement(id);
-        } else if (action === 'delete') {
-          await handleDeleteMovement(id);
-        }
+      if (action === 'edit') {
+        await handleEditMovement(id);
+      } else if (action === 'delete') {
+        await handleDeleteMovement(id);
       }
     });
   });
@@ -3745,119 +3556,142 @@ function setupBudgetListeners() {
       item.closest('.three-dots-menu').style.display = 'none';
       
       if (action === 'edit-template') {
-        // Load template data and show edit modal
+        // Load template data first to determine auto_generate
+        let template;
         try {
           const response = await fetch(`${API_URL}/api/recurring-movements/${templateId}`, {
             credentials: 'include'
           });
-          
-          if (!response.ok) {
-            throw new Error('No se pudo cargar el gasto');
-          }
-          
-          const template = await response.json();
-          
-          // Get category info for the modal
-          const categoryId = template.category_id;
-          const categoryBudget = budgetsData?.budgets?.find(b => b.category_id === categoryId);
-          const categoryName = categoryBudget?.category_name || 'Sin categoría';
-          
-          // Show modal with existing template data
-          showTemplateModal(categoryId, categoryName, template);
+          if (!response.ok) throw new Error('No se pudo cargar el gasto');
+          template = await response.json();
         } catch (error) {
           console.error('Error loading template:', error);
           showError('Error', error.message || 'No se pudo cargar el gasto');
+          return;
         }
         
-      } else if (action === 'delete-template') {
-        // Get template name for display
-        const templateItem = document.querySelector(`.movement-detail-entry[data-template-id="${templateId}"]`);
-        const templateName = templateItem?.querySelector('.entry-description')?.textContent?.trim() || 'este gasto';
+        const isAutoGenerate = template.auto_generate;
         
-        // Show delete confirmation modal
-        const confirmed = await showDeleteTemplateModal(templateName);
-        if (confirmed) {
-          try {
-            const response = await fetch(`${API_URL}/api/recurring-movements/${templateId}`, {
-              method: 'DELETE',
-              credentials: 'include'
-            });
-            
-            if (!response.ok) {
-              throw new Error('Error al eliminar el gasto');
-            }
-            
-            showSuccess('Gasto Eliminado', `<strong>${templateName}</strong> ha sido eliminado exitosamente`);
-            await loadBudgetsData();
-            refreshDisplay();
-          } catch (error) {
-            console.error('Error deleting template:', error);
-            showError('Error', error.message || 'No se pudo eliminar el gasto');
+        // Show scope modal — options depend on whether template auto-generates
+        const scopeOptions = isAutoGenerate ? [
+          {
+            value: 'THIS',
+            label: 'Solo este mes',
+            hint: 'Presupuesto y movimientos generados cambian solo para este mes'
+          },
+          {
+            value: 'FUTURE',
+            label: 'De ahí en adelante',
+            hint: 'Presupuesto cambia de este mes en adelante. Los movimientos pasados no se modifican'
+          },
+          {
+            value: 'ALL',
+            label: 'Todos los meses + movimientos',
+            hint: 'Presupuesto y todos los movimientos generados se actualizan'
           }
+        ] : [
+          {
+            value: 'THIS',
+            label: 'Solo este mes',
+            hint: 'El presupuesto cambia solo para este mes'
+          },
+          {
+            value: 'FUTURE',
+            label: 'De ahí en adelante',
+            hint: 'El presupuesto cambia de este mes en adelante'
+          },
+          {
+            value: 'ALL',
+            label: 'Todos los meses',
+            hint: 'El presupuesto cambia para todos los meses'
+          }
+        ];
+        
+        const editScope = await showScopeModal({
+          title: 'Editar gasto presupuestado',
+          description: '¿Cómo deseas aplicar los cambios?',
+          options: scopeOptions
+        });
+        if (!editScope) return; // User cancelled
+        
+        // Get category info for the modal
+        const categoryId = template.category_id;
+        const categoryBudget = budgetsData?.budgets?.find(b => b.category_id === categoryId);
+        const categoryName = categoryBudget?.category_name || 'Sin categoría';
+        
+        // Show edit form — pass the scope for use at submit time
+        showTemplateModal(categoryId, categoryName, template, editScope);
+        
+      } else if (action === 'delete-template') {
+        // Load template to get info
+        let template;
+        try {
+          const response = await fetch(`${API_URL}/api/recurring-movements/${templateId}`, {
+            credentials: 'include'
+          });
+          if (!response.ok) throw new Error('No se pudo cargar el gasto');
+          template = await response.json();
+        } catch (error) {
+          console.error('Error loading template:', error);
+          showError('Error', error.message || 'No se pudo cargar el gasto');
+          return;
+        }
+        
+        const templateName = template.name || 'este gasto';
+        
+        // Show scope modal with temporal options
+        const deleteScope = await showScopeModal({
+          title: 'Eliminar gasto presupuestado',
+          description: `¿Cómo deseas eliminar <strong>${templateName}</strong>?`,
+          options: [
+            {
+              value: 'THIS',
+              label: 'Solo este mes',
+              hint: 'El presupuesto cambia solo para este mes. Los movimientos registrados se conservan.'
+            },
+            {
+              value: 'FUTURE',
+              label: 'De ahí en adelante',
+              hint: 'El presupuesto cambia de este mes en adelante. Los movimientos registrados se conservan.'
+            },
+            {
+              value: 'ALL',
+              label: 'Todos los meses + movimientos',
+              hint: 'El presupuesto se actualiza en todos los meses y los movimientos generados se eliminan.',
+              danger: true
+            }
+          ]
+        });
+        if (!deleteScope) return; // cancelled
+        
+        try {
+          const params = new URLSearchParams();
+          params.set('budget_scope', deleteScope);
+          params.set('month', currentMonth);
+          // Only delete movements with scope=ALL
+          params.set('delete_movements', deleteScope === 'ALL' ? 'true' : 'false');
+          
+          const response = await fetch(`${API_URL}/api/recurring-movements/${templateId}?${params.toString()}`, {
+            method: 'DELETE',
+            credentials: 'include'
+          });
+          
+          if (!response.ok) {
+            throw new Error('Error al eliminar el gasto');
+          }
+          
+          const scopeLabels = { THIS: 'solo este mes', FUTURE: 'de ahora en adelante', ALL: 'todos los meses' };
+          const movMsg = deleteScope === 'ALL' ? ' y sus movimientos generados' : '';
+          showSuccess('Gasto Eliminado', `<strong>${templateName}</strong> ha sido eliminado (${scopeLabels[deleteScope]})${movMsg}`);
+          await loadBudgetsData();
+          refreshDisplay();
+        } catch (error) {
+          console.error('Error deleting template:', error);
+          showError('Error', error.message || 'No se pudo eliminar el gasto');
         }
       }
     });
   });
-  
-  /**
-   * Show delete template confirmation modal
-   */
-  function showDeleteTemplateModal(templateName) {
-    return new Promise((resolve) => {
-      const modalHtml = `
-        <div class="modal-overlay" id="delete-template-modal">
-          <div class="modal-content" style="max-width: 400px;">
-            <div style="text-align: center; margin-bottom: 16px;">
-              <div style="width: 48px; height: 48px; background: #fee2e2; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px;">
-                <span style="font-size: 24px;">🗑️</span>
-              </div>
-              <h3 style="margin: 0; font-size: 18px; font-weight: 600; color: #111827;">Eliminar gasto presupuestado</h3>
-            </div>
-            
-            <p style="margin: 0 0 16px 0; color: #4b5563; text-align: center; font-size: 14px;">
-              ¿Estás seguro de eliminar <strong>${templateName}</strong>?
-            </p>
-            
-            <div style="background: #fef3c7; border-radius: 8px; padding: 12px; margin-bottom: 20px;">
-              <p style="margin: 0; color: #92400e; font-size: 13px; display: flex; align-items: flex-start; gap: 8px;">
-                <span style="font-size: 16px;">⚠️</span>
-                <span>El presupuesto de la categoría se ajustará automáticamente al eliminar este gasto.</span>
-              </p>
-            </div>
-            
-            <div style="display: flex; gap: 12px;">
-              <button id="delete-template-cancel" class="btn-secondary" style="flex: 1; padding: 10px 16px; border-radius: 8px;">
-                Cancelar
-              </button>
-              <button id="delete-template-confirm" class="btn-danger" style="flex: 1; padding: 10px 16px; border-radius: 8px; background: #dc2626; color: white; border: none; cursor: pointer;">
-                Eliminar
-              </button>
-            </div>
-          </div>
-        </div>
-      `;
-      
-      document.body.insertAdjacentHTML('beforeend', modalHtml);
-      
-      const modal = document.getElementById('delete-template-modal');
-      const cancelBtn = document.getElementById('delete-template-cancel');
-      const confirmBtn = document.getElementById('delete-template-confirm');
-      
-      const closeModal = (result) => {
-        modal.remove();
-        resolve(result);
-      };
-      
-      cancelBtn.addEventListener('click', () => closeModal(false));
-      confirmBtn.addEventListener('click', () => closeModal(true));
-      modal.addEventListener('click', (e) => {
-        if (e.target === modal) closeModal(false);
-      });
-      
-      // Focus on cancel button for safety
-      cancelBtn.focus();
-    });
-  }
   
   // Group expand/collapse for budget groups
   document.querySelectorAll('.expense-group-card[data-group]').forEach(card => {
@@ -3874,29 +3708,6 @@ function setupBudgetListeners() {
       }
     });
   });
-  
-  // Copy from previous month button
-  const copyBtn = document.getElementById('copy-prev-month-budget');
-  if (copyBtn) {
-    copyBtn.addEventListener('click', async () => {
-      const confirmed = await showConfirmation(
-        '¿Copiar presupuestos del mes anterior?',
-        'Esto copiará todos los presupuestos del mes anterior al mes actual. Si ya existen presupuestos configurados, se mantendrán.'
-      );
-      
-      if (confirmed) {
-        await copyBudgetsFromPrevMonth();
-      }
-    });
-  }
-  
-  // Manage categories button
-  const manageCategoriesBtn = document.getElementById('manage-categories-btn');
-  if (manageCategoriesBtn) {
-    manageCategoriesBtn.addEventListener('click', () => {
-      router.navigate('/hogar');
-    });
-  }
   
   // New: Add template button inside category (Proposal 3)
   document.querySelectorAll('.budget-add-template-btn').forEach(btn => {
@@ -4094,9 +3905,83 @@ function showCreditCardsLoadingState() {
 }
 
 /**
+ * Show scope selection modal (reusable for budgets and templates)
+ * Returns a Promise<string|null> with the selected scope, or null if cancelled
+ */
+function showScopeModal({ title, description, options }) {
+  return new Promise((resolve) => {
+    const modalHtml = `
+      <div class="modal-overlay" id="scope-modal-overlay">
+        <div class="modal-content scope-modal">
+          <h3 style="margin: 0 0 16px 0; font-size: 18px; font-weight: 600;">
+            ${title}
+          </h3>
+          <p style="margin: 0 0 20px 0; font-size: 14px; color: #6b7280; line-height: 1.5;">
+            ${description}
+          </p>
+          
+          <div class="scope-options">
+            ${options.map((opt, i) => `
+              <label class="scope-option ${opt.danger ? 'scope-option-danger' : ''}">
+                <input type="radio" name="scope" value="${opt.value}" ${i === 0 ? 'checked' : ''} />
+                <div class="scope-option-content">
+                  <strong>${opt.label}</strong>
+                  <span>${opt.hint}</span>
+                </div>
+              </label>
+            `).join('')}
+          </div>
+          
+          <div class="modal-actions" style="display: flex; gap: 12px; margin-top: 24px;">
+            <button id="scope-cancel-btn" class="btn-secondary" style="flex: 1;">
+              Cancelar
+            </button>
+            <button id="scope-confirm-btn" class="btn-primary" style="flex: 1;">
+              Continuar
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    const overlay = document.getElementById('scope-modal-overlay');
+    const cancelBtn = document.getElementById('scope-cancel-btn');
+    const confirmBtn = document.getElementById('scope-confirm-btn');
+    
+    const closeModal = (result) => {
+      overlay.remove();
+      resolve(result);
+    };
+    
+    cancelBtn.addEventListener('click', () => closeModal(null));
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) closeModal(null);
+    });
+    
+    confirmBtn.addEventListener('click', () => {
+      const selected = document.querySelector('input[name="scope"]:checked').value;
+      closeModal(selected);
+    });
+  });
+}
+
+/**
  * Handle adding a budget
  */
 async function handleAddBudget(categoryId, categoryName) {
+  // Ask for scope FIRST
+  const scope = await showScopeModal({
+    title: 'Agregar presupuesto',
+    description: `¿A qué meses aplicar el presupuesto de <strong>${categoryName}</strong>?`,
+    options: [
+      { value: 'FUTURE', label: 'De este mes en adelante', hint: 'Se aplica a este mes y a todos los meses futuros' },
+      { value: 'THIS', label: 'Solo este mes', hint: 'Solo se aplica al mes actual' },
+    ]
+  });
+  if (!scope) return;
+  
   // Calculate templates sum for validation
   const templates = templatesData[categoryId] || [];
   const templatesSum = templates.reduce((sum, t) => sum + (t.amount || 0), 0);
@@ -4135,9 +4020,10 @@ async function handleAddBudget(categoryId, categoryName) {
     return;
   }
   
-  const result = await setBudget(categoryId, currentMonth, parsedAmount);
+  const result = await setBudget(categoryId, currentMonth, parsedAmount, scope);
   if (result) {
-    showSuccess('Presupuesto creado', `El presupuesto para <strong>${categoryName}</strong> ha sido creado con ${formatCurrency(parsedAmount)}`);
+    const scopeMsg = scope === 'THIS' ? ' (solo este mes)' : ' (de ahora en adelante)';
+    showSuccess('Presupuesto creado', `El presupuesto para <strong>${categoryName}</strong> ha sido creado con ${formatCurrency(parsedAmount)}${scopeMsg}`);
     await loadBudgetsData();
     refreshDisplay();
   }
@@ -4147,6 +4033,18 @@ async function handleAddBudget(categoryId, categoryName) {
  * Handle editing a budget
  */
 async function handleEditBudget(categoryId, budgetId, currentAmount, categoryName) {
+  // Ask for scope FIRST
+  const scope = await showScopeModal({
+    title: 'Editar presupuesto',
+    description: `¿A qué meses aplicar los cambios del presupuesto de <strong>${categoryName}</strong>?`,
+    options: [
+      { value: 'FUTURE', label: 'De este mes en adelante', hint: 'Se aplica a este mes y a todos los meses futuros' },
+      { value: 'THIS', label: 'Solo este mes', hint: 'Solo se aplica al mes actual, los otros meses no cambian' },
+      { value: 'ALL', label: 'Todos los meses', hint: 'Actualiza todos los meses existentes con el nuevo monto' },
+    ]
+  });
+  if (!scope) return;
+  
   // Calculate templates sum for validation
   const templates = templatesData[categoryId] || [];
   const templatesSum = templates.reduce((sum, t) => sum + (t.amount || 0), 0);
@@ -4154,7 +4052,7 @@ async function handleEditBudget(categoryId, budgetId, currentAmount, categoryNam
   // Build modal message with hint if templates exist
   let message = `Editar presupuesto para <strong>${categoryName}</strong>:`;
   if (templatesSum > 0) {
-    message += `<br><br><small style="color: #666;">💡 Gastos presupuestados: ${formatCurrency(templatesSum)}<br>El presupuesto debe ser al menos este monto.</small>`;
+    message += `<br><br><small style="color: #666;">💡 Gastos presupuestados: ${formatCurrency(templatesSum)}<br>El presupuesto debe ser al menos este monto. Ingresa 0 para eliminar.</small>`;
   }
   
   const amount = await showInputModal(
@@ -4181,20 +4079,17 @@ async function handleEditBudget(categoryId, budgetId, currentAmount, categoryNam
     return;
   }
   
-  // If amount is 0, delete the budget
-  if (parsedAmount === 0) {
-    const deleted = await deleteBudget(budgetId);
-    if (deleted) {
-      showSuccess('Presupuesto eliminado', `El presupuesto para <strong>${categoryName}</strong> ha sido eliminado`);
-      await loadBudgetsData();
-      refreshDisplay();
-    }
-    return;
-  }
-  
-  const result = await setBudget(categoryId, currentMonth, parsedAmount);
+  const result = await setBudget(categoryId, currentMonth, parsedAmount, scope);
   if (result) {
-    showSuccess('Presupuesto actualizado', `El presupuesto para <strong>${categoryName}</strong> ha sido actualizado de ${formatCurrency(currentAmount)} a ${formatCurrency(parsedAmount)}`);
+    const scopeLabels = { THIS: 'solo este mes', FUTURE: 'de ahora en adelante', ALL: 'todos los meses' };
+    if (parsedAmount === 0) {
+      showSuccess('Presupuesto eliminado', `El presupuesto para <strong>${categoryName}</strong> ha sido eliminado (${scopeLabels[scope]})`);
+    } else {
+      showSuccess(
+        'Presupuesto actualizado', 
+        `El presupuesto para <strong>${categoryName}</strong> ha sido actualizado de ${formatCurrency(currentAmount)} a ${formatCurrency(parsedAmount)} (${scopeLabels[scope]})`
+      );
+    }
     await loadBudgetsData();
     refreshDisplay();
   }
@@ -4231,7 +4126,7 @@ async function handleAddTemplate(categoryId = null, categoryName = null) {
  * Show template creation/edit modal
  * Uses MovementFormState from movement-form.js
  */
-async function showTemplateModal(categoryId, categoryName, existingTemplate = null) {
+async function showTemplateModal(categoryId, categoryName, existingTemplate = null, editBudgetScope = null) {
   const isEdit = !!existingTemplate;
   const hasCategoryPreselected = !!categoryId;
   const title = isEdit ? 'Editar gasto presupuestado' : 'Agregar gasto presupuestado';
@@ -5461,9 +5356,34 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
     
     // Create or update template via API
     try {
+      let queryParams = '';
+      
+      if (isEdit && editBudgetScope) {
+        // Scope was already selected before opening the form
+        const params = new URLSearchParams();
+        params.set('budget_scope', editBudgetScope);
+        
+        // For auto-generate templates, movement scope matches budget scope
+        // For non-auto-generate, no movements to update
+        if (existingTemplate.auto_generate) {
+          params.set('movement_scope', editBudgetScope);
+        } else {
+          params.set('movement_scope', 'NONE');
+        }
+        
+        queryParams = '?' + params.toString();
+      }
+      
+      // Add month parameter for budget scope
+      if (isEdit) {
+        const params = new URLSearchParams(queryParams.replace('?', ''));
+        params.set('month', currentMonth);
+        queryParams = '?' + params.toString();
+      }
+      
       const url = isEdit 
-        ? `${API_URL}/api/recurring-movements/${existingTemplate.id}`
-        : `${API_URL}/api/recurring-movements`;
+        ? `${API_URL}/api/recurring-movements/${existingTemplate.id}${queryParams}`
+        : `${API_URL}/api/recurring-movements?month=${currentMonth}`;
       const method = isEdit ? 'PUT' : 'POST';
       
       const response = await fetch(url, {
