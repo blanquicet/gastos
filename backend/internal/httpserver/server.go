@@ -190,6 +190,17 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 		logger,
 	)
 
+	// Create budget items service and handler (monthly snapshots)
+	budgetItemsRepo := budgets.NewBudgetItemsRepository(pool)
+	budgetItemsService := budgets.NewBudgetItemsService(budgetItemsRepo, budgetsRepo, logger)
+	budgetItemsHandler := budgets.NewBudgetItemsHandler(
+		budgetItemsService,
+		authService,
+		householdRepo,
+		cfg.SessionCookieName,
+		logger,
+	)
+
 	// Create category groups service and handler (repo already created above)
 	categoryGroupsService := categorygroups.NewService(categoryGroupsRepo, householdRepo, auditService)
 	categoryGroupsHandler := categorygroups.NewHandler(
@@ -411,6 +422,13 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 	mux.HandleFunc("PUT /budgets", budgetsHandler.SetBudget)
 	mux.HandleFunc("DELETE /budgets/{id}", budgetsHandler.DeleteBudget)
 	mux.HandleFunc("POST /budgets/copy", budgetsHandler.CopyBudgets)
+
+	// Budget items endpoints (monthly snapshots)
+	mux.HandleFunc("GET /api/budget-items/{month}", budgetItemsHandler.HandleListByMonth)
+	mux.HandleFunc("GET /api/budget-items/item/{id}", budgetItemsHandler.HandleGetByID)
+	mux.HandleFunc("POST /api/budget-items", budgetItemsHandler.HandleCreate)
+	mux.HandleFunc("PUT /api/budget-items/{id}", budgetItemsHandler.HandleUpdate)
+	mux.HandleFunc("DELETE /api/budget-items/{id}", budgetItemsHandler.HandleDelete)
 
 	// Category groups endpoints
 	mux.HandleFunc("GET /category-groups", categoryGroupsHandler.ListCategoryGroups)
