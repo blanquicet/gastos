@@ -1794,12 +1794,12 @@ async function loadLoansData() {
  */
 async function loadBudgetsData() {
   try {
-    // Load budgets and templates in parallel
-    const [budgetsResponse, templatesResponse] = await Promise.all([
+    // Load budgets and budget items (monthly snapshots) in parallel
+    const [budgetsResponse, itemsResponse] = await Promise.all([
       fetch(`${API_URL}/budgets/${currentMonth}`, {
         credentials: 'include'
       }),
-      fetch(`${API_URL}/api/recurring-movements?month=${currentMonth}`, {
+      fetch(`${API_URL}/api/budget-items/${currentMonth}`, {
         credentials: 'include'
       })
     ]);
@@ -1807,7 +1807,6 @@ async function loadBudgetsData() {
     // Handle budgets response
     if (!budgetsResponse.ok) {
       if (budgetsResponse.status === 404) {
-        // No budgets for this month yet
         budgetsData = { month: currentMonth, budgets: [], totals: { total_budget: 0, total_spent: 0, percentage: 0 }, _loadedMonth: currentMonth };
       } else {
         console.error('Error loading budgets data');
@@ -1815,21 +1814,21 @@ async function loadBudgetsData() {
       }
     } else {
       budgetsData = await budgetsResponse.json();
-      budgetsData._loadedMonth = currentMonth; // Track which month this data belongs to
+      budgetsData._loadedMonth = currentMonth;
     }
 
-    // Handle templates response
-    if (!templatesResponse.ok) {
-      console.error('Error loading recurring movements');
+    // Handle budget items response (replaces old recurring-movements fetch)
+    if (!itemsResponse.ok) {
+      console.error('Error loading budget items');
       templatesData = {};
     } else {
       try {
-        const templatesArray = await templatesResponse.json(); // Direct array, not wrapped
+        const itemsArray = await itemsResponse.json();
         
-        // Group templates by category_id
+        // Group items by category_id (same structure as before)
         templatesData = {};
-        if (Array.isArray(templatesArray)) {
-          templatesArray.forEach(t => {
+        if (Array.isArray(itemsArray)) {
+          itemsArray.forEach(t => {
             if (!templatesData[t.category_id]) {
               templatesData[t.category_id] = [];
             }
@@ -1837,26 +1836,20 @@ async function loadBudgetsData() {
           });
         }
         
-        // Sort templates within each category:
-      // 1. Periodic (auto_generate=true) first
-      // 2. Manual (auto_generate=false) second
-      // 3. Within each group: by amount (highest to lowest, Variable=0)
-      Object.keys(templatesData).forEach(categoryId => {
-        templatesData[categoryId].sort((a, b) => {
-          // First sort by auto_generate (periodic first)
-          if (a.auto_generate !== b.auto_generate) {
-            return a.auto_generate ? -1 : 1;
-          }
-          
-          // Then sort by amount (highest first)
-          const amountA = a.amount || 0;
-          const amountB = b.amount || 0;
-          return amountB - amountA;
+        // Sort items within each category
+        Object.keys(templatesData).forEach(categoryId => {
+          templatesData[categoryId].sort((a, b) => {
+            if (a.auto_generate !== b.auto_generate) {
+              return a.auto_generate ? -1 : 1;
+            }
+            const amountA = a.amount || 0;
+            const amountB = b.amount || 0;
+            return amountB - amountA;
+          });
         });
-      });
       
       } catch (jsonError) {
-        console.error('Error parsing recurring movements response:', jsonError);
+        console.error('Error parsing budget items response:', jsonError);
         templatesData = {};
       }
     }
@@ -3559,7 +3552,7 @@ function setupBudgetListeners() {
         // Load template data first to determine auto_generate
         let template;
         try {
-          const response = await fetch(`${API_URL}/api/recurring-movements/${templateId}`, {
+          const response = await fetch(`${API_URL}/api/budget-items/item/${templateId}`, {
             credentials: 'include'
           });
           if (!response.ok) throw new Error('No se pudo cargar el gasto');
@@ -3626,7 +3619,7 @@ function setupBudgetListeners() {
         // Load template to get info
         let template;
         try {
-          const response = await fetch(`${API_URL}/api/recurring-movements/${templateId}`, {
+          const response = await fetch(`${API_URL}/api/budget-items/item/${templateId}`, {
             credentials: 'include'
           });
           if (!response.ok) throw new Error('No se pudo cargar el gasto');
@@ -3671,7 +3664,7 @@ function setupBudgetListeners() {
           // Only delete movements with scope=ALL
           params.set('delete_movements', deleteScope === 'ALL' ? 'true' : 'false');
           
-          const response = await fetch(`${API_URL}/api/recurring-movements/${templateId}?${params.toString()}`, {
+          const response = await fetch(`${API_URL}/api/budget-items/${templateId}?${params.toString()}`, {
             method: 'DELETE',
             credentials: 'include'
           });
@@ -5382,9 +5375,14 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
       }
       
       const url = isEdit 
-        ? `${API_URL}/api/recurring-movements/${existingTemplate.id}${queryParams}`
-        : `${API_URL}/api/recurring-movements?month=${currentMonth}`;
+        ? `${API_URL}/api/budget-items/${existingTemplate.id}${queryParams}`
+        : `${API_URL}/api/budget-items?scope=FUTURE`;
       const method = isEdit ? 'PUT' : 'POST';
+      
+      // Add month to formData for create
+      if (!isEdit) {
+        formData.month = currentMonth;
+      }
       
       const response = await fetch(url, {
         method,
