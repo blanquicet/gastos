@@ -278,6 +278,18 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 	
 	// Create generator (needed by handler and scheduler)
 	generator := recurringmovements.NewGenerator(recurringMovementsRepo, movementsService, logger)
+
+	// Wire household member lookup for auto-generation of HOUSEHOLD movements without payer
+	generator.SetGetHouseholdMemberFn(func(ctx context.Context, householdID string) (string, error) {
+		members, err := householdRepo.GetMembers(ctx, householdID)
+		if err != nil {
+			return "", err
+		}
+		if len(members) == 0 {
+			return "", fmt.Errorf("no members found in household %s", householdID)
+		}
+		return members[0].UserID, nil
+	})
 	
 	// Create handler with generator for manual triggering
 	recurringMovementsHandler := recurringmovements.NewHandler(

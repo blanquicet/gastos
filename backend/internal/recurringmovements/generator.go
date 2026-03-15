@@ -3,6 +3,7 @@ package recurringmovements
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -11,9 +12,10 @@ import (
 
 // Generator handles automatic movement generation from templates
 type Generator struct {
-	templateRepo Repository
-	movementsSvc movements.Service
-	logger       *slog.Logger
+	templateRepo         Repository
+	movementsSvc         movements.Service
+	logger               *slog.Logger
+	getHouseholdMemberFn func(ctx context.Context, householdID string) (string, error) // returns any user_id from the household
 }
 
 // NewGenerator creates a new movement generator
@@ -27,6 +29,12 @@ func NewGenerator(
 		movementsSvc: movementsSvc,
 		logger:       logger,
 	}
+}
+
+// SetGetHouseholdMemberFn sets the function used to look up a household member user ID
+// when the template has no payer_user_id or participants (e.g. HOUSEHOLD type without payer)
+func (g *Generator) SetGetHouseholdMemberFn(fn func(ctx context.Context, householdID string) (string, error)) {
+	g.getHouseholdMemberFn = fn
 }
 
 // ProcessPendingTemplates generates movements for all pending templates
@@ -115,34 +123,42 @@ func (g *Generator) GenerateMovement(ctx context.Context, template *RecurringMov
 		}
 	}
 
-	// Use first household member as userID (for authorization)
-	// This is a system operation, so we pick any member
+	// Determine userID for the movements.Service.Create call (needs a household member)
+	// This is a system operation, so we pick any available member
 	var userID string
 	if template.PayerUserID != nil {
-		// Payer is a user - use their ID
 		userID = *template.PayerUserID
 	} else if len(template.Participants) > 0 {
-		// Payer is a contact - use first participant's user_id (for SPLIT movements)
 		for _, p := range template.Participants {
 			if p.ParticipantUserID != nil {
 				userID = *p.ParticipantUserID
 				break
 			}
 		}
-		if userID == "" {
-			g.logger.Error("cannot determine userID for auto-generation (no user participant found)",
+	}
+
+	// Fallback: look up any member of the household
+	if userID == "" && g.getHouseholdMemberFn != nil {
+		memberID, err := g.getHouseholdMemberFn(ctx, template.HouseholdID)
+		if err != nil {
+			g.logger.Error("failed to look up household member for auto-generation",
 				"template_id", template.ID,
 				"template_name", template.Name,
+				"household_id", template.HouseholdID,
+				"error", err,
 			)
-			return nil
+			return fmt.Errorf("cannot determine userID for auto-generation: %w", err)
 		}
-	} else {
-		// No payer user and no participants - cannot proceed
-		g.logger.Error("cannot determine userID for auto-generation (payer is contact, no participants)",
-			"template_id", template.ID,
-			"template_name", template.Name,
-		)
-		return nil
+		userID = memberID
+
+		// For HOUSEHOLD movements without a payer, default payer to this member
+		if input.PayerUserID == nil && input.PayerContactID == nil {
+			input.PayerUserID = &memberID
+		}
+	}
+
+	if userID == "" {
+		return fmt.Errorf("cannot determine userID for auto-generation: no payer, participants, or household member lookup configured (template %s)", template.ID)
 	}
 
 	// Create movement
