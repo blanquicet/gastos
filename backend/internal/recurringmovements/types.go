@@ -413,6 +413,9 @@ type UpdateTemplateInput struct {
 	// Participants - for SPLIT
 	Participants []TemplateParticipantInput `json:"participants,omitempty"`
 	
+	// Internal: next_scheduled_date recalculation (set by service when auto_generate is toggled on)
+	NextScheduledDate *time.Time `json:"-"`
+
 	// Internal flags to clear fields when changing movement type
 	ClearPayer            bool `json:"-"`
 	ClearCounterparty     bool `json:"-"`
@@ -456,6 +459,19 @@ type PreFillData struct {
 	ReceiverAccountID *string `json:"receiver_account_id,omitempty"`
 	
 	Participants []movements.ParticipantInput `json:"participants,omitempty"`
+}
+
+// BudgetItemOverride contains per-month budget item data that can override template values
+// during movement generation. This avoids importing the budgets package (circular import).
+type BudgetItemOverride struct {
+	Amount                float64
+	DayOfMonth            *int
+	PayerUserID           *string
+	PayerContactID        *string
+	CounterpartyUserID    *string
+	CounterpartyContactID *string
+	PaymentMethodID       *string
+	Participants          []TemplateParticipant // reuse existing type
 }
 
 // Repository defines the interface for recurring movement template data access

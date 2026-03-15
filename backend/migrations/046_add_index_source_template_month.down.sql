@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS idx_budget_items_source_template_month;

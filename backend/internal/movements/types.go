@@ -160,19 +160,17 @@ func (i *CreateMovementInput) Validate() error {
 		return errors.New("movement_date is required")
 	}
 	
-	// Validate payer (exactly one)
+	// Validate payer (exactly one, unless HOUSEHOLD which allows none for auto-generation)
 	hasPayerUser := i.PayerUserID != nil && *i.PayerUserID != ""
 	hasPayerContact := i.PayerContactID != nil && *i.PayerContactID != ""
-	if !hasPayerUser && !hasPayerContact {
-		return ErrPayerRequired
-	}
 	if hasPayerUser && hasPayerContact {
 		return errors.New("cannot specify both payer_user_id and payer_contact_id")
 	}
-	
+
 	// Type-specific validations
 	switch i.Type {
 	case TypeHousehold:
+		// Payer is optional for HOUSEHOLD (auto-generated movements have no payer)
 		// Category required (either legacy category name OR new category_id)
 		if (i.Category == nil || *i.Category == "") && (i.CategoryID == nil || *i.CategoryID == "") {
 			return ErrCategoryRequired
@@ -191,6 +189,10 @@ func (i *CreateMovementInput) Validate() error {
 		}
 		
 	case TypeSplit:
+		// Payer required for SPLIT
+		if !hasPayerUser && !hasPayerContact {
+			return ErrPayerRequired
+		}
 		// Participants required
 		if len(i.Participants) == 0 {
 			return ErrParticipantsRequired
@@ -223,6 +225,10 @@ func (i *CreateMovementInput) Validate() error {
 		}
 		
 	case TypeDebtPayment:
+		// Payer required for DEBT_PAYMENT
+		if !hasPayerUser && !hasPayerContact {
+			return ErrPayerRequired
+		}
 		// Counterparty required (exactly one)
 		hasCounterpartyUser := i.CounterpartyUserID != nil && *i.CounterpartyUserID != ""
 		hasCounterpartyContact := i.CounterpartyContactID != nil && *i.CounterpartyContactID != ""

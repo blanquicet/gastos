@@ -713,6 +713,13 @@ func (r *repository) Update(ctx context.Context, id string, input *UpdateTemplat
 		argIndex++
 	}
 
+	// NextScheduledDate (set internally by service when auto_generate is toggled on)
+	if input.NextScheduledDate != nil {
+		setClauses = append(setClauses, fmt.Sprintf("next_scheduled_date = $%d", argIndex))
+		args = append(args, *input.NextScheduledDate)
+		argIndex++
+	}
+
 	if len(setClauses) == 0 && len(input.Participants) == 0 {
 		// Nothing to update, just return current template
 		return r.GetByID(ctx, id)

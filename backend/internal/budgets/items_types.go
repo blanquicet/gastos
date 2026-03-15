@@ -91,6 +91,7 @@ type CreateBudgetItemInput struct {
 	ReceiverAccountID *string `json:"receiver_account_id,omitempty"`
 
 	SourceTemplateID *string `json:"source_template_id,omitempty"`
+	DayOfMonth       *int    `json:"day_of_month,omitempty"`
 
 	Participants []BudgetItemParticipantInput `json:"participants,omitempty"`
 }
@@ -122,6 +123,8 @@ type UpdateBudgetItemInput struct {
 	PaymentMethodID   *string `json:"payment_method_id,omitempty"`
 	ReceiverAccountID *string `json:"receiver_account_id,omitempty"`
 	ClearReceiverAccount bool `json:"-"`
+
+	DayOfMonth *int `json:"day_of_month,omitempty"`
 
 	Participants []BudgetItemParticipantInput `json:"participants,omitempty"`
 }
@@ -175,4 +178,8 @@ type BudgetItemsRepository interface {
 
 	// GetItemsSumForCategory returns the sum of all item amounts for a category in a month
 	GetItemsSumForCategory(ctx context.Context, householdID, categoryID, month string) (float64, error)
+
+	// GetBySourceTemplateAndMonth returns a budget item linked to a template for a given month
+	// Returns nil, nil if no matching item exists
+	GetBySourceTemplateAndMonth(ctx context.Context, templateID, month string) (*MonthlyBudgetItem, error)
 }

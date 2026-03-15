@@ -15,7 +15,11 @@
     "test:movement-familiar": "node e2e/movement-familiar.js",
     "test:movement-compartido": "node e2e/movement-compartido.js",
     "test:movement-pago-deuda": "node e2e/movement-pago-deuda.js",
-    "test:movements": "node e2e/movement-familiar.js && node e2e/movement-compartido.js && node e2e/movement-pago-deuda.js"
+    "test:movements": "node e2e/movement-familiar.js && node e2e/movement-compartido.js && node e2e/movement-pago-deuda.js",
+    "test:budget-scope": "node e2e/budget-scope.js",
+    "test:template-scope": "node e2e/template-scope.js",
+    "test:templates": "node e2e/templates.js",
+    "test:budgets": "node e2e/budget-scope.js && node e2e/template-scope.js && node e2e/templates.js && node e2e/budget-management.js"
   },
   "dependencies": {
     "pg": "^8.16.3",

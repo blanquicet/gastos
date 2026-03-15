@@ -2,9 +2,11 @@ package budgets
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -32,7 +34,7 @@ func (r *budgetItemsRepository) ListByMonth(ctx context.Context, householdID, mo
 			COALESCE(cu.name, cc.name) as counterparty_name,
 			pm.name as payment_method_name,
 			ra.name as receiver_account_name,
-			rmt.day_of_month
+			i.day_of_month
 		FROM monthly_budget_items i
 		LEFT JOIN users pu ON i.payer_user_id = pu.id
 		LEFT JOIN contacts pc ON i.payer_contact_id = pc.id
@@ -40,7 +42,6 @@ func (r *budgetItemsRepository) ListByMonth(ctx context.Context, householdID, mo
 		LEFT JOIN contacts cc ON i.counterparty_contact_id = cc.id
 		LEFT JOIN payment_methods pm ON i.payment_method_id = pm.id
 		LEFT JOIN accounts ra ON i.receiver_account_id = ra.id
-		LEFT JOIN recurring_movement_templates rmt ON i.source_template_id = rmt.id
 		WHERE i.household_id = $1 AND i.month = ($2 || '-01')::DATE
 		ORDER BY i.auto_generate DESC, i.amount DESC, i.name ASC
 	`, householdID, month)
@@ -178,7 +179,7 @@ func (r *budgetItemsRepository) GetByID(ctx context.Context, id string) (*Monthl
 			COALESCE(cu.name, cc.name) as counterparty_name,
 			pm.name as payment_method_name,
 			ra.name as receiver_account_name,
-			rmt.day_of_month
+			i.day_of_month
 		FROM monthly_budget_items i
 		LEFT JOIN users pu ON i.payer_user_id = pu.id
 		LEFT JOIN contacts pc ON i.payer_contact_id = pc.id
@@ -186,7 +187,6 @@ func (r *budgetItemsRepository) GetByID(ctx context.Context, id string) (*Monthl
 		LEFT JOIN contacts cc ON i.counterparty_contact_id = cc.id
 		LEFT JOIN payment_methods pm ON i.payment_method_id = pm.id
 		LEFT JOIN accounts ra ON i.receiver_account_id = ra.id
-		LEFT JOIN recurring_movement_templates rmt ON i.source_template_id = rmt.id
 		WHERE i.id = $1
 	`, id).Scan(
 		&item.ID, &item.HouseholdID, &item.CategoryID, &item.Month,
@@ -232,15 +232,15 @@ func (r *budgetItemsRepository) Create(ctx context.Context, householdID string, 
 			payer_user_id, payer_contact_id,
 			counterparty_user_id, counterparty_contact_id,
 			payment_method_id, receiver_account_id,
-			source_template_id
-		) VALUES ($1, $2, ($3 || '-01')::DATE, $4, $5, $6, 'COP', $7, $8, $9, $10, $11, $12, $13, $14, $15)
+			source_template_id, day_of_month
+		) VALUES ($1, $2, ($3 || '-01')::DATE, $4, $5, $6, 'COP', $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
 		RETURNING id, household_id, category_id, month,
 			name, description, amount, currency,
 			movement_type, auto_generate,
 			payer_user_id, payer_contact_id,
 			counterparty_user_id, counterparty_contact_id,
 			payment_method_id, receiver_account_id,
-			source_template_id,
+			source_template_id, day_of_month,
 			created_at, updated_at
 	`, householdID, input.CategoryID, input.Month,
 		input.Name, input.Description, input.Amount,
@@ -248,7 +248,7 @@ func (r *budgetItemsRepository) Create(ctx context.Context, householdID string, 
 		input.PayerUserID, input.PayerContactID,
 		input.CounterpartyUserID, input.CounterpartyContactID,
 		input.PaymentMethodID, input.ReceiverAccountID,
-		input.SourceTemplateID,
+		input.SourceTemplateID, input.DayOfMonth,
 	).Scan(
 		&item.ID, &item.HouseholdID, &item.CategoryID, &item.Month,
 		&item.Name, &item.Description, &item.Amount, &item.Currency,
@@ -256,7 +256,7 @@ func (r *budgetItemsRepository) Create(ctx context.Context, householdID string, 
 		&item.PayerUserID, &item.PayerContactID,
 		&item.CounterpartyUserID, &item.CounterpartyContactID,
 		&item.PaymentMethodID, &item.ReceiverAccountID,
-		&item.SourceTemplateID,
+		&item.SourceTemplateID, &item.DayOfMonth,
 		&item.CreatedAt, &item.UpdatedAt,
 	)
 	if err != nil {
@@ -357,6 +357,11 @@ func (r *budgetItemsRepository) Update(ctx context.Context, id string, input *Up
 	if input.ClearReceiverAccount {
 		sets = append(sets, "receiver_account_id = NULL")
 	}
+	if input.DayOfMonth != nil {
+		sets = append(sets, fmt.Sprintf("day_of_month = $%d", argIdx))
+		args = append(args, *input.DayOfMonth)
+		argIdx++
+	}
 
 	query := fmt.Sprintf(`UPDATE monthly_budget_items SET %s WHERE id = $1
 		RETURNING id, household_id, category_id, month,
@@ -365,7 +370,7 @@ func (r *budgetItemsRepository) Update(ctx context.Context, id string, input *Up
 			payer_user_id, payer_contact_id,
 			counterparty_user_id, counterparty_contact_id,
 			payment_method_id, receiver_account_id,
-			source_template_id,
+			source_template_id, day_of_month,
 			created_at, updated_at`,
 		strings.Join(sets, ", "))
 
@@ -377,7 +382,7 @@ func (r *budgetItemsRepository) Update(ctx context.Context, id string, input *Up
 		&item.PayerUserID, &item.PayerContactID,
 		&item.CounterpartyUserID, &item.CounterpartyContactID,
 		&item.PaymentMethodID, &item.ReceiverAccountID,
-		&item.SourceTemplateID,
+		&item.SourceTemplateID, &item.DayOfMonth,
 		&item.CreatedAt, &item.UpdatedAt,
 	)
 	if err != nil {
@@ -430,8 +435,8 @@ func (r *budgetItemsRepository) CreateInMonth(ctx context.Context, householdID s
 			payer_user_id, payer_contact_id,
 			counterparty_user_id, counterparty_contact_id,
 			payment_method_id, receiver_account_id,
-			source_template_id
-		) VALUES ($1, $2, ($3 || '-01')::DATE, $4, $5, $6, 'COP', $7, $8, $9, $10, $11, $12, $13, $14, $15)
+			source_template_id, day_of_month
+		) VALUES ($1, $2, ($3 || '-01')::DATE, $4, $5, $6, 'COP', $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
 		ON CONFLICT (household_id, category_id, month, name) DO NOTHING
 		RETURNING id, household_id, category_id, month,
 			name, description, amount, currency,
@@ -439,7 +444,7 @@ func (r *budgetItemsRepository) CreateInMonth(ctx context.Context, householdID s
 			payer_user_id, payer_contact_id,
 			counterparty_user_id, counterparty_contact_id,
 			payment_method_id, receiver_account_id,
-			source_template_id,
+			source_template_id, day_of_month,
 			created_at, updated_at
 	`, householdID, input.CategoryID, month,
 		input.Name, input.Description, input.Amount,
@@ -447,7 +452,7 @@ func (r *budgetItemsRepository) CreateInMonth(ctx context.Context, householdID s
 		input.PayerUserID, input.PayerContactID,
 		input.CounterpartyUserID, input.CounterpartyContactID,
 		input.PaymentMethodID, input.ReceiverAccountID,
-		input.SourceTemplateID,
+		input.SourceTemplateID, input.DayOfMonth,
 	).Scan(
 		&item.ID, &item.HouseholdID, &item.CategoryID, &item.Month,
 		&item.Name, &item.Description, &item.Amount, &item.Currency,
@@ -455,7 +460,7 @@ func (r *budgetItemsRepository) CreateInMonth(ctx context.Context, householdID s
 		&item.PayerUserID, &item.PayerContactID,
 		&item.CounterpartyUserID, &item.CounterpartyContactID,
 		&item.PaymentMethodID, &item.ReceiverAccountID,
-		&item.SourceTemplateID,
+		&item.SourceTemplateID, &item.DayOfMonth,
 		&item.CreatedAt, &item.UpdatedAt,
 	)
 	if err != nil {
@@ -517,16 +522,16 @@ func (r *budgetItemsRepository) CopyItemsToMonth(ctx context.Context, householdI
 			payer_user_id, payer_contact_id,
 			counterparty_user_id, counterparty_contact_id,
 			payment_method_id, receiver_account_id,
-			source_template_id
+			source_template_id, day_of_month
 		)
-		SELECT 
+		SELECT
 			household_id, category_id, ($2 || '-01')::DATE,
 			name, description, amount, currency,
 			movement_type, auto_generate,
 			payer_user_id, payer_contact_id,
 			counterparty_user_id, counterparty_contact_id,
 			payment_method_id, receiver_account_id,
-			source_template_id
+			source_template_id, day_of_month
 		FROM monthly_budget_items
 		WHERE household_id = $1 AND month = ($3 || '-01')::DATE
 		ON CONFLICT (household_id, category_id, month, name) DO NOTHING
@@ -672,6 +677,11 @@ func (r *budgetItemsRepository) UpdateAllMonths(ctx context.Context, householdID
 	if input.ClearReceiverAccount {
 		sets = append(sets, "receiver_account_id = NULL")
 	}
+	if input.DayOfMonth != nil {
+		sets = append(sets, fmt.Sprintf("day_of_month = $%d", argIdx))
+		args = append(args, *input.DayOfMonth)
+		argIdx++
+	}
 
 	query := fmt.Sprintf(`UPDATE monthly_budget_items SET %s
 		WHERE household_id = $1 AND category_id = $2 AND name = $3`,
@@ -738,4 +748,52 @@ func (r *budgetItemsRepository) GetItemsSumForCategory(ctx context.Context, hous
 		return 0, err
 	}
 	return sum, nil
+}
+
+// GetBySourceTemplateAndMonth returns the budget item linked to a specific template for a given month.
+// Returns nil, nil if no matching item exists (no error).
+func (r *budgetItemsRepository) GetBySourceTemplateAndMonth(ctx context.Context, templateID, month string) (*MonthlyBudgetItem, error) {
+	var item MonthlyBudgetItem
+	err := r.pool.QueryRow(ctx, `
+		SELECT
+			i.id, i.household_id, i.category_id, i.month,
+			i.name, i.description, i.amount, i.currency,
+			i.movement_type, i.auto_generate,
+			i.payer_user_id, i.payer_contact_id,
+			i.counterparty_user_id, i.counterparty_contact_id,
+			i.payment_method_id, i.receiver_account_id,
+			i.source_template_id,
+			i.created_at, i.updated_at,
+			i.day_of_month
+		FROM monthly_budget_items i
+		WHERE i.source_template_id = $1 AND i.month = ($2 || '-01')::DATE
+		LIMIT 1
+	`, templateID, month).Scan(
+		&item.ID, &item.HouseholdID, &item.CategoryID, &item.Month,
+		&item.Name, &item.Description, &item.Amount, &item.Currency,
+		&item.MovementType, &item.AutoGenerate,
+		&item.PayerUserID, &item.PayerContactID,
+		&item.CounterpartyUserID, &item.CounterpartyContactID,
+		&item.PaymentMethodID, &item.ReceiverAccountID,
+		&item.SourceTemplateID,
+		&item.CreatedAt, &item.UpdatedAt,
+		&item.DayOfMonth,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	// Load participants if SPLIT
+	if item.MovementType != nil && *item.MovementType == "SPLIT" {
+		participants, err := r.getParticipants(ctx, item.ID)
+		if err != nil {
+			return nil, err
+		}
+		item.Participants = participants
+	}
+
+	return &item, nil
 }

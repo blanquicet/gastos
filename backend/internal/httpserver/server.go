@@ -290,7 +290,40 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 		}
 		return members[0].UserID, nil
 	})
-	
+
+	// Wire budget item lookup for per-month overrides during movement generation
+	generator.SetGetBudgetItemFn(func(ctx context.Context, templateID string, month string) (*recurringmovements.BudgetItemOverride, error) {
+		item, err := budgetItemsRepo.GetBySourceTemplateAndMonth(ctx, templateID, month)
+		if err != nil {
+			return nil, err
+		}
+		if item == nil {
+			return nil, nil // No override, generator uses template defaults
+		}
+		// Convert budgets.MonthlyBudgetItem → recurringmovements.BudgetItemOverride
+		override := &recurringmovements.BudgetItemOverride{
+			Amount:                item.Amount,
+			DayOfMonth:            item.DayOfMonth,
+			PayerUserID:           item.PayerUserID,
+			PayerContactID:        item.PayerContactID,
+			CounterpartyUserID:    item.CounterpartyUserID,
+			CounterpartyContactID: item.CounterpartyContactID,
+			PaymentMethodID:       item.PaymentMethodID,
+		}
+		// Convert participants
+		if len(item.Participants) > 0 {
+			override.Participants = make([]recurringmovements.TemplateParticipant, len(item.Participants))
+			for i, p := range item.Participants {
+				override.Participants[i] = recurringmovements.TemplateParticipant{
+					ParticipantUserID:    p.ParticipantUserID,
+					ParticipantContactID: p.ParticipantContactID,
+					Percentage:           p.Percentage,
+				}
+			}
+		}
+		return override, nil
+	})
+
 	// Create handler with generator for manual triggering
 	recurringMovementsHandler := recurringmovements.NewHandler(
 		recurringMovementsService,

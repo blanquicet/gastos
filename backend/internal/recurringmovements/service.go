@@ -335,6 +335,27 @@ func (s *service) Update(ctx context.Context, userID, id string, input *UpdateTe
 		}
 	}
 
+	// If auto_generate is being turned ON, recalculate next_scheduled_date from now
+	if input.AutoGenerate != nil && *input.AutoGenerate && !template.AutoGenerate {
+		now := time.Now()
+		// Use the day_of_month from input (if being changed) or from existing template
+		dayOfMonth := template.DayOfMonth
+		if input.DayOfMonth != nil {
+			dayOfMonth = input.DayOfMonth
+		}
+		// Use recurrence pattern from input or existing
+		pattern := template.RecurrencePattern
+		if input.RecurrencePattern != nil {
+			pattern = input.RecurrencePattern
+		}
+		next := calculateNextScheduledDate(now, pattern, dayOfMonth, template.DayOfYear)
+		input.NextScheduledDate = &next
+		s.logger.Info("auto_generate toggled ON, recalculating next_scheduled_date",
+			"template_id", id,
+			"next_scheduled_date", next,
+		)
+	}
+
 	// Update template
 	updated, err := s.repo.Update(ctx, id, input)
 	if err != nil {
