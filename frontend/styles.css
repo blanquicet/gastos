@@ -2821,7 +2821,6 @@ button.loading::after {
   font-size: 16px;
   padding: 2px 6px;
   border-radius: 12px;
-  background-color: #fef3c7;
   color: #92400e;
   text-align: center;
   cursor: help;
