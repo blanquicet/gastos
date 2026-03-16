@@ -34,7 +34,15 @@ func (r *budgetItemsRepository) ListByMonth(ctx context.Context, householdID, mo
 			COALESCE(cu.name, cc.name) as counterparty_name,
 			pm.name as payment_method_name,
 			ra.name as receiver_account_name,
-			i.day_of_month
+			i.day_of_month,
+			CASE WHEN i.source_template_id IS NOT NULL THEN
+				EXISTS(
+					SELECT 1 FROM movements m
+					WHERE m.generated_from_template_id = i.source_template_id
+						AND m.household_id = i.household_id
+						AND to_char(m.movement_date, 'YYYY-MM') = $2
+				)
+			ELSE false END as used_this_month
 		FROM monthly_budget_items i
 		LEFT JOIN users pu ON i.payer_user_id = pu.id
 		LEFT JOIN contacts pc ON i.payer_contact_id = pc.id
@@ -65,6 +73,7 @@ func (r *budgetItemsRepository) ListByMonth(ctx context.Context, householdID, mo
 			&item.PayerName, &item.CounterpartyName,
 			&item.PaymentMethodName, &item.ReceiverAccountName,
 			&item.DayOfMonth,
+			&item.UsedThisMonth,
 		)
 		if err != nil {
 			return nil, err

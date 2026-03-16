@@ -265,9 +265,9 @@ async function testBudgetManagement() {
     await editSuccessOkBtn.click();
     await page.waitForTimeout(1000);
     
-    // Verify amount was updated (amount is in the category header)
-    const updatedAmountEl = editBudgetCard.locator('.expense-category-header .expense-category-amount');
-    const updatedAmount = await updatedAmountEl.textContent();
+    // Verify amount was updated (when budget exists, the indicator bar shows ".budget-text")
+    const updatedBudgetText = editBudgetCard.locator('.expense-category-header .budget-text');
+    const updatedAmount = await updatedBudgetText.textContent();
     console.log(`  Updated budget amount: ${updatedAmount.trim()}`);
     
     if (!updatedAmount.includes('750.000') && !updatedAmount.includes('750,000')) {
@@ -324,8 +324,8 @@ async function testBudgetManagement() {
     
     // The first category should inherit the 750k budget we set (scope=FUTURE means it applies to future)
     const inheritedCard = page.locator('.expense-category-item').first();
-    const inheritedAmountEl = inheritedCard.locator('.expense-category-header .expense-category-amount');
-    const inheritedAmount = await inheritedAmountEl.textContent();
+    const inheritedBudgetText = inheritedCard.locator('.expense-category-header .budget-text');
+    const inheritedAmount = await inheritedBudgetText.textContent();
     console.log(`  Inherited budget amount: ${inheritedAmount.trim()}`);
 
     if (!inheritedAmount.includes('750.000') && !inheritedAmount.includes('750,000')) {

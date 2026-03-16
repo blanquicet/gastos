@@ -43,8 +43,14 @@ async function expandCategory(page, categoryName) {
 }
 
 // Helper: get budget amount text for a category from the UI
+// When a budget exists, the indicator bar shows ".budget-text" with "spent / budget".
+// When no budget, ".expense-category-amount" shows "Sin presupuesto".
 async function getCategoryBudgetText(page, categoryName) {
   const header = page.locator('.expense-category-header').filter({ hasText: categoryName });
+  const budgetText = header.locator('.budget-text');
+  if (await budgetText.count() > 0) {
+    return (await budgetText.textContent()).trim();
+  }
   const amountEl = header.locator('.expense-category-amount');
   return (await amountEl.textContent()).trim();
 }
