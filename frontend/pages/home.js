@@ -765,16 +765,37 @@ function renderBudgets() {
     const templatesSum = templates.reduce((sum, t) => sum + (t.amount || 0), 0);
     const budgetTotal = budget.amount || 0;
     const additionalBudget = Math.max(0, budgetTotal - templatesSum);
-    
+
+    // Budget indicator (spent vs budget) - same as Gastos tab
+    let budgetIndicatorHtml = '';
+    if (hasBudget) {
+      const spent = budget.spent || 0;
+      const budgetPercentage = ((spent / budgetTotal) * 100).toFixed(0);
+      let budgetColor = '#10b981'; // Green - under budget
+      if (budgetPercentage > 100) {
+        budgetColor = '#ef4444'; // Red - exceeded
+      } else if (budgetPercentage >= 80) {
+        budgetColor = '#f59e0b'; // Yellow - on track (80-100%)
+      }
+      budgetIndicatorHtml = `
+        <div class="budget-indicator">
+          <div class="budget-text">${formatCurrency(spent)} / ${formatCurrency(budgetTotal)}</div>
+          <div class="budget-bar">
+            <div class="budget-bar-fill" style="width: ${Math.min(budgetPercentage, 100)}%; background-color: ${budgetColor};"></div>
+          </div>
+          <div class="budget-percentage" style="color: ${budgetColor};">${budgetPercentage}%</div>
+        </div>
+      `;
+    }
+
     return `
       <div class="expense-category-item">
         <div class="expense-category-header" onclick="toggleBudgetCategoryDetails('${safeCategoryId}')">
           <div class="expense-category-info">
             <span class="expense-category-name">${simplifiedName}</span>
-            <span class="expense-category-amount">
-              ${hasBudget ? formatCurrency(budget.amount) : '<span class="no-budget-text">Sin presupuesto</span>'}
-            </span>
+            ${!hasBudget ? '<span class="expense-category-amount"><span class="no-budget-text">Sin presupuesto</span></span>' : ''}
           </div>
+          ${budgetIndicatorHtml}
           <svg class="category-chevron" width="16" height="16" viewBox="0 0 20 20" fill="none">
             <path d="M7.5 5L12.5 10L7.5 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
