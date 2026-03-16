@@ -348,7 +348,7 @@ func (s *service) Update(ctx context.Context, userID, id string, input *UpdateTe
 		if input.RecurrencePattern != nil {
 			pattern = input.RecurrencePattern
 		}
-		next := calculateNextScheduledDate(now, pattern, dayOfMonth, template.DayOfYear)
+		next := CalculateNextScheduledDate(now, pattern, dayOfMonth, template.DayOfYear)
 		input.NextScheduledDate = &next
 		s.logger.Info("auto_generate toggled ON, recalculating next_scheduled_date",
 			"template_id", id,

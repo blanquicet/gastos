@@ -13,7 +13,7 @@ import (
 type BudgetItemsService struct {
 	itemsRepo      BudgetItemsRepository
 	logger         *slog.Logger
-	syncTemplateFn func(ctx context.Context, templateID string, amount float64, name string) error
+	syncTemplateFn func(ctx context.Context, templateID string, item *MonthlyBudgetItem) error
 	budgetSyncFn   func(ctx context.Context, householdID, categoryID, month string) error
 }
 
@@ -26,7 +26,7 @@ func NewBudgetItemsService(itemsRepo BudgetItemsRepository, logger *slog.Logger)
 }
 
 // SetSyncTemplateFn sets the function used to sync budget item changes back to the master template
-func (s *BudgetItemsService) SetSyncTemplateFn(fn func(ctx context.Context, templateID string, amount float64, name string) error) {
+func (s *BudgetItemsService) SetSyncTemplateFn(fn func(ctx context.Context, templateID string, item *MonthlyBudgetItem) error) {
 	s.syncTemplateFn = fn
 }
 
@@ -286,7 +286,7 @@ func (s *BudgetItemsService) syncMasterTemplate(ctx context.Context, item *Month
 	if item.SourceTemplateID == nil || s.syncTemplateFn == nil {
 		return
 	}
-	if err := s.syncTemplateFn(ctx, *item.SourceTemplateID, item.Amount, item.Name); err != nil {
+	if err := s.syncTemplateFn(ctx, *item.SourceTemplateID, item); err != nil {
 		s.logger.Warn("failed to sync master template", "error", err, "template_id", *item.SourceTemplateID)
 	}
 }

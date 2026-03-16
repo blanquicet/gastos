@@ -221,11 +221,59 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 	budgetsService.SetTemplatesCalculator(recurringMovementsService)
 
 	// Wire template sync so budget item updates propagate to recurring movement templates
-	budgetItemsService.SetSyncTemplateFn(func(ctx context.Context, templateID string, amount float64, name string) error {
-		_, err := recurringMovementsRepo.Update(ctx, templateID, &recurringmovements.UpdateTemplateInput{
-			Amount: &amount,
-			Name:   &name,
-		})
+	budgetItemsService.SetSyncTemplateFn(func(ctx context.Context, templateID string, item *budgets.MonthlyBudgetItem) error {
+		updateInput := &recurringmovements.UpdateTemplateInput{
+			Amount: &item.Amount,
+			Name:   &item.Name,
+		}
+
+		// Sync movement details
+		updateInput.MovementType = item.MovementType
+		updateInput.AutoGenerate = &item.AutoGenerate
+		updateInput.PayerUserID = item.PayerUserID
+		updateInput.PayerContactID = item.PayerContactID
+		updateInput.CounterpartyUserID = item.CounterpartyUserID
+		updateInput.CounterpartyContactID = item.CounterpartyContactID
+		updateInput.PaymentMethodID = item.PaymentMethodID
+		updateInput.ReceiverAccountID = item.ReceiverAccountID
+
+		// Sync day_of_month
+		if item.DayOfMonth != nil {
+			updateInput.DayOfMonth = item.DayOfMonth
+		}
+
+		// Sync participants (convert BudgetItemParticipant → TemplateParticipantInput)
+		if len(item.Participants) > 0 {
+			updateInput.Participants = make([]recurringmovements.TemplateParticipantInput, len(item.Participants))
+			for i, p := range item.Participants {
+				updateInput.Participants[i] = recurringmovements.TemplateParticipantInput{
+					ParticipantUserID:    p.ParticipantUserID,
+					ParticipantContactID: p.ParticipantContactID,
+					Percentage:           p.Percentage,
+				}
+			}
+		}
+
+		// If auto_generate is being turned ON, recalculate next_scheduled_date
+		if item.AutoGenerate {
+			existing, err := recurringMovementsRepo.GetByID(ctx, templateID)
+			if err == nil && !existing.AutoGenerate {
+				// Toggling ON — compute next scheduled date
+				now := time.Now()
+				dayOfMonth := existing.DayOfMonth
+				if item.DayOfMonth != nil {
+					dayOfMonth = item.DayOfMonth
+				}
+				next := recurringmovements.CalculateNextScheduledDate(now, existing.RecurrencePattern, dayOfMonth, existing.DayOfYear)
+				updateInput.NextScheduledDate = &next
+				logger.Info("budget item sync: auto_generate toggled ON, recalculating next_scheduled_date",
+					"template_id", templateID,
+					"next_scheduled_date", next,
+				)
+			}
+		}
+
+		_, err := recurringMovementsRepo.Update(ctx, templateID, updateInput)
 		return err
 	})
 

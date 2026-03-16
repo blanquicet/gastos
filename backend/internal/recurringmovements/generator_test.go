@@ -76,7 +76,7 @@ func TestCalculateNextScheduledDate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Call the actual function from repository.go
-			nextDate := calculateNextScheduledDate(tt.from, &tt.pattern, tt.dayOfMonth, tt.dayOfYear)
+			nextDate := CalculateNextScheduledDate(tt.from, &tt.pattern, tt.dayOfMonth, tt.dayOfYear)
 
 			// Verify
 			if nextDate.Year() != tt.wantYear {
@@ -100,7 +100,7 @@ func TestCalculateNextScheduledDateEdgeCases(t *testing.T) {
 		pattern := RecurrenceMonthly
 		dayOfMonth := 29
 
-		nextDate := calculateNextScheduledDate(lastGenerated, &pattern, &dayOfMonth, nil)
+		nextDate := CalculateNextScheduledDate(lastGenerated, &pattern, &dayOfMonth, nil)
 
 		// Should get Feb 29, 2024 (leap year)
 		if nextDate.Year() != 2024 || nextDate.Month() != time.February || nextDate.Day() != 29 {
@@ -108,7 +108,7 @@ func TestCalculateNextScheduledDateEdgeCases(t *testing.T) {
 		}
 
 		// Next one after Feb should be March 29
-		nextDate2 := calculateNextScheduledDate(nextDate, &pattern, &dayOfMonth, nil)
+		nextDate2 := CalculateNextScheduledDate(nextDate, &pattern, &dayOfMonth, nil)
 		if nextDate2.Year() != 2024 || nextDate2.Month() != time.March || nextDate2.Day() != 29 {
 			t.Errorf("Expected March 29, 2024, got %v", nextDate2)
 		}
@@ -119,7 +119,7 @@ func TestCalculateNextScheduledDateEdgeCases(t *testing.T) {
 		pattern := RecurrenceYearly
 		dayOfYear := 1
 
-		nextDate := calculateNextScheduledDate(lastGenerated, &pattern, nil, &dayOfYear)
+		nextDate := CalculateNextScheduledDate(lastGenerated, &pattern, nil, &dayOfYear)
 
 		if nextDate.Year() != 2026 || nextDate.Month() != time.January || nextDate.Day() != 1 {
 			t.Errorf("Expected Jan 1, 2026, got %v", nextDate)
@@ -131,7 +131,7 @@ func TestCalculateNextScheduledDateEdgeCases(t *testing.T) {
 		pattern := RecurrenceYearly
 		dayOfYear := 365
 
-		nextDate := calculateNextScheduledDate(lastGenerated, &pattern, nil, &dayOfYear)
+		nextDate := CalculateNextScheduledDate(lastGenerated, &pattern, nil, &dayOfYear)
 
 		if nextDate.Year() != 2026 || nextDate.Month() != time.December || nextDate.Day() != 31 {
 			t.Errorf("Expected Dec 31, 2026, got %v", nextDate)

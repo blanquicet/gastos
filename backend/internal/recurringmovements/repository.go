@@ -43,7 +43,7 @@ func (r *repository) Create(ctx context.Context, input *CreateTemplateInput, hou
 	// Calculate next_scheduled_date if auto_generate is true
 	var nextScheduled *time.Time
 	if autoGenerate && input.StartDate != nil && input.StartDate.Valid {
-		next := calculateNextScheduledDate(input.StartDate.Time, input.RecurrencePattern, input.DayOfMonth, input.DayOfYear)
+		next := CalculateNextScheduledDate(input.StartDate.Time, input.RecurrencePattern, input.DayOfMonth, input.DayOfYear)
 		nextScheduled = &next
 	}
 
@@ -802,8 +802,8 @@ func (r *repository) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
-// calculateNextScheduledDate calculates the next scheduled date for a template
-func calculateNextScheduledDate(from time.Time, pattern *RecurrencePattern, dayOfMonth, dayOfYear *int) time.Time {
+// CalculateNextScheduledDate calculates the next scheduled date for a template
+func CalculateNextScheduledDate(from time.Time, pattern *RecurrencePattern, dayOfMonth, dayOfYear *int) time.Time {
 	if pattern == nil {
 		return from
 	}
