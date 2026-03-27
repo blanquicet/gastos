@@ -2639,12 +2639,12 @@ async function loadMovementForEdit(movementId) {
           let amount = null;
           
           if (p.amount != null && movement.amount > 0) {
-            // Calculate percentage from exact amount
-            percentage = ((p.amount / movement.amount) * 100).toFixed(6);
+            // Calculate percentage from exact amount (keep as number for .toFixed() calls later)
+            percentage = (p.amount / movement.amount) * 100;
             amount = p.amount; // Store the exact amount
           } else {
-            // Use stored percentage
-            percentage = (p.percentage * 100).toFixed(6); // Convert 0.0-1.0 to 0-100 with 6 decimals for precision
+            // Use stored percentage (keep as number for .toFixed() calls later)
+            percentage = p.percentage * 100; // Convert 0.0-1.0 to 0-100
           }
           
           participants.push({

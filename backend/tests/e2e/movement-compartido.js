@@ -504,9 +504,77 @@ async function testMovementCompartido() {
     console.log('   Amount shown:', amountText, '(user\'s 50% portion)');
 
     // ==================================================================
-    // STEP 9: Test Exact Amount Preservation (Values instead of Percentages)
+    // STEP 9: Edit SPLIT Movement
     // ==================================================================
-    console.log('📝 Step 9: Testing exact amount preservation with values...');
+    console.log('📝 Step 9: Editing SPLIT movement (verify edit form loads for SPLIT)...');
+
+    // Navigate to the edit page for the equitable split movement
+    consoleErrors.length = 0;
+
+    await page.goto(`${appUrl}/registrar-movimiento?tipo=GASTO&edit=${movement.id}`, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(3000);
+
+    // Check for JavaScript errors during edit form load
+    const editErrors = consoleErrors.filter(err =>
+      err.includes('Error loading') || err.includes('toFixed') || err.includes('TypeError')
+    );
+    if (editErrors.length > 0) {
+      console.error('❌ Errors loading SPLIT edit form:', editErrors);
+      throw new Error(`SPLIT edit form failed to load: ${editErrors[0]}`);
+    }
+
+    // Verify we're on the edit page (not redirected away)
+    const currentUrl = page.url();
+    if (!currentUrl.includes('registrar-movimiento')) {
+      throw new Error(`Expected to stay on registrar-movimiento page, but got: ${currentUrl}`);
+    }
+
+    // Verify form fields are populated
+    const editDesc = await page.locator('#descripcion').inputValue();
+    if (editDesc !== 'Cena en restaurante') {
+      throw new Error(`Expected description "Cena en restaurante", got "${editDesc}"`);
+    }
+
+    // Verify submit button says "Actualizar"
+    const submitText = await page.locator('#submitBtn').textContent();
+    if (!submitText.includes('Actualizar')) {
+      throw new Error(`Expected submit button to say "Actualizar", got "${submitText}"`);
+    }
+
+    // Edit the description and submit
+    await page.locator('#descripcion').fill('Cena en restaurante editada');
+    await submitFormAndConfirm(page);
+
+    // Wait for navigation back to home
+    await page.waitForURL('**/', { timeout: 5000 });
+    await page.waitForTimeout(1000);
+
+    // Verify the update persisted in DB
+    const editedResult = await pool.query(
+      'SELECT description FROM movements WHERE id = $1',
+      [movement.id]
+    );
+    if (editedResult.rows[0].description !== 'Cena en restaurante editada') {
+      throw new Error(`Expected description "Cena en restaurante editada", got "${editedResult.rows[0].description}"`);
+    }
+
+    // Verify participants were preserved (not deleted)
+    const editedParticipants = await pool.query(
+      'SELECT * FROM movement_participants WHERE movement_id = $1',
+      [movement.id]
+    );
+    if (editedParticipants.rows.length !== 2) {
+      throw new Error(`Expected 2 participants after edit, got ${editedParticipants.rows.length}`);
+    }
+
+    console.log('✅ SPLIT movement edited successfully');
+    console.log('   Description updated to "Cena en restaurante editada"');
+    console.log('   Participants preserved: 2');
+
+    // ==================================================================
+    // STEP 10: Test Exact Amount Preservation (Values instead of Percentages)
+    // ==================================================================
+    console.log('📝 Step 10: Testing exact amount preservation with values...');
     
     // Clear console logs to capture only this step
     consoleLogs.length = 0;
