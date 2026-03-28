@@ -86,7 +86,7 @@ export async function setup() {
   // Fetch supporting data in parallel
   const [accounts, catGroups] = await Promise.all([
     apiFetch('/accounts').catch(() => []),
-    apiFetch('/api/category-groups').catch(() => [])
+    apiFetch('/category-groups').catch(() => [])
   ]);
   accountsData = accounts || [];
   categoryGroupsData = catGroups || [];
@@ -596,6 +596,10 @@ function openDepositModal() {
     <div class="pocket-modal">
       <h2>Depositar</h2>
       <div class="pocket-modal-field">
+        <label>Fecha <span class="pocket-required">*</span></label>
+        <input type="date" id="pocket-dep-date" value="${todayISO()}" />
+      </div>
+      <div class="pocket-modal-field">
         <label>Monto <span class="pocket-required">*</span></label>
         <input type="number" id="pocket-dep-amount" min="1" placeholder="Ej: 100000" />
       </div>
@@ -620,10 +624,6 @@ function openDepositModal() {
       <div class="pocket-modal-field">
         <label>Descripción</label>
         <input type="text" id="pocket-dep-desc" placeholder="Ej: Ahorro mensual" />
-      </div>
-      <div class="pocket-modal-field">
-        <label>Fecha <span class="pocket-required">*</span></label>
-        <input type="date" id="pocket-dep-date" value="${todayISO()}" />
       </div>
       <div class="pocket-modal-actions">
         <button type="button" class="pocket-btn-cancel" id="pocket-dep-cancel">Cancelar</button>
@@ -687,6 +687,10 @@ function openWithdrawModal() {
     <div class="pocket-modal">
       <h2>Retirar</h2>
       <div class="pocket-modal-field">
+        <label>Fecha <span class="pocket-required">*</span></label>
+        <input type="date" id="pocket-wdr-date" value="${todayISO()}" />
+      </div>
+      <div class="pocket-modal-field">
         <label>Monto <span class="pocket-required">*</span></label>
         <input type="number" id="pocket-wdr-amount" min="1" max="${maxBalance}" placeholder="Ej: 50000" />
         <span class="pocket-field-hint">Máximo: ${formatCurrency(maxBalance)}</span>
@@ -701,10 +705,6 @@ function openWithdrawModal() {
       <div class="pocket-modal-field">
         <label>Descripción</label>
         <input type="text" id="pocket-wdr-desc" placeholder="Ej: Retiro para compra" />
-      </div>
-      <div class="pocket-modal-field">
-        <label>Fecha <span class="pocket-required">*</span></label>
-        <input type="date" id="pocket-wdr-date" value="${todayISO()}" />
       </div>
       <div class="pocket-modal-actions">
         <button type="button" class="pocket-btn-cancel" id="pocket-wdr-cancel">Cancelar</button>
