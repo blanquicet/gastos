@@ -27,6 +27,7 @@ import (
 	"github.com/blanquicet/conti/backend/internal/middleware"
 	"github.com/blanquicet/conti/backend/internal/movements"
 	"github.com/blanquicet/conti/backend/internal/paymentmethods"
+	"github.com/blanquicet/conti/backend/internal/pockets"
 	"github.com/blanquicet/conti/backend/internal/recurringmovements"
 	"github.com/blanquicet/conti/backend/internal/sessions"
 	"github.com/blanquicet/conti/backend/internal/stt"
@@ -410,6 +411,30 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 	)
 	creditCardsHandler := creditcards.NewHandler(creditCardsService, authService, cfg.SessionCookieName)
 
+	// Create pockets service and handler
+	pocketsRepo := pockets.NewRepository(pool)
+	pocketsService := pockets.NewService(
+		pocketsRepo,
+		movementsRepo,
+		accountsRepo,
+		householdRepo,
+		auditService,
+		logger,
+	)
+	pocketsHandler := pockets.NewHandler(
+		pocketsService,
+		authService,
+		householdRepo,
+		cfg.SessionCookieName,
+		logger,
+	)
+
+	// Wire cascade delete: when a linked movement is deleted from Gastos,
+	// also delete the pocket_transaction that references it
+	movementsService.SetDeletePocketTransactionFn(func(ctx context.Context, movementID, householdID string) error {
+		return pocketsService.DeleteTransactionByMovementID(ctx, movementID, householdID)
+	})
+
 	// Create rate limiters for auth endpoints (if enabled)
 	// Login/Register: 5 requests per minute per IP (strict to prevent brute force)
 	// Password reset: 3 requests per minute per IP (even stricter)
@@ -561,7 +586,20 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 	// Credit cards summary endpoints (for Tarjetas tab)
 	mux.HandleFunc("GET /credit-cards/summary", creditCardsHandler.HandleGetSummary)
 	mux.HandleFunc("GET /credit-cards/{id}/movements", creditCardsHandler.HandleGetCardMovements)
-	
+
+	// Pockets endpoints
+	mux.HandleFunc("POST /api/pockets", pocketsHandler.HandleCreate)
+	mux.HandleFunc("GET /api/pockets", pocketsHandler.HandleList)
+	mux.HandleFunc("GET /api/pockets/summary", pocketsHandler.HandleGetSummary)
+	mux.HandleFunc("GET /api/pockets/{id}", pocketsHandler.HandleGetByID)
+	mux.HandleFunc("PATCH /api/pockets/{id}", pocketsHandler.HandleUpdate)
+	mux.HandleFunc("DELETE /api/pockets/{id}", pocketsHandler.HandleDelete)
+	mux.HandleFunc("POST /api/pockets/{id}/deposit", pocketsHandler.HandleDeposit)
+	mux.HandleFunc("POST /api/pockets/{id}/withdraw", pocketsHandler.HandleWithdraw)
+	mux.HandleFunc("GET /api/pockets/{id}/transactions", pocketsHandler.HandleListTransactions)
+	mux.HandleFunc("PATCH /api/pocket-transactions/{id}", pocketsHandler.HandleEditTransaction)
+	mux.HandleFunc("DELETE /api/pocket-transactions/{id}", pocketsHandler.HandleDeleteTransaction)
+
 	// Admin audit log endpoints (TODO: add admin-only middleware)
 	mux.HandleFunc("GET /admin/audit-logs", auditHandler.ListAuditLogs)
 	mux.HandleFunc("GET /admin/audit-logs/{id}", auditHandler.GetAuditLog)

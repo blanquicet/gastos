@@ -396,4 +396,5 @@ type Service interface {
 	GetDebtConsolidation(ctx context.Context, userID string, month *string) (*DebtConsolidationResponse, error)
 	Update(ctx context.Context, userID, id string, input *UpdateMovementInput) (*Movement, error)
 	Delete(ctx context.Context, userID, id string) error
+	SetDeletePocketTransactionFn(fn func(ctx context.Context, movementID, householdID string) error)
 }

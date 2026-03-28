@@ -13,12 +13,13 @@ import (
 
 // service implements Service interface
 type service struct {
-	repo              Repository
-	householdsRepo    households.HouseholdRepository
-	paymentMethodRepo paymentmethods.Repository
-	accountsRepo      accounts.Repository
-	auditService      audit.Service
-	logger            *slog.Logger
+	repo                      Repository
+	householdsRepo            households.HouseholdRepository
+	paymentMethodRepo         paymentmethods.Repository
+	accountsRepo              accounts.Repository
+	auditService              audit.Service
+	logger                    *slog.Logger
+	deletePocketTransactionFn func(ctx context.Context, movementID, householdID string) error
 }
 
 // NewService creates a new movements service
@@ -38,6 +39,10 @@ func NewService(
 		auditService:      auditService,
 		logger:            logger,
 	}
+}
+
+func (s *service) SetDeletePocketTransactionFn(fn func(ctx context.Context, movementID, householdID string) error) {
+	s.deletePocketTransactionFn = fn
 }
 
 // Create creates a new movement
@@ -982,6 +987,14 @@ func (s *service) Delete(ctx context.Context, userID, id string) error {
 
 	if existing.HouseholdID != householdID {
 		return ErrNotAuthorized
+	}
+
+	// Cascade delete linked pocket transaction (if any)
+	if s.deletePocketTransactionFn != nil {
+		if err := s.deletePocketTransactionFn(ctx, id, existing.HouseholdID); err != nil {
+			s.logger.Error("failed to cascade delete pocket transaction", "movement_id", id, "error", err)
+			// Continue with movement deletion even if pocket cascade fails
+		}
 	}
 
 	// Delete movement
