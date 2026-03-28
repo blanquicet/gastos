@@ -181,8 +181,10 @@ async function renderListView(container) {
   } else {
     html += '<div class="pockets-grid">';
     for (const p of pockets) {
-      const pct = p.goal_amount > 0 ? Math.round((p.balance / p.goal_amount) * 100) : null;
-      const pctDisplay = pct !== null ? Math.min(pct, 100) : null;
+      const rawPct = p.goal_amount > 0 ? (p.balance / p.goal_amount) * 100 : null;
+      const pct = rawPct !== null ? Math.round(rawPct) : null;
+      const pctDisplay = rawPct !== null ? Math.max(Math.min(rawPct, 100), p.balance > 0 ? 1 : 0) : null;
+      const pctLabel = rawPct !== null ? (rawPct > 0 && pct === 0 ? '<1' : String(pct)) : null;
       html += `
         <div class="pocket-card" data-pocket-id="${p.id}" style="border-left-color:${p.color || '#6366f1'}">
           <div class="pocket-card-header">
@@ -190,12 +192,12 @@ async function renderListView(container) {
             <span class="pocket-card-name">${escapeHTML(p.name)}</span>
           </div>
           <div class="pocket-card-balance">${formatCurrency(p.balance)}</div>
-          ${pct !== null ? `
+          ${rawPct !== null ? `
             <div class="pocket-card-progress">
               <div class="pocket-progress-bar">
                 <div class="pocket-progress-fill" style="width:${pctDisplay}%;background:${p.color || '#6366f1'}"></div>
               </div>
-              <span class="pocket-card-pct">${pct}%</span>
+              <span class="pocket-card-pct">${pctLabel}%</span>
             </div>
           ` : ''}
         </div>
@@ -340,8 +342,10 @@ async function renderDetailView(container) {
   if (!transactionsData) transactionsData = [];
 
   const p = pocketDetailData;
-  const pct = p.goal_amount > 0 ? Math.round((p.balance / p.goal_amount) * 100) : null;
-  const pctDisplay = pct !== null ? Math.min(pct, 100) : null;
+  const rawPct = p.goal_amount > 0 ? (p.balance / p.goal_amount) * 100 : null;
+  const pct = rawPct !== null ? Math.round(rawPct) : null;
+  const pctDisplay = rawPct !== null ? Math.max(Math.min(rawPct, 100), p.balance > 0 ? 1 : 0) : null;
+  const pctLabel = rawPct !== null ? (rawPct > 0 && pct === 0 ? '<1' : String(pct)) : null;
   const hasAccounts = accountsData && accountsData.length > 0;
 
   let html = `
@@ -356,13 +360,13 @@ async function renderDetailView(container) {
         </div>
       </div>
 
-      ${pct !== null ? `
+      ${rawPct !== null ? `
         <div class="pocket-progress-card">
           <div class="pocket-progress-bar pocket-progress-bar-lg">
             <div class="pocket-progress-fill" style="width:${pctDisplay}%;background:${p.color || '#6366f1'}"></div>
           </div>
           <div class="pocket-progress-info">
-            <span>${pct}% de ${formatCurrency(p.goal_amount)}</span>
+            <span>${pctLabel}% de ${formatCurrency(p.goal_amount)}</span>
             ${pct >= 100 ? '<span class="pocket-goal-badge">🎉 ¡Meta alcanzada!</span>' : ''}
           </div>
         </div>
