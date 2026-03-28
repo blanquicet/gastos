@@ -144,11 +144,7 @@ async function renderListView(container) {
     return;
   }
 
-  const { total_balance, total_goal, pocket_count, pockets } = summaryData;
-
-  // Progress percentage for total
-  const totalPct = total_goal > 0 ? Math.round((total_balance / total_goal) * 100) : null;
-  const totalPctDisplay = totalPct !== null ? Math.min(totalPct, 100) : null;
+  const { total_balance, pocket_count, pockets } = summaryData;
 
   let html = `
     <div class="pockets-list-wrapper">
@@ -157,14 +153,6 @@ async function renderListView(container) {
       <div class="pockets-total-card">
         <div class="pockets-total-label">Total ahorrado</div>
         <div class="pockets-total-amount">${formatCurrency(total_balance)}</div>
-        ${totalPct !== null ? `
-          <div class="pockets-total-progress">
-            <div class="pocket-progress-bar">
-              <div class="pocket-progress-fill" style="width:${totalPctDisplay}%;background:rgba(255,255,255,0.4)"></div>
-            </div>
-            <span class="pockets-total-pct">${totalPct}% de ${formatCurrency(total_goal)}</span>
-          </div>
-        ` : ''}
         <div class="pockets-total-count">${pocket_count} bolsillo${pocket_count !== 1 ? 's' : ''}</div>
       </div>
   `;
