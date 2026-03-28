@@ -27,6 +27,7 @@ async function loadPage(name) {
       case 'admin-audit-logs': pageCache[name] = await import('./pages/admin-audit-logs.js'); break;
       case 'invite': pageCache[name] = await import('./pages/invite.js'); break;
       case 'chat': pageCache[name] = await import('./pages/chat.js'); break;
+      case 'ahorros': pageCache[name] = await import('./pages/ahorros.js'); break;
     }
   }
   return pageCache[name];
@@ -222,6 +223,21 @@ function initRouter() {
     const appEl = document.getElementById('app');
     appEl.innerHTML = ChatPage.render();
     ChatPage.setup();
+    const loadingEl = document.getElementById('loading');
+    if (loadingEl) loadingEl.style.display = 'none';
+  });
+
+  router.route('/ahorros', async () => {
+    const { authenticated, user } = await checkAuth();
+    if (!authenticated) {
+      router.navigate('/login');
+      return;
+    }
+    currentUser = user;
+    const AhorrosPage = await loadPage('ahorros');
+    const appEl = document.getElementById('app');
+    appEl.innerHTML = AhorrosPage.render(user);
+    await AhorrosPage.setup();
     const loadingEl = document.getElementById('loading');
     if (loadingEl) loadingEl.style.display = 'none';
   });
