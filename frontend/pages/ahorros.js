@@ -17,7 +17,6 @@ let currentPocketId = null; // null = list view, set = detail view
 let summaryData = null;
 let accountsData = null;
 let categoryGroupsData = null;
-let householdMembers = null;
 let pocketDetailData = null;
 let transactionsData = null;
 let popstateHandler = null;
@@ -85,14 +84,12 @@ export async function setup() {
   activeTab = 'movimientos';
 
   // Fetch supporting data in parallel
-  const [accounts, catGroups, members] = await Promise.all([
+  const [accounts, catGroups] = await Promise.all([
     apiFetch('/accounts').catch(() => []),
-    apiFetch('/api/category-groups').catch(() => []),
-    apiFetch('/households/members').catch(() => [])
+    apiFetch('/api/category-groups').catch(() => [])
   ]);
   accountsData = accounts || [];
   categoryGroupsData = catGroups || [];
-  householdMembers = members || [];
 
   // Listen for browser back/forward that stay on /ahorros
   if (popstateHandler) window.removeEventListener('popstate', popstateHandler);
@@ -261,12 +258,6 @@ function openCreatePocketModal() {
         <label>Meta de ahorro (opcional)</label>
         <input type="number" id="pocket-create-goal" min="0" placeholder="Ej: 5000000" />
       </div>
-      <div class="pocket-modal-field">
-        <label>Propietario</label>
-        <select id="pocket-create-owner">
-          ${householdMembers.map(m => `<option value="${m.user_id}" ${m.user_id === currentUser.id ? 'selected' : ''}>${escapeHTML(m.name)}</option>`).join('')}
-        </select>
-      </div>
       <div class="pocket-modal-actions">
         <button type="button" class="pocket-btn-cancel" id="pocket-create-cancel">Cancelar</button>
         <button type="button" class="pocket-btn-primary" id="pocket-create-submit">Crear</button>
@@ -307,14 +298,13 @@ function openCreatePocketModal() {
     }
     const goalStr = overlay.querySelector('#pocket-create-goal').value;
     const goal = goalStr ? parseFloat(goalStr) : null;
-    const ownerId = overlay.querySelector('#pocket-create-owner').value;
 
     const submitBtn = overlay.querySelector('#pocket-create-submit');
     submitBtn.disabled = true;
     submitBtn.textContent = 'Creando...';
 
     try {
-      const body = { name, icon: selectedIcon, color: selectedColor, owner_id: ownerId };
+      const body = { name, icon: selectedIcon, color: selectedColor, owner_id: currentUser.id };
       if (goal !== null && goal > 0) body.goal_amount = goal;
       await apiFetch('/api/pockets', {
         method: 'POST',
