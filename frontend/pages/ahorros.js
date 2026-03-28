@@ -655,7 +655,7 @@ function openDepositModal() {
       const body = {
         amount,
         description: desc || 'Depósito',
-        transaction_date: date + 'T00:00:00Z',
+        transaction_date: date,
         category_id: categoryId,
         source_account_id: accountId
       };
@@ -735,7 +735,7 @@ function openWithdrawModal() {
       const body = {
         amount,
         description: desc || 'Retiro',
-        transaction_date: date + 'T00:00:00Z',
+        transaction_date: date,
         destination_account_id: accountId
       };
       await apiFetch(`/api/pockets/${currentPocketId}/withdraw`, {
@@ -830,7 +830,7 @@ function openEditTransactionModal(tx) {
     const body = {
       amount,
       description: desc,
-      transaction_date: date + 'T00:00:00Z'
+      transaction_date: date
     };
 
     if (isDeposit) {
