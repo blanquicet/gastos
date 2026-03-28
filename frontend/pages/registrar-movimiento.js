@@ -2074,6 +2074,8 @@ function renderParticipants() {
       // Show as COP value
       pctInput.type = 'text';
       pctInput.inputMode = 'decimal';
+      pctInput.className = 'pct-value-input';
+      pctInput.dataset.participantIdx = idx;
       const value = ((p.pct / 100) * totalValue);
       pctInput.value = formatNumber(value);
       
@@ -2096,11 +2098,47 @@ function renderParticipants() {
         const v = parseNumber(e.target.value);
         if (Number.isFinite(v) && totalValue > 0) {
           participants[idx].pct = (v / totalValue) * 100;
-          participants[idx].amount = v; // Store exact amount entered
+          participants[idx].amount = v;
         } else {
           participants[idx].pct = 0;
           participants[idx].amount = 0;
         }
+
+        // Auto-fill: when there are exactly 2 participants, always update the other.
+        // When there are N>2, update the only one with amount=0.
+        if (totalValue > 0) {
+          const currentVal = participants[idx].amount;
+          const allValueInputs = participantsListEl.querySelectorAll('.pct-value-input');
+
+          if (participants.length === 2) {
+            const otherIdx = idx === 0 ? 1 : 0;
+            const remainder = Math.max(0, Math.round((totalValue - currentVal) * 100) / 100);
+            participants[otherIdx].amount = remainder;
+            participants[otherIdx].pct = (remainder / totalValue) * 100;
+            const otherInput = allValueInputs[otherIdx];
+            if (otherInput && otherInput !== e.target) {
+              otherInput.value = formatNumber(remainder);
+            }
+          } else {
+            // For N>2: auto-fill the only participant with amount===0 (excluding current)
+            const zeroIndices = participants
+              .map((p, i) => i)
+              .filter(i => i !== idx && !(participants[i].amount > 0));
+
+            if (zeroIndices.length === 1) {
+              const autoIdx = zeroIndices[0];
+              const sumOthers = participants.reduce(
+                (acc, p, i) => (i !== autoIdx && i !== idx) ? acc + (p.amount || 0) : acc, 0
+              );
+              const remainder = Math.max(0, Math.round((totalValue - currentVal - sumOthers) * 100) / 100);
+              participants[autoIdx].amount = remainder;
+              participants[autoIdx].pct = (remainder / totalValue) * 100;
+              const autoInput = allValueInputs[autoIdx];
+              if (autoInput) autoInput.value = formatNumber(remainder);
+            }
+          }
+        }
+
         validatePctSum();
       });
       
@@ -2121,12 +2159,45 @@ function renderParticipants() {
       // Show as percentage (rounded to 2 decimals)
       pctInput.type = 'text';
       pctInput.inputMode = 'decimal';
+      pctInput.className = 'pct-pct-input';
+      pctInput.dataset.participantIdx = idx;
       pctInput.value = (p.pct ?? 0).toFixed(2);
 
       pctInput.addEventListener('input', () => {
         const v = parseFloat(pctInput.value);
-        participants[idx].pct = Number.isFinite(v) ? v : 0;
-        delete participants[idx].amount; // Clear amount when using percentages
+        const currentPct = Number.isFinite(v) ? v : 0;
+        participants[idx].pct = currentPct;
+        delete participants[idx].amount;
+
+        // Auto-fill: 2 participants → update the other;
+        // N>2 → update the only one still at 0
+        const allPctInputs = participantsListEl.querySelectorAll('.pct-pct-input');
+        if (participants.length === 2) {
+          const otherIdx = idx === 0 ? 1 : 0;
+          const remainder = Math.max(0, Math.round((100 - currentPct) * 100) / 100);
+          participants[otherIdx].pct = remainder;
+          delete participants[otherIdx].amount;
+          const otherInput = allPctInputs[otherIdx];
+          if (otherInput && otherInput !== pctInput) {
+            otherInput.value = remainder.toFixed(2);
+          }
+        } else {
+          const zeroIndices = participants
+            .map((p, i) => i)
+            .filter(i => i !== idx && !(participants[i].pct > 0));
+          if (zeroIndices.length === 1) {
+            const autoIdx = zeroIndices[0];
+            const sumOthers = participants.reduce(
+              (acc, p, i) => (i !== autoIdx && i !== idx) ? acc + (p.pct || 0) : acc, 0
+            );
+            const remainder = Math.max(0, Math.round((100 - currentPct - sumOthers) * 100) / 100);
+            participants[autoIdx].pct = remainder;
+            delete participants[autoIdx].amount;
+            const autoInput = allPctInputs[autoIdx];
+            if (autoInput) autoInput.value = remainder.toFixed(2);
+          }
+        }
+
         validatePctSum();
       });
       

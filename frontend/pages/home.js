@@ -4678,6 +4678,8 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
         // Show as COP value (even if totalValue is 0)
         pctInput.type = 'text';
         pctInput.inputMode = 'decimal';
+        pctInput.className = 'pct-value-input';
+        pctInput.dataset.participantIdx = idx;
         const value = totalValue > 0 ? ((p.percentage / 100) * totalValue) : 0;
         pctInput.value = formatNumber(value);
         pctInput.style.fontSize = '13px';
@@ -4697,6 +4699,37 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
           } else {
             formState.participants[idx].percentage = 0;
           }
+
+          // Auto-fill: 2 participants → always update the other;
+          // N>2 → update the only one with percentage===0
+          if (totalValue > 0) {
+            const currentVal = Number.isFinite(v) ? v : 0;
+            const allValueInputs = container.querySelectorAll('.pct-value-input');
+            if (formState.participants.length === 2) {
+              const otherIdx = idx === 0 ? 1 : 0;
+              const remainder = Math.max(0, Math.round((totalValue - currentVal) * 100) / 100);
+              formState.participants[otherIdx].percentage = (remainder / totalValue) * 100;
+              const otherInput = allValueInputs[otherIdx];
+              if (otherInput && otherInput !== e.target) {
+                otherInput.value = formatNumber(remainder);
+              }
+            } else {
+              const zeroIndices = formState.participants
+                .map((p, i) => i)
+                .filter(i => i !== idx && !(formState.participants[i].percentage > 0));
+              if (zeroIndices.length === 1) {
+                const autoIdx = zeroIndices[0];
+                const sumOthersPct = formState.participants.reduce(
+                  (acc, p, i) => (i !== autoIdx && i !== idx) ? acc + p.percentage : acc, 0
+                );
+                const remainderPct = Math.max(0, 100 - (currentVal / totalValue * 100) - sumOthersPct);
+                formState.participants[autoIdx].percentage = Math.round(remainderPct * 100) / 100;
+                const autoInput = allValueInputs[autoIdx];
+                if (autoInput) autoInput.value = formatNumber((remainderPct / 100) * totalValue);
+              }
+            }
+          }
+
           validatePctSum();
         });
         
@@ -4717,14 +4750,44 @@ async function showTemplateModal(categoryId, categoryName, existingTemplate = nu
         // Show as percentage (rounded to 2 decimals)
         pctInput.type = 'text';
         pctInput.inputMode = 'decimal';
+        pctInput.className = 'pct-pct-input';
+        pctInput.dataset.participantIdx = idx;
         pctInput.value = (p.percentage || 0).toFixed(2);
         pctInput.placeholder = '0.00';
         pctInput.style.fontSize = '14px';
         pctInput.style.padding = '12px 2px 12px 14px';
         
         pctInput.addEventListener('input', (e) => {
-          const value = parseFloat(e.target.value) || 0;
-          formState.participants[idx].percentage = value;
+          const currentPct = parseFloat(e.target.value) || 0;
+          formState.participants[idx].percentage = currentPct;
+
+          // Auto-fill: 2 participants → update the other;
+          // N>2 → update the only one still at 0
+          const allPctInputs = container.querySelectorAll('.pct-pct-input');
+          if (formState.participants.length === 2) {
+            const otherIdx = idx === 0 ? 1 : 0;
+            const remainder = Math.max(0, Math.round((100 - currentPct) * 100) / 100);
+            formState.participants[otherIdx].percentage = remainder;
+            const otherInput = allPctInputs[otherIdx];
+            if (otherInput && otherInput !== e.target) {
+              otherInput.value = remainder.toFixed(2);
+            }
+          } else {
+            const zeroIndices = formState.participants
+              .map((p, i) => i)
+              .filter(i => i !== idx && !(formState.participants[i].percentage > 0));
+            if (zeroIndices.length === 1) {
+              const autoIdx = zeroIndices[0];
+              const sumOthers = formState.participants.reduce(
+                (acc, p, i) => (i !== autoIdx && i !== idx) ? acc + (p.percentage || 0) : acc, 0
+              );
+              const remainder = Math.max(0, Math.round((100 - currentPct - sumOthers) * 100) / 100);
+              formState.participants[autoIdx].percentage = remainder;
+              const autoInput = allPctInputs[autoIdx];
+              if (autoInput) autoInput.value = remainder.toFixed(2);
+            }
+          }
+
           validatePctSum();
         });
         

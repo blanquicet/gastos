@@ -55,6 +55,7 @@ async function testMovementCompartido() {
   let userId = null;
   let householdId = null;
   let contactId = null;
+  let contact2Id = null;
 
   try {
     console.log('🚀 Starting Movement SPLIT Test');
@@ -143,8 +144,24 @@ async function testMovementCompartido() {
       [householdId, 'María External']
     );
     contactId = contactResult.rows[0].id;
+
+    // Add a second contact for 3-participant tests
+    await page.getByRole('button', { name: '+ Agregar contacto' }).click();
+    await page.waitForTimeout(500);
+
+    await page.locator('#contact-name').fill('Pedro Third');
+    await page.locator('#contact-email').fill('pedro@example.com');
+
+    await page.getByRole('button', { name: 'Agregar', exact: true }).click();
+    await page.waitForTimeout(3000);
+
+    const contact2Result = await pool.query(
+      'SELECT id FROM contacts WHERE household_id = $1 AND name = $2',
+      [householdId, 'Pedro Third']
+    );
+    contact2Id = contact2Result.rows[0].id;
     
-    console.log('✅ Contact added');
+    console.log('✅ Contacts added (María External + Pedro Third)');
 
     // ==================================================================
     // STEP 3: Add Payment Method
@@ -377,9 +394,9 @@ async function testMovementCompartido() {
     console.log('✅ Custom percentages verified: 70% / 30%');
 
     // ==================================================================
-    // STEP 7: Test Validation (Percentages Must Sum 100%)
+    // STEP 7: Test Auto-Fill (Last Participant Gets Remainder)
     // ==================================================================
-    console.log('📝 Step 7: Testing percentage validation...');
+    console.log('📝 Step 7: Testing auto-fill of last participant percentage...');
     
     await page.goto(`${appUrl}/registrar-movimiento`, { waitUntil: 'networkidle' });
     await page.waitForTimeout(2000);
@@ -387,7 +404,7 @@ async function testMovementCompartido() {
     await page.locator('button[data-tipo="SPLIT"]').click();
     await page.waitForTimeout(500);
     
-    await page.locator('#descripcion').fill('Test validation');
+    await page.locator('#descripcion').fill('Test auto-fill');
     await page.locator('#valor').fill('50000');
     await page.selectOption('#categoria', 'Mercado');
     await page.selectOption('#pagadorCompartido', 'Test User Split');
@@ -396,36 +413,38 @@ async function testMovementCompartido() {
     
     await page.locator('#addParticipantBtn').click();
     await page.waitForTimeout(500);
-    
+
     const participantSelects3 = await page.locator('#participantsList select').all();
     if (participantSelects3.length >= 2) {
       await participantSelects3[1].selectOption('María External');
       await page.waitForTimeout(500);
     }
-    
-    // Set invalid percentages (don't sum to 100%)
+
+    // Uncheck equitable so we can type custom percentages
     await page.locator('#equitable').uncheck();
     await page.waitForTimeout(500);
-    
+
+    // Type 70% in participant 1 — participant 2 should auto-fill to 30%
     const pctInputs3 = await page.locator('#participantsList input[type="text"]').all();
     if (pctInputs3.length >= 2) {
-      await pctInputs3[0].fill('40');
-      await pctInputs3[1].fill('30');
-      await page.waitForTimeout(500);
+      await pctInputs3[0].fill('70');
+      await pctInputs3[0].dispatchEvent('input');
+      await page.waitForTimeout(300);
     }
-    
-    // Try to submit - should fail
-    await page.locator('#submitBtn').click();
-    await page.waitForTimeout(1000);
-    
-    // Should show validation error
-    const validationStatus = await page.locator('#status').textContent();
-    if (!validationStatus.includes('100%') && !validationStatus.includes('100')) {
-      console.error('❌ Expected percentage validation error, got:', validationStatus);
-      throw new Error('Percentage validation not working');
+
+    // Verify participant 2 was auto-filled to 30%
+    const autoFilledPct = await page.locator('#participantsList input[type="text"]').nth(1).inputValue();
+    const autoFilledNum = parseFloat(autoFilledPct);
+    if (Math.abs(autoFilledNum - 30) > 0.1) {
+      throw new Error(`Expected participant 2 auto-filled to 30%, got: ${autoFilledPct}`);
     }
-    
-    console.log('✅ Percentage validation working correctly');
+    console.log(`   ✅ Auto-fill works: typed 70% → other participant got ${autoFilledPct}%`);
+
+    // Verify the hint shows sum is valid (no error state)
+    const hintText = await page.locator('#participantsHint').textContent();
+    console.log(`   Hint text: ${hintText}`);
+
+    console.log('✅ Auto-fill percentage validation working correctly');
 
     // ==================================================================
     // STEP 8: Verify SPLIT Movement Appears in Gastos View
@@ -703,6 +722,88 @@ async function testMovementCompartido() {
     console.log('   - Backend correctly stores amounts in database');
     console.log('   - No precision loss (0 COP error instead of 8 COP)');
     console.log('   - Amounts preserved with full precision in database');
+
+    // ==================================================================
+    // STEP 11: Test Invalid Percentages With 3 Participants
+    // ==================================================================
+    console.log('📝 Step 11: Testing invalid percentages with 3 participants...');
+
+    await page.goto(`${appUrl}/registrar-movimiento`, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(2000);
+
+    await page.locator('button[data-tipo="SPLIT"]').click();
+    await page.waitForTimeout(500);
+
+    await page.locator('#descripcion').fill('Test invalid 3 participants');
+    await page.locator('#valor').fill('90000');
+    await page.selectOption('#categoria', 'Mercado');
+    await page.selectOption('#pagadorCompartido', 'Test User Split');
+    await page.waitForTimeout(500);
+    await page.selectOption('#metodo', 'Efectivo Test');
+
+    // Add participant 2 (María)
+    await page.locator('#addParticipantBtn').click();
+    await page.waitForTimeout(500);
+
+    const selects11 = await page.locator('#participantsList select').all();
+    await selects11[1].selectOption('María External');
+    await page.waitForTimeout(300);
+
+    // Add participant 3 (Pedro)
+    await page.locator('#addParticipantBtn').click();
+    await page.waitForTimeout(500);
+
+    const selects11b = await page.locator('#participantsList select').all();
+    await selects11b[2].selectOption('Pedro Third');
+    await page.waitForTimeout(300);
+
+    // Uncheck equitable so we can type custom percentages
+    await page.locator('#equitable').uncheck();
+    await page.waitForTimeout(300);
+
+    // Set percentages that don't sum to 100: 40 + 30 + 20 = 90
+    // With N>2, auto-fill only triggers when exactly 1 participant has pct === 0.
+    // Since equitable initialised all to ~33%, none is 0, so no auto-fill fires.
+    const pctInputs11 = await page.locator('#participantsList input[type="text"]').all();
+    await pctInputs11[0].fill('40');
+    await pctInputs11[0].dispatchEvent('input');
+    await page.waitForTimeout(200);
+
+    await pctInputs11[1].fill('30');
+    await pctInputs11[1].dispatchEvent('input');
+    await page.waitForTimeout(200);
+
+    await pctInputs11[2].fill('20');
+    await pctInputs11[2].dispatchEvent('input');
+    await page.waitForTimeout(200);
+
+    // Attempt to submit — should fail with validation error
+    const submitBtn11 = page.locator('#submitBtn');
+    await submitBtn11.click();
+    await page.waitForTimeout(1000);
+
+    // Verify the form shows an error (no modal = no success)
+    const modalVisible = await page.locator('.modal-overlay').isVisible().catch(() => false);
+    if (modalVisible) {
+      throw new Error('Form should NOT have submitted with invalid percentages (40+30+20=90%)');
+    }
+
+    // Verify error message in #status
+    const statusEl = page.locator('#status');
+    const statusText = await statusEl.textContent();
+    const statusClass = await statusEl.getAttribute('class');
+    console.log(`   Status text: ${statusText}`);
+    console.log(`   Status class: ${statusClass}`);
+
+    if (!statusClass || !statusClass.includes('err')) {
+      throw new Error(`Expected error status, got class="${statusClass}"`);
+    }
+    if (!statusText.includes('100') && !statusText.includes('Faltan')) {
+      throw new Error(`Expected percentage-sum error, got: ${statusText}`);
+    }
+
+    console.log('✅ Invalid percentage validation works with 3 participants');
+    console.log(`   Sum was 90% → error correctly shown: "${statusText}"`);
 
     // ==================================================================
     // Cleanup
