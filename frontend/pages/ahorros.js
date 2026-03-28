@@ -198,7 +198,6 @@ async function renderListView(container) {
               <span class="pocket-card-pct">${pct}%</span>
             </div>
           ` : ''}
-          <div class="pocket-card-owner">${escapeHTML(p.owner_name || '')}</div>
         </div>
       `;
     }
