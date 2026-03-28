@@ -37,21 +37,21 @@ func (r *repository) Create(ctx context.Context, input *CreateMovementInput, hou
 			payer_user_id, payer_contact_id,
 			counterparty_user_id, counterparty_contact_id,
 			payment_method_id, receiver_account_id,
-			generated_from_template_id
+			generated_from_template_id, source_pocket_id
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 		RETURNING id, household_id, type, description, amount, category_id, movement_date,
 		          currency, payer_user_id, payer_contact_id,
 		          counterparty_user_id, counterparty_contact_id,
-		          payment_method_id, receiver_account_id, 
-		          generated_from_template_id, created_at, updated_at
+		          payment_method_id, receiver_account_id,
+		          generated_from_template_id, source_pocket_id, created_at, updated_at
 	`,
 		householdID, input.Type, input.Description, input.Amount, input.CategoryID,
 		input.MovementDate, "COP", // Currency defaults to COP
 		input.PayerUserID, input.PayerContactID,
 		input.CounterpartyUserID, input.CounterpartyContactID,
 		input.PaymentMethodID, input.ReceiverAccountID,
-		input.GeneratedFromTemplateID,
+		input.GeneratedFromTemplateID, input.SourcePocketID,
 	).Scan(
 		&movement.ID,
 		&movement.HouseholdID,
@@ -68,6 +68,7 @@ func (r *repository) Create(ctx context.Context, input *CreateMovementInput, hou
 		&movement.PaymentMethodID,
 		&movement.ReceiverAccountID,
 		&movement.GeneratedFromTemplateID,
+		&movement.SourcePocketID,
 		&movement.CreatedAt,
 		&movement.UpdatedAt,
 	)
@@ -110,13 +111,14 @@ func (r *repository) GetByID(ctx context.Context, id string) (*Movement, error) 
 	
 	// Get movement with payer, counterparty, payment method, receiver account, and category names
 	query := `
-		SELECT 
+		SELECT
 			m.id, m.household_id, m.type, m.description, m.amount,
 			m.movement_date, m.currency,
 			m.payer_user_id, m.payer_contact_id,
 			m.counterparty_user_id, m.counterparty_contact_id,
 			m.payment_method_id, m.receiver_account_id,
 			m.generated_from_template_id,
+			m.source_pocket_id,
 			m.created_at, m.updated_at,
 			-- Payer name (user or contact)
 			COALESCE(payer_user.name, payer_contact.name) as payer_name,
@@ -131,7 +133,8 @@ func (r *repository) GetByID(ctx context.Context, id string) (*Movement, error) 
 			c.name as category_name,
 			cg.id as category_group_id,
 			cg.name as category_group_name,
-			cg.icon as category_group_icon
+			cg.icon as category_group_icon,
+			pk.name as source_pocket_name
 		FROM movements m
 		LEFT JOIN users payer_user ON m.payer_user_id = payer_user.id
 		LEFT JOIN contacts payer_contact ON m.payer_contact_id = payer_contact.id
@@ -141,6 +144,7 @@ func (r *repository) GetByID(ctx context.Context, id string) (*Movement, error) 
 		LEFT JOIN accounts ra ON m.receiver_account_id = ra.id
 		LEFT JOIN categories c ON m.category_id = c.id
 		LEFT JOIN category_groups cg ON c.category_group_id = cg.id
+		LEFT JOIN pockets pk ON m.source_pocket_id = pk.id
 		WHERE m.id = $1
 	`
 
@@ -159,6 +163,7 @@ func (r *repository) GetByID(ctx context.Context, id string) (*Movement, error) 
 		&movement.PaymentMethodID,
 		&movement.ReceiverAccountID,
 		&movement.GeneratedFromTemplateID,
+		&movement.SourcePocketID,
 		&movement.CreatedAt,
 		&movement.UpdatedAt,
 		&movement.PayerName,
@@ -170,6 +175,7 @@ func (r *repository) GetByID(ctx context.Context, id string) (*Movement, error) 
 		&movement.CategoryGroupID,
 		&movement.CategoryGroupName,
 		&movement.CategoryGroupIcon,
+		&movement.SourcePocketName,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -257,13 +263,14 @@ func (r *repository) GetCategoryIDByName(ctx context.Context, householdID string
 // ListByHousehold retrieves all movements for a household with optional filters
 func (r *repository) ListByHousehold(ctx context.Context, householdID string, filters *ListMovementsFilters) ([]*Movement, error) {
 	query := `
-		SELECT 
+		SELECT
 			m.id, m.household_id, m.type, m.description, m.amount,
 			m.movement_date, m.currency,
 			m.payer_user_id, m.payer_contact_id,
 			m.counterparty_user_id, m.counterparty_contact_id,
 			m.payment_method_id, m.receiver_account_id,
 			m.generated_from_template_id,
+			m.source_pocket_id,
 			m.created_at, m.updated_at,
 			COALESCE(payer_user.name, payer_contact.name) as payer_name,
 			COALESCE(counterparty_user.name, counterparty_contact.name) as counterparty_name,
@@ -273,7 +280,8 @@ func (r *repository) ListByHousehold(ctx context.Context, householdID string, fi
 			c.name as category_name,
 			cg.id as category_group_id,
 			cg.name as category_group_name,
-			cg.icon as category_group_icon
+			cg.icon as category_group_icon,
+			pk.name as source_pocket_name
 		FROM movements m
 		LEFT JOIN users payer_user ON m.payer_user_id = payer_user.id
 		LEFT JOIN contacts payer_contact ON m.payer_contact_id = payer_contact.id
@@ -283,6 +291,7 @@ func (r *repository) ListByHousehold(ctx context.Context, householdID string, fi
 		LEFT JOIN accounts ra ON m.receiver_account_id = ra.id
 		LEFT JOIN categories c ON m.category_id = c.id
 		LEFT JOIN category_groups cg ON c.category_group_id = cg.id
+		LEFT JOIN pockets pk ON m.source_pocket_id = pk.id
 		WHERE m.household_id = $1
 	`
 
@@ -345,6 +354,7 @@ func (r *repository) ListByHousehold(ctx context.Context, householdID string, fi
 			&m.PaymentMethodID,
 			&m.ReceiverAccountID,
 			&m.GeneratedFromTemplateID,
+			&m.SourcePocketID,
 			&m.CreatedAt,
 			&m.UpdatedAt,
 			&m.PayerName,
@@ -356,6 +366,7 @@ func (r *repository) ListByHousehold(ctx context.Context, householdID string, fi
 			&m.CategoryGroupID,
 			&m.CategoryGroupName,
 			&m.CategoryGroupIcon,
+			&m.SourcePocketName,
 		)
 		if err != nil {
 			return nil, err
@@ -389,13 +400,14 @@ func (r *repository) ListMovementsByContactIDs(ctx context.Context, contactIDs [
 	}
 
 	query := `
-		SELECT 
+		SELECT
 			m.id, m.household_id, m.type, m.description, m.amount,
 			m.movement_date, m.currency,
 			m.payer_user_id, m.payer_contact_id,
 			m.counterparty_user_id, m.counterparty_contact_id,
 			m.payment_method_id, m.receiver_account_id,
 			m.generated_from_template_id,
+			m.source_pocket_id,
 			m.created_at, m.updated_at,
 			COALESCE(payer_user.name, payer_contact.name) as payer_name,
 			COALESCE(counterparty_user.name, counterparty_contact.name) as counterparty_name,
@@ -405,7 +417,8 @@ func (r *repository) ListMovementsByContactIDs(ctx context.Context, contactIDs [
 			c.name as category_name,
 			cg.id as category_group_id,
 			cg.name as category_group_name,
-			cg.icon as category_group_icon
+			cg.icon as category_group_icon,
+			pk.name as source_pocket_name
 		FROM movements m
 		LEFT JOIN users payer_user ON m.payer_user_id = payer_user.id
 		LEFT JOIN contacts payer_contact ON m.payer_contact_id = payer_contact.id
@@ -415,6 +428,7 @@ func (r *repository) ListMovementsByContactIDs(ctx context.Context, contactIDs [
 		LEFT JOIN accounts ra ON m.receiver_account_id = ra.id
 		LEFT JOIN categories c ON m.category_id = c.id
 		LEFT JOIN category_groups cg ON c.category_group_id = cg.id
+		LEFT JOIN pockets pk ON m.source_pocket_id = pk.id
 		WHERE m.type IN ('SPLIT', 'DEBT_PAYMENT')
 		  AND (
 			m.payer_contact_id = ANY($1)
@@ -463,6 +477,7 @@ func (r *repository) ListMovementsByContactIDs(ctx context.Context, contactIDs [
 			&m.PaymentMethodID,
 			&m.ReceiverAccountID,
 			&m.GeneratedFromTemplateID,
+			&m.SourcePocketID,
 			&m.CreatedAt,
 			&m.UpdatedAt,
 			&m.PayerName,
@@ -474,6 +489,7 @@ func (r *repository) ListMovementsByContactIDs(ctx context.Context, contactIDs [
 			&m.CategoryGroupID,
 			&m.CategoryGroupName,
 			&m.CategoryGroupIcon,
+			&m.SourcePocketName,
 		)
 		if err != nil {
 			return nil, err
