@@ -290,8 +290,12 @@ func (r *repository) GetBalance(ctx context.Context, id string) (float64, error)
 			- COALESCE((SELECT SUM(m.amount) FROM movements m 
 			            JOIN payment_methods pm ON m.payment_method_id = pm.id 
 			            WHERE COALESCE(pm.linked_account_id, pm.account_id) = a.id), 0)
-			- COALESCE((SELECT SUM(ccp.amount) FROM credit_card_payments ccp 
+			- COALESCE((SELECT SUM(ccp.amount) FROM credit_card_payments ccp
 			            WHERE ccp.source_account_id = a.id), 0)
+			- COALESCE((SELECT SUM(pt.amount) FROM pocket_transactions pt
+			            WHERE pt.source_account_id = a.id AND pt.type = 'DEPOSIT'), 0)
+			+ COALESCE((SELECT SUM(pt.amount) FROM pocket_transactions pt
+			            WHERE pt.destination_account_id = a.id AND pt.type = 'WITHDRAWAL'), 0)
 			as current_balance
 		FROM accounts a
 		WHERE a.id = $1
