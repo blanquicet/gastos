@@ -644,10 +644,11 @@ async function testPockets() {
 
     // Verify pocket is gone — should be back to empty state or no matching card
     const pocketCards = await page.locator('.pocket-card').all();
-    const foundDeleted = pocketCards.some(async card => {
+    let foundDeleted = false;
+    for (const card of pocketCards) {
       const name = await card.locator('.pocket-card-name').textContent();
-      return name.includes('Vacaciones Caribe 2026');
-    });
+      if (name.includes('Vacaciones Caribe 2026')) { foundDeleted = true; break; }
+    }
 
     // Check empty state is shown again
     const emptyStateAgain = await page.locator('.pocket-empty-state').isVisible().catch(() => false);
