@@ -68,10 +68,15 @@ async function apiFetch(path, opts = {}) {
 export function render(user) {
   currentUser = user;
   return `
-    <div class="pockets-page">
-      ${Navbar.render(user, '/ahorros')}
+    <main class="card">
+      <header class="header">
+        <div class="header-row">
+          <h1>Ahorros</h1>
+          ${Navbar.render(user, '/ahorros')}
+        </div>
+      </header>
       <div id="pockets-content"></div>
-    </div>
+    </main>
   `;
 }
 
@@ -148,8 +153,6 @@ async function renderListView(container) {
 
   let html = `
     <div class="pockets-list-wrapper">
-      <h1 class="pockets-title">Ahorros</h1>
-
       <div class="pockets-total-card">
         <div class="pockets-total-label">Total ahorrado</div>
         <div class="pockets-total-amount">${formatCurrency(total_balance)}</div>
@@ -174,7 +177,7 @@ async function renderListView(container) {
       const pctDisplay = rawPct !== null ? Math.max(Math.min(rawPct, 100), p.balance > 0 ? 1 : 0) : null;
       const pctLabel = rawPct !== null ? (rawPct > 0 && pct === 0 ? '<1' : String(pct)) : null;
       html += `
-        <div class="pocket-card" data-pocket-id="${p.id}" style="border-left-color:${p.color || '#6366f1'}">
+        <div class="pocket-card" data-pocket-id="${p.id}">
           <div class="pocket-card-header">
             <span class="pocket-card-icon">${p.icon || '💰'}</span>
             <span class="pocket-card-name">${escapeHTML(p.name)}</span>
@@ -183,7 +186,7 @@ async function renderListView(container) {
           ${rawPct !== null ? `
             <div class="pocket-card-progress">
               <div class="pocket-progress-bar">
-                <div class="pocket-progress-fill" style="width:${pctDisplay}%;background:${p.color || '#6366f1'}"></div>
+                <div class="pocket-progress-fill" style="width:${pctDisplay}%"></div>
               </div>
               <span class="pocket-card-pct">${pctLabel}%</span>
             </div>
@@ -340,7 +343,7 @@ async function renderDetailView(container) {
     <div class="pocket-detail-wrapper">
       <button class="pocket-back-btn" id="pocket-back-btn">← Ahorros</button>
 
-      <div class="pocket-detail-header" style="--pocket-color:${p.color || '#6366f1'}">
+      <div class="pocket-detail-header">
         <span class="pocket-detail-icon">${p.icon || '💰'}</span>
         <div class="pocket-detail-info">
           <h1 class="pocket-detail-name">${escapeHTML(p.name)}</h1>
@@ -351,7 +354,7 @@ async function renderDetailView(container) {
       ${rawPct !== null ? `
         <div class="pocket-progress-card">
           <div class="pocket-progress-bar pocket-progress-bar-lg">
-            <div class="pocket-progress-fill" style="width:${pctDisplay}%;background:${p.color || '#6366f1'}"></div>
+            <div class="pocket-progress-fill" style="width:${pctDisplay}%"></div>
           </div>
           <div class="pocket-progress-info">
             <span>${pctLabel}% de ${formatCurrency(p.goal_amount)}</span>

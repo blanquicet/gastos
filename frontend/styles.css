@@ -5277,14 +5277,8 @@ input[type="number"] {
   padding: 16px;
 }
 
-.pockets-title {
-  font-size: 24px;
-  font-weight: 700;
-  margin: 0 0 16px;
-}
-
 .pockets-total-card {
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  background: #1e293b;
   color: #fff;
   border-radius: 16px;
   padding: 24px;
@@ -5293,30 +5287,22 @@ input[type="number"] {
 
 .pockets-total-label {
   font-size: 13px;
-  opacity: 0.85;
+  opacity: 0.6;
   margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .pockets-total-amount {
-  font-size: 28px;
+  font-size: 32px;
   font-weight: 700;
-  margin-bottom: 12px;
-}
-
-.pockets-total-progress {
   margin-bottom: 8px;
-}
-
-.pockets-total-pct {
-  font-size: 12px;
-  opacity: 0.85;
-  display: block;
-  margin-top: 6px;
+  letter-spacing: -0.5px;
 }
 
 .pockets-total-count {
   font-size: 13px;
-  opacity: 0.75;
+  opacity: 0.5;
 }
 
 /* ── Grid ────────────────────────────────────────────────────────── */
@@ -5331,8 +5317,8 @@ input[type="number"] {
   background: #fff;
   border-radius: 14px;
   padding: 18px;
-  border-left: 4px solid #6366f1;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
   cursor: pointer;
   transition: transform 0.15s, box-shadow 0.15s;
 }
@@ -5405,6 +5391,7 @@ input[type="number"] {
   border-radius: 999px;
   transition: width 0.4s ease;
   min-width: 0;
+  background: #10b981;
 }
 
 /* ── Empty state ─────────────────────────────────────────────────── */
@@ -5433,7 +5420,7 @@ input[type="number"] {
 }
 
 .pocket-empty-btn {
-  background: #6366f1;
+  background: #10b981;
   color: #fff;
   border: 0;
   padding: 12px 28px;
@@ -5444,7 +5431,7 @@ input[type="number"] {
 }
 
 .pocket-empty-btn:hover {
-  background: #4f46e5;
+  background: #059669;
 }
 
 /* ── FAB ─────────────────────────────────────────────────────────── */
@@ -5456,11 +5443,11 @@ input[type="number"] {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: #6366f1;
+  background: #1e293b;
   color: #fff;
   font-size: 28px;
   border: 0;
-  box-shadow: 0 4px 14px rgba(99,102,241,0.4);
+  box-shadow: 0 4px 14px rgba(30,41,59,0.35);
   z-index: 100;
   display: flex;
   align-items: center;
@@ -5473,7 +5460,7 @@ input[type="number"] {
 
 .pocket-fab:hover {
   transform: scale(1.08);
-  box-shadow: 0 6px 20px rgba(99,102,241,0.5);
+  box-shadow: 0 6px 20px rgba(30,41,59,0.45);
 }
 
 /* ── Modal ───────────────────────────────────────────────────────── */
@@ -5589,8 +5576,8 @@ input[type="number"] {
 }
 
 .pocket-icon-btn.selected {
-  border-color: #6366f1;
-  background: #eef2ff;
+  border-color: #10b981;
+  background: #ecfdf5;
 }
 
 /* ── Color row ───────────────────────────────────────────────────── */
@@ -5623,19 +5610,19 @@ input[type="number"] {
 /* ── Buttons ─────────────────────────────────────────────────────── */
 
 .pocket-btn-primary {
-  background: #6366f1;
+  background: #10b981;
   color: #fff;
   border: 0;
 }
 
 .pocket-btn-primary:hover {
-  background: #4f46e5;
+  background: #059669;
 }
 
 .pocket-btn-cancel {
-  background: #f3f4f6;
-  color: #374151;
-  border: 1px solid #e5e7eb;
+  background: #1e293b;
+  color: #fff;
+  border: 0;
 }
 
 .pocket-btn-cancel:hover {
@@ -5703,7 +5690,7 @@ input[type="number"] {
 
 .pocket-back-btn {
   background: transparent;
-  color: #6366f1;
+  color: #1e293b;
   border: 0;
   padding: 8px 0;
   font-size: 14px;
@@ -5732,7 +5719,6 @@ input[type="number"] {
   justify-content: center;
   background: #f3f4f6;
   border-radius: 16px;
-  border-bottom: 3px solid var(--pocket-color, #6366f1);
 }
 
 .pocket-detail-info {
@@ -5750,7 +5736,7 @@ input[type="number"] {
 .pocket-detail-balance {
   font-size: 24px;
   font-weight: 700;
-  color: var(--pocket-color, #6366f1);
+  color: #10b981;
 }
 
 /* ── Progress card ───────────────────────────────────────────────── */
@@ -5825,8 +5811,8 @@ input[type="number"] {
 }
 
 .pocket-tab.active {
-  color: #6366f1;
-  border-bottom-color: #6366f1;
+  color: #1e293b;
+  border-bottom-color: #1e293b;
 }
 
 /* ── Transaction list ────────────────────────────────────────────── */
