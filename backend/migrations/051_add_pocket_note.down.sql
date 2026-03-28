@@ -1,0 +1,1 @@
+ALTER TABLE pockets DROP COLUMN note;

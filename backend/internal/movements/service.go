@@ -992,8 +992,12 @@ func (s *service) Delete(ctx context.Context, userID, id string) error {
 	// Cascade delete linked pocket transaction (if any)
 	if s.deletePocketTransactionFn != nil {
 		if err := s.deletePocketTransactionFn(ctx, id, existing.HouseholdID); err != nil {
+			// If the pocket cascade says deleting would cause overdraft, propagate as a business error
+			if errors.Is(err, ErrPocketDeleteWouldOverdraft) || err.Error() == "deleting this deposit would cause negative balance" {
+				return ErrPocketDeleteWouldOverdraft
+			}
 			s.logger.Error("failed to cascade delete pocket transaction", "movement_id", id, "error", err)
-			// Continue with movement deletion even if pocket cascade fails
+			// For other errors (no linked transaction, etc.), continue with movement deletion
 		}
 	}
 

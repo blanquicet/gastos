@@ -418,6 +418,8 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 		movementsRepo,
 		accountsRepo,
 		householdRepo,
+		categoryGroupsRepo,
+		categoriesRepo,
 		auditService,
 		logger,
 	)

@@ -19,7 +19,8 @@
     "test:budget-scope": "node e2e/budget-scope.js",
     "test:template-scope": "node e2e/template-scope.js",
     "test:templates": "node e2e/templates.js",
-    "test:budgets": "node e2e/budget-scope.js && node e2e/template-scope.js && node e2e/templates.js && node e2e/budget-management.js"
+    "test:budgets": "node e2e/budget-scope.js && node e2e/template-scope.js && node e2e/templates.js && node e2e/budget-management.js",
+    "test:pockets": "node e2e/pockets.js"
   },
   "dependencies": {
     "pg": "^8.16.3",

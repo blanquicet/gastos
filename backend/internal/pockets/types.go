@@ -17,7 +17,6 @@ var (
 	ErrMaxPocketsReached   = errors.New("maximum number of pockets reached (20)")
 	ErrPocketHasBalance    = errors.New("pocket has remaining balance")
 	ErrTransactionNotFound = errors.New("pocket transaction not found")
-	ErrCategoryRequired    = errors.New("category is required for deposits")
 	ErrDeleteWouldOverdraft = errors.New("deleting this deposit would cause negative balance")
 )
 
@@ -37,8 +36,9 @@ type Pocket struct {
 	OwnerName   string    `json:"owner_name,omitempty"`
 	Name        string    `json:"name"`
 	Icon        string    `json:"icon"`
-	Color       string    `json:"color"`
 	GoalAmount  *float64  `json:"goal_amount,omitempty"`
+	Note        *string   `json:"note,omitempty"`
+	CategoryID  *string   `json:"category_id,omitempty"`
 	IsActive    bool      `json:"is_active"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
@@ -56,8 +56,6 @@ type PocketTransaction struct {
 	Amount               float64               `json:"amount"`
 	Description          *string               `json:"description,omitempty"`
 	TransactionDate      time.Time             `json:"transaction_date"`
-	CategoryID           *string               `json:"category_id,omitempty"`
-	CategoryName         *string               `json:"category_name,omitempty"`
 	SourceAccountID      *string               `json:"source_account_id,omitempty"`
 	SourceAccountName    *string               `json:"source_account_name,omitempty"`
 	DestinationAccountID *string               `json:"destination_account_id,omitempty"`
@@ -66,6 +64,9 @@ type PocketTransaction struct {
 	CreatedBy            string                `json:"created_by"`
 	CreatedByName        string                `json:"created_by_name,omitempty"`
 	CreatedAt            time.Time             `json:"created_at"`
+
+	// Transient field — only set on deposit response, not persisted
+	CategoryCreated bool `json:"category_created,omitempty"`
 }
 
 // PocketSummary represents aggregated pocket data for the summary endpoint
@@ -82,8 +83,8 @@ type CreatePocketInput struct {
 	OwnerID     string
 	Name        string
 	Icon        string
-	Color       string
 	GoalAmount  *float64
+	Note        *string
 }
 
 func (i *CreatePocketInput) Validate() error {
@@ -103,9 +104,6 @@ func (i *CreatePocketInput) Validate() error {
 	if i.Icon == "" {
 		i.Icon = "💰"
 	}
-	if i.Color == "" {
-		i.Color = "#6366f1"
-	}
 	if i.GoalAmount != nil && *i.GoalAmount <= 0 {
 		return errors.New("goal amount must be positive")
 	}
@@ -117,9 +115,10 @@ type UpdatePocketInput struct {
 	ID         string
 	Name       *string
 	Icon       *string
-	Color      *string
 	GoalAmount *float64
 	ClearGoal  bool // Set to true to remove goal_amount
+	Note       *string
+	ClearNote  bool // Set to true to remove note
 }
 
 func (i *UpdatePocketInput) Validate() error {
@@ -147,7 +146,6 @@ type DepositInput struct {
 	Amount          float64
 	Description     string
 	TransactionDate time.Time
-	CategoryID      string
 	SourceAccountID string
 	CreatedBy       string
 }
@@ -158,9 +156,6 @@ func (i *DepositInput) Validate() error {
 	}
 	if i.Amount <= 0 {
 		return errors.New("amount must be positive")
-	}
-	if i.CategoryID == "" {
-		return ErrCategoryRequired
 	}
 	if i.SourceAccountID == "" {
 		return errors.New("source account is required")
@@ -209,7 +204,6 @@ type EditTransactionInput struct {
 	Amount          *float64
 	Description     *string
 	TransactionDate *time.Time
-	CategoryID      *string // Only for deposits
 	SourceAccountID *string // Only for deposits
 	DestinationAccountID *string // Only for withdrawals
 }
@@ -251,4 +245,15 @@ type Repository interface {
 	CommitTx(ctx context.Context, tx any) error
 	RollbackTx(ctx context.Context, tx any) error
 	CreateTransactionInTx(ctx context.Context, tx any, ptx *PocketTransaction) (*PocketTransaction, error)
+}
+
+// CategoryGroupRepo is the interface for category group operations needed by pockets
+type CategoryGroupRepo interface {
+	FindOrCreateByName(ctx context.Context, householdID, name, icon string) (groupID string, err error)
+}
+
+// CategoryRepo is the interface for category operations needed by pockets
+type CategoryRepo interface {
+	FindOrCreateByName(ctx context.Context, householdID, groupID, name string) (categoryID string, created bool, err error)
+	RenameByGroupAndName(ctx context.Context, householdID, groupID, oldName, newName string) error
 }

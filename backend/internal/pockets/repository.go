@@ -25,10 +25,10 @@ func NewRepository(pool *pgxpool.Pool) Repository {
 func (r *repository) Create(ctx context.Context, pocket *Pocket) (*Pocket, error) {
 	var id string
 	err := r.pool.QueryRow(ctx, `
-		INSERT INTO pockets (household_id, owner_id, name, icon, color, goal_amount)
+		INSERT INTO pockets (household_id, owner_id, name, icon, goal_amount, note)
 		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING id
-	`, pocket.HouseholdID, pocket.OwnerID, pocket.Name, pocket.Icon, pocket.Color, pocket.GoalAmount).Scan(&id)
+	`, pocket.HouseholdID, pocket.OwnerID, pocket.Name, pocket.Icon, pocket.GoalAmount, pocket.Note).Scan(&id)
 
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -46,7 +46,7 @@ func (r *repository) GetByID(ctx context.Context, id string) (*Pocket, error) {
 	var pocket Pocket
 	err := r.pool.QueryRow(ctx, `
 		SELECT p.id, p.household_id, p.owner_id, u.name as owner_name,
-		       p.name, p.icon, p.color, p.goal_amount, p.is_active,
+		       p.name, p.icon, p.goal_amount, p.note, p.category_id, p.is_active,
 		       p.created_at, p.updated_at
 		FROM pockets p
 		JOIN users u ON p.owner_id = u.id
@@ -58,8 +58,9 @@ func (r *repository) GetByID(ctx context.Context, id string) (*Pocket, error) {
 		&pocket.OwnerName,
 		&pocket.Name,
 		&pocket.Icon,
-		&pocket.Color,
 		&pocket.GoalAmount,
+		&pocket.Note,
+		&pocket.CategoryID,
 		&pocket.IsActive,
 		&pocket.CreatedAt,
 		&pocket.UpdatedAt,
@@ -85,9 +86,9 @@ func (r *repository) GetByID(ctx context.Context, id string) (*Pocket, error) {
 func (r *repository) Update(ctx context.Context, pocket *Pocket) (*Pocket, error) {
 	result, err := r.pool.Exec(ctx, `
 		UPDATE pockets
-		SET name = $1, icon = $2, color = $3, goal_amount = $4, updated_at = NOW()
-		WHERE id = $5
-	`, pocket.Name, pocket.Icon, pocket.Color, pocket.GoalAmount, pocket.ID)
+		SET name = $1, icon = $2, goal_amount = $3, note = $4, category_id = $5, updated_at = NOW()
+		WHERE id = $6
+	`, pocket.Name, pocket.Icon, pocket.GoalAmount, pocket.Note, pocket.CategoryID, pocket.ID)
 
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -134,7 +135,7 @@ func (r *repository) ListActiveByHousehold(ctx context.Context, householdID stri
 func (r *repository) listPockets(ctx context.Context, householdID string, activeOnly bool) ([]*Pocket, error) {
 	query := `
 		SELECT p.id, p.household_id, p.owner_id, u.name as owner_name,
-		       p.name, p.icon, p.color, p.goal_amount, p.is_active,
+		       p.name, p.icon, p.goal_amount, p.note, p.category_id, p.is_active,
 		       p.created_at, p.updated_at
 		FROM pockets p
 		JOIN users u ON p.owner_id = u.id
@@ -161,8 +162,9 @@ func (r *repository) listPockets(ctx context.Context, householdID string, active
 			&pocket.OwnerName,
 			&pocket.Name,
 			&pocket.Icon,
-			&pocket.Color,
 			&pocket.GoalAmount,
+			&pocket.Note,
+			&pocket.CategoryID,
 			&pocket.IsActive,
 			&pocket.CreatedAt,
 			&pocket.UpdatedAt,
@@ -204,7 +206,7 @@ func (r *repository) FindByName(ctx context.Context, householdID, name string) (
 	var pocket Pocket
 	err := r.pool.QueryRow(ctx, `
 		SELECT p.id, p.household_id, p.owner_id, u.name as owner_name,
-		       p.name, p.icon, p.color, p.goal_amount, p.is_active,
+		       p.name, p.icon, p.goal_amount, p.note, p.category_id, p.is_active,
 		       p.created_at, p.updated_at
 		FROM pockets p
 		JOIN users u ON p.owner_id = u.id
@@ -216,8 +218,9 @@ func (r *repository) FindByName(ctx context.Context, householdID, name string) (
 		&pocket.OwnerName,
 		&pocket.Name,
 		&pocket.Icon,
-		&pocket.Color,
 		&pocket.GoalAmount,
+		&pocket.Note,
+		&pocket.CategoryID,
 		&pocket.IsActive,
 		&pocket.CreatedAt,
 		&pocket.UpdatedAt,
@@ -296,12 +299,12 @@ func (r *repository) CreateTransaction(ctx context.Context, ptx *PocketTransacti
 	err := r.pool.QueryRow(ctx, `
 		INSERT INTO pocket_transactions (
 			pocket_id, household_id, type, amount, description, transaction_date,
-			category_id, source_account_id, destination_account_id, linked_movement_id, created_by
+			source_account_id, destination_account_id, linked_movement_id, created_by
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		RETURNING id
 	`, ptx.PocketID, ptx.HouseholdID, ptx.Type, ptx.Amount, ptx.Description,
-		ptx.TransactionDate, ptx.CategoryID, ptx.SourceAccountID,
+		ptx.TransactionDate, ptx.SourceAccountID,
 		ptx.DestinationAccountID, ptx.LinkedMovementID, ptx.CreatedBy).Scan(&id)
 
 	if err != nil {
@@ -316,14 +319,12 @@ func (r *repository) GetTransactionByID(ctx context.Context, id string) (*Pocket
 	var ptx PocketTransaction
 	err := r.pool.QueryRow(ctx, `
 		SELECT pt.id, pt.pocket_id, pt.household_id, pt.type, pt.amount,
-		       pt.description, pt.transaction_date, pt.category_id,
-		       c.name as category_name,
+		       pt.description, pt.transaction_date,
 		       pt.source_account_id, sa.name as source_account_name,
 		       pt.destination_account_id, da.name as destination_account_name,
 		       pt.linked_movement_id, pt.created_by, u.name as created_by_name,
 		       pt.created_at
 		FROM pocket_transactions pt
-		LEFT JOIN categories c ON pt.category_id = c.id
 		LEFT JOIN accounts sa ON pt.source_account_id = sa.id
 		LEFT JOIN accounts da ON pt.destination_account_id = da.id
 		JOIN users u ON pt.created_by = u.id
@@ -336,8 +337,6 @@ func (r *repository) GetTransactionByID(ctx context.Context, id string) (*Pocket
 		&ptx.Amount,
 		&ptx.Description,
 		&ptx.TransactionDate,
-		&ptx.CategoryID,
-		&ptx.CategoryName,
 		&ptx.SourceAccountID,
 		&ptx.SourceAccountName,
 		&ptx.DestinationAccountID,
@@ -377,11 +376,6 @@ func (r *repository) UpdateTransaction(ctx context.Context, id string, input *Ed
 	if input.TransactionDate != nil {
 		setClauses = append(setClauses, fmt.Sprintf("transaction_date = $%d", argNum))
 		args = append(args, *input.TransactionDate)
-		argNum++
-	}
-	if input.CategoryID != nil {
-		setClauses = append(setClauses, fmt.Sprintf("category_id = $%d", argNum))
-		args = append(args, *input.CategoryID)
 		argNum++
 	}
 	if input.SourceAccountID != nil {
@@ -435,14 +429,12 @@ func (r *repository) DeleteTransaction(ctx context.Context, id string) error {
 func (r *repository) ListTransactions(ctx context.Context, pocketID string) ([]*PocketTransaction, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT pt.id, pt.pocket_id, pt.household_id, pt.type, pt.amount,
-		       pt.description, pt.transaction_date, pt.category_id,
-		       c.name as category_name,
+		       pt.description, pt.transaction_date,
 		       pt.source_account_id, sa.name as source_account_name,
 		       pt.destination_account_id, da.name as destination_account_name,
 		       pt.linked_movement_id, pt.created_by, u.name as created_by_name,
 		       pt.created_at
 		FROM pocket_transactions pt
-		LEFT JOIN categories c ON pt.category_id = c.id
 		LEFT JOIN accounts sa ON pt.source_account_id = sa.id
 		LEFT JOIN accounts da ON pt.destination_account_id = da.id
 		JOIN users u ON pt.created_by = u.id
@@ -465,8 +457,6 @@ func (r *repository) ListTransactions(ctx context.Context, pocketID string) ([]*
 			&ptx.Amount,
 			&ptx.Description,
 			&ptx.TransactionDate,
-			&ptx.CategoryID,
-			&ptx.CategoryName,
 			&ptx.SourceAccountID,
 			&ptx.SourceAccountName,
 			&ptx.DestinationAccountID,
@@ -494,14 +484,12 @@ func (r *repository) GetTransactionByLinkedMovementID(ctx context.Context, movem
 	var ptx PocketTransaction
 	err := r.pool.QueryRow(ctx, `
 		SELECT pt.id, pt.pocket_id, pt.household_id, pt.type, pt.amount,
-		       pt.description, pt.transaction_date, pt.category_id,
-		       c.name as category_name,
+		       pt.description, pt.transaction_date,
 		       pt.source_account_id, sa.name as source_account_name,
 		       pt.destination_account_id, da.name as destination_account_name,
 		       pt.linked_movement_id, pt.created_by, u.name as created_by_name,
 		       pt.created_at
 		FROM pocket_transactions pt
-		LEFT JOIN categories c ON pt.category_id = c.id
 		LEFT JOIN accounts sa ON pt.source_account_id = sa.id
 		LEFT JOIN accounts da ON pt.destination_account_id = da.id
 		JOIN users u ON pt.created_by = u.id
@@ -514,8 +502,6 @@ func (r *repository) GetTransactionByLinkedMovementID(ctx context.Context, movem
 		&ptx.Amount,
 		&ptx.Description,
 		&ptx.TransactionDate,
-		&ptx.CategoryID,
-		&ptx.CategoryName,
 		&ptx.SourceAccountID,
 		&ptx.SourceAccountName,
 		&ptx.DestinationAccountID,
@@ -577,14 +563,14 @@ func (r *repository) CreateTransactionInTx(ctx context.Context, tx any, ptx *Poc
 	err := pgxTx.QueryRow(ctx, `
 		INSERT INTO pocket_transactions (
 			pocket_id, household_id, type, amount, description, transaction_date,
-			category_id, source_account_id, destination_account_id, linked_movement_id, created_by
+			source_account_id, destination_account_id, linked_movement_id, created_by
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		RETURNING id, pocket_id, household_id, type, amount, description, transaction_date,
-		          category_id, source_account_id, destination_account_id, linked_movement_id,
+		          source_account_id, destination_account_id, linked_movement_id,
 		          created_by, created_at
 	`, ptx.PocketID, ptx.HouseholdID, ptx.Type, ptx.Amount, ptx.Description,
-		ptx.TransactionDate, ptx.CategoryID, ptx.SourceAccountID,
+		ptx.TransactionDate, ptx.SourceAccountID,
 		ptx.DestinationAccountID, ptx.LinkedMovementID, ptx.CreatedBy).Scan(
 		&result.ID,
 		&result.PocketID,
@@ -593,7 +579,6 @@ func (r *repository) CreateTransactionInTx(ctx context.Context, tx any, ptx *Poc
 		&result.Amount,
 		&result.Description,
 		&result.TransactionDate,
-		&result.CategoryID,
 		&result.SourceAccountID,
 		&result.DestinationAccountID,
 		&result.LinkedMovementID,

@@ -45,17 +45,18 @@ type CreatePocketRequest struct {
 	OwnerID    string   `json:"owner_id"`
 	Name       string   `json:"name"`
 	Icon       string   `json:"icon"`
-	Color      string   `json:"color"`
 	GoalAmount *float64 `json:"goal_amount,omitempty"`
+	Note       *string  `json:"note,omitempty"`
 }
 
 // UpdatePocketRequest is the request body for updating a pocket
 type UpdatePocketRequest struct {
 	Name       *string  `json:"name,omitempty"`
 	Icon       *string  `json:"icon,omitempty"`
-	Color      *string  `json:"color,omitempty"`
 	GoalAmount *float64 `json:"goal_amount,omitempty"`
 	ClearGoal  bool     `json:"clear_goal,omitempty"`
+	Note       *string  `json:"note,omitempty"`
+	ClearNote  bool     `json:"clear_note,omitempty"`
 }
 
 // DepositRequest is the request body for depositing into a pocket
@@ -63,7 +64,6 @@ type DepositRequest struct {
 	Amount          float64 `json:"amount"`
 	Description     string  `json:"description"`
 	TransactionDate string  `json:"transaction_date"`
-	CategoryID      string  `json:"category_id"`
 	SourceAccountID string  `json:"source_account_id"`
 }
 
@@ -80,7 +80,6 @@ type EditTransactionRequest struct {
 	Amount               *float64 `json:"amount,omitempty"`
 	Description          *string  `json:"description,omitempty"`
 	TransactionDate      *string  `json:"transaction_date,omitempty"`
-	CategoryID           *string  `json:"category_id,omitempty"`
 	SourceAccountID      *string  `json:"source_account_id,omitempty"`
 	DestinationAccountID *string  `json:"destination_account_id,omitempty"`
 }
@@ -185,8 +184,8 @@ func (h *Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 		OwnerID:     req.OwnerID,
 		Name:        req.Name,
 		Icon:        req.Icon,
-		Color:       req.Color,
 		GoalAmount:  req.GoalAmount,
+		Note:        req.Note,
 	}
 
 	pocket, err := h.service.Create(r.Context(), input)
@@ -308,9 +307,10 @@ func (h *Handler) HandleUpdate(w http.ResponseWriter, r *http.Request) {
 		ID:         id,
 		Name:       req.Name,
 		Icon:       req.Icon,
-		Color:      req.Color,
 		GoalAmount: req.GoalAmount,
 		ClearGoal:  req.ClearGoal,
+		Note:       req.Note,
+		ClearNote:  req.ClearNote,
 	}
 
 	pocket, err := h.service.Update(r.Context(), user.ID, household.ID, input)
@@ -397,7 +397,6 @@ func (h *Handler) HandleDeposit(w http.ResponseWriter, r *http.Request) {
 		Amount:          req.Amount,
 		Description:     req.Description,
 		TransactionDate: txDate,
-		CategoryID:      req.CategoryID,
 		SourceAccountID: req.SourceAccountID,
 		CreatedBy:       user.ID,
 	}
@@ -532,7 +531,6 @@ func (h *Handler) HandleEditTransaction(w http.ResponseWriter, r *http.Request) 
 		ID:                   id,
 		Amount:               req.Amount,
 		Description:          req.Description,
-		CategoryID:           req.CategoryID,
 		SourceAccountID:      req.SourceAccountID,
 		DestinationAccountID: req.DestinationAccountID,
 	}

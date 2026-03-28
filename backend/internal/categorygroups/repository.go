@@ -221,3 +221,42 @@ func (r *repository) HasCategories(ctx context.Context, id string) (bool, error)
 	}
 	return count > 0, nil
 }
+
+// FindOrCreateByName finds a category group by name in a household, or creates it if it doesn't exist.
+// Returns the group ID.
+func (r *repository) FindOrCreateByName(ctx context.Context, householdID, name, icon string) (string, error) {
+	// Try to find existing
+	var id string
+	err := r.pool.QueryRow(ctx, `
+		SELECT id FROM category_groups WHERE household_id = $1 AND name = $2
+	`, householdID, name).Scan(&id)
+	if err == nil {
+		return id, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return "", err
+	}
+
+	// Create new group
+	err = r.pool.QueryRow(ctx, `
+		INSERT INTO category_groups (household_id, name, icon)
+		VALUES ($1, $2, $3)
+		RETURNING id
+	`, householdID, name, icon).Scan(&id)
+	if err != nil {
+		// Handle race condition: another goroutine may have created it
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			err2 := r.pool.QueryRow(ctx, `
+				SELECT id FROM category_groups WHERE household_id = $1 AND name = $2
+			`, householdID, name).Scan(&id)
+			if err2 != nil {
+				return "", err2
+			}
+			return id, nil
+		}
+		return "", err
+	}
+
+	return id, nil
+}

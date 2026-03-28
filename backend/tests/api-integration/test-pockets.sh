@@ -61,7 +61,8 @@ run_test() {
 }
 
 # ═══════════════════════════════════════════════════════════
-# SETUP: Register user, create household, category, account
+# SETUP: Register user, create household, account
+# (No category setup needed — categories are auto-resolved on first deposit)
 # ═══════════════════════════════════════════════════════════
 
 echo -e "${BLUE}═══ SETUP ═══${NC}\n"
@@ -89,24 +90,6 @@ HOUSEHOLD_ID=$(echo "$HOUSEHOLD_RESPONSE" | jq -r '.id')
 [ "$HOUSEHOLD_ID" != "null" ] && [ -n "$HOUSEHOLD_ID" ]
 echo -e "${GREEN}✓ Household created: $HOUSEHOLD_ID${NC}\n"
 
-run_test "Create Category Group"
-GROUP_RESPONSE=$(api_call $CURL_FLAGS -X POST "$BASE_URL/category-groups" \
-  -H "Content-Type: application/json" \
-  -b $COOKIES_FILE \
-  -d '{"name":"Ahorro","icon":"💰"}')
-GROUP_ID=$(echo "$GROUP_RESPONSE" | jq -r '.id')
-[ "$GROUP_ID" != "null" ] && [ -n "$GROUP_ID" ]
-echo -e "${GREEN}✓ Category group created: $GROUP_ID${NC}\n"
-
-run_test "Create Category"
-CATEGORY_RESPONSE=$(api_call $CURL_FLAGS -X POST $BASE_URL/categories \
-  -H "Content-Type: application/json" \
-  -b $COOKIES_FILE \
-  -d "{\"name\":\"Ahorro General\",\"category_group_id\":\"$GROUP_ID\"}")
-CATEGORY_ID=$(echo "$CATEGORY_RESPONSE" | jq -r '.id')
-[ "$CATEGORY_ID" != "null" ] && [ -n "$CATEGORY_ID" ]
-echo -e "${GREEN}✓ Category created: $CATEGORY_ID${NC}\n"
-
 run_test "Create Savings Account"
 ACCOUNT_RESPONSE=$(api_call $CURL_FLAGS -X POST $BASE_URL/accounts \
   -H "Content-Type: application/json" \
@@ -128,22 +111,20 @@ run_test "Create Pocket"
 POCKET_RESPONSE=$(api_call $CURL_FLAGS -X POST $BASE_URL/api/pockets \
   -H "Content-Type: application/json" \
   -b $COOKIES_FILE \
-  -d "{\"owner_id\":\"$USER_ID\",\"name\":\"Vacaciones\",\"icon\":\"🏖️\",\"color\":\"#3B82F6\",\"goal_amount\":500000}")
+  -d "{\"owner_id\":\"$USER_ID\",\"name\":\"Vacaciones\",\"icon\":\"🏖️\",\"goal_amount\":500000}")
 POCKET_ID=$(echo "$POCKET_RESPONSE" | jq -r '.id')
 POCKET_NAME=$(echo "$POCKET_RESPONSE" | jq -r '.name')
 POCKET_ICON=$(echo "$POCKET_RESPONSE" | jq -r '.icon')
-POCKET_COLOR=$(echo "$POCKET_RESPONSE" | jq -r '.color')
 [ "$POCKET_ID" != "null" ] && [ -n "$POCKET_ID" ]
 [ "$POCKET_NAME" = "Vacaciones" ]
 [ "$POCKET_ICON" = "🏖️" ]
-[ "$POCKET_COLOR" = "#3B82F6" ]
 echo -e "${GREEN}✓ Pocket created: $POCKET_ID (name=$POCKET_NAME)${NC}\n"
 
 run_test "Create Duplicate Pocket Name → 409"
 DUP_CODE=$(curl $CURL_FLAGS -o /dev/null -w "%{http_code}" -X POST $BASE_URL/api/pockets \
   -H "Content-Type: application/json" \
   -b $COOKIES_FILE \
-  -d "{\"owner_id\":\"$USER_ID\",\"name\":\"Vacaciones\",\"icon\":\"🏖️\",\"color\":\"#3B82F6\"}")
+  -d "{\"owner_id\":\"$USER_ID\",\"name\":\"Vacaciones\",\"icon\":\"🏖️\"}")
 [ "$DUP_CODE" = "409" ]
 echo -e "${GREEN}✓ Duplicate pocket name correctly rejected (HTTP 409)${NC}\n"
 
@@ -194,7 +175,7 @@ run_test "Deposit 100000"
 DEPOSIT_RESPONSE=$(api_call $CURL_FLAGS -X POST $BASE_URL/api/pockets/$POCKET_ID/deposit \
   -H "Content-Type: application/json" \
   -b $COOKIES_FILE \
-  -d "{\"amount\":100000,\"description\":\"First deposit\",\"transaction_date\":\"$TODAY\",\"category_id\":\"$CATEGORY_ID\",\"source_account_id\":\"$ACCOUNT_ID\"}")
+  -d "{\"amount\":100000,\"description\":\"First deposit\",\"transaction_date\":\"$TODAY\",\"source_account_id\":\"$ACCOUNT_ID\"}")
 DEPOSIT_ID=$(echo "$DEPOSIT_RESPONSE" | jq -r '.id')
 DEPOSIT_TYPE=$(echo "$DEPOSIT_RESPONSE" | jq -r '.type')
 DEPOSIT_AMOUNT=$(echo "$DEPOSIT_RESPONSE" | jq -r '.amount')
@@ -357,7 +338,7 @@ run_test "Create Second Pocket for Deactivation Test"
 POCKET2_RESPONSE=$(api_call $CURL_FLAGS -X POST $BASE_URL/api/pockets \
   -H "Content-Type: application/json" \
   -b $COOKIES_FILE \
-  -d "{\"owner_id\":\"$USER_ID\",\"name\":\"Emergencia\",\"icon\":\"🚨\",\"color\":\"#EF4444\"}")
+  -d "{\"owner_id\":\"$USER_ID\",\"name\":\"Emergencia\",\"icon\":\"🚨\"}")
 POCKET2_ID=$(echo "$POCKET2_RESPONSE" | jq -r '.id')
 [ "$POCKET2_ID" != "null" ] && [ -n "$POCKET2_ID" ]
 echo -e "${GREEN}✓ Second pocket created: $POCKET2_ID${NC}\n"
@@ -366,7 +347,7 @@ run_test "Deposit into Second Pocket"
 DEP2_RESPONSE=$(api_call $CURL_FLAGS -X POST $BASE_URL/api/pockets/$POCKET2_ID/deposit \
   -H "Content-Type: application/json" \
   -b $COOKIES_FILE \
-  -d "{\"amount\":50000,\"description\":\"Emergency fund\",\"transaction_date\":\"$TODAY\",\"category_id\":\"$CATEGORY_ID\",\"source_account_id\":\"$ACCOUNT_ID\"}")
+  -d "{\"amount\":50000,\"description\":\"Emergency fund\",\"transaction_date\":\"$TODAY\",\"source_account_id\":\"$ACCOUNT_ID\"}")
 DEP2_ID=$(echo "$DEP2_RESPONSE" | jq -r '.id')
 [ "$DEP2_ID" != "null" ] && [ -n "$DEP2_ID" ]
 echo -e "${GREEN}✓ Deposited 50000 into second pocket${NC}\n"

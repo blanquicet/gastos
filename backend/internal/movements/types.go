@@ -19,7 +19,8 @@ var (
 	ErrParticipantsNotAllowed = errors.New("participants not allowed for this movement type")
 	ErrInvalidPercentageSum   = errors.New("participant percentages must sum to 100%")
 	ErrCategoryRequired       = errors.New("category is required for this movement type")
-	ErrPaymentMethodRequired  = errors.New("payment method is required")
+	ErrPaymentMethodRequired        = errors.New("payment method is required")
+	ErrPocketDeleteWouldOverdraft   = errors.New("deleting this deposit would cause negative balance")
 )
 
 // MovementType represents the type of movement

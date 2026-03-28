@@ -1,0 +1,1 @@
+ALTER TABLE pockets ADD COLUMN note TEXT;

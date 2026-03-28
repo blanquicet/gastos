@@ -320,12 +320,16 @@ func (h *Handler) HandleDelete(w http.ResponseWriter, r *http.Request) {
 	// Delete movement
 	if err := h.service.Delete(r.Context(), user.ID, id); err != nil {
 		h.logger.Error("failed to delete movement", "error", err, "movement_id", id, "user_id", user.ID)
-		
+
 		switch err {
 		case ErrMovementNotFound:
 			http.Error(w, "Movement not found", http.StatusNotFound)
 		case ErrNotAuthorized:
 			http.Error(w, "Not authorized", http.StatusForbidden)
+		case ErrPocketDeleteWouldOverdraft:
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		default:
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 		}

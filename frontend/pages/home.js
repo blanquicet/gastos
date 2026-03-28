@@ -1754,7 +1754,7 @@ async function loadMovementsData() {
     if (selectedPaymentMethods === null) {
       filteredMovements = [];
     } else if (selectedPaymentMethods.length > 0) {
-      filteredMovements = filteredMovements.filter(movement => 
+      filteredMovements = filteredMovements.filter(movement =>
         selectedPaymentMethods.includes(movement.payment_method_id)
       );
     }
@@ -2588,7 +2588,7 @@ function renderMovementsFilterDropdown() {
         .filter(m => m.payment_method_id && m.payment_method_name)
         .map(m => ({ id: m.payment_method_id, name: m.payment_method_name })))]
     : [];
-  
+
   // Deduplicate payment methods by ID
   const uniquePaymentMethods = Array.from(
     new Map(allPaymentMethods.map(pm => [pm.id, pm])).values()
@@ -2854,7 +2854,7 @@ function renderMovementCategories() {
                         ${movement.is_split
                           ? `<span class="entry-split-badge">Compartido</span>`
                           : movement.source_pocket_name
-                            ? `<span class="entry-payment-badge">📥 ${movement.source_pocket_name}</span>`
+                            ? `<span class="entry-payment-badge">💰 Bolsillo</span>`
                             : movement.payment_method_name
                               ? `<span class="entry-payment-badge">${movement.payment_method_name}</span>`
                               : ''
@@ -2966,7 +2966,7 @@ function renderChronologicalMovements() {
           ${movement.is_split
             ? `<span class="entry-split-badge">Compartido</span>`
             : movement.source_pocket_name
-              ? `<span class="entry-payment-badge">📥 ${movement.source_pocket_name}</span>`
+              ? `<span class="entry-payment-badge">💰 Bolsillo</span>`
               : movement.payment_method_name
                 ? `<span class="entry-payment-badge">${movement.payment_method_name}</span>`
                 : ''
@@ -3170,7 +3170,7 @@ async function handleEditMovement(movementId) {
   if (movement?.source_pocket_id) {
     showError(
       'No se puede editar',
-      `Este gasto está vinculado al bolsillo "${movement.source_pocket_name}". Editarlo desde Ahorros.`
+      `Este gasto está vinculado al bolsillo "${movement.source_pocket_name}". Edítalo desde Ahorros.`
     );
     return;
   }
@@ -3209,7 +3209,11 @@ async function handleDeleteMovement(movementId) {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => null);
-      throw new Error(errorData?.error || 'Error al eliminar el movimiento');
+      const rawMsg = errorData?.error || 'Error al eliminar el movimiento';
+      const translations = {
+        'deleting this deposit would cause negative balance': 'No se puede eliminar: el bolsillo quedaría con saldo negativo',
+      };
+      throw new Error(translations[rawMsg] || rawMsg);
     }
 
     showSuccess('Gasto eliminado', 'El gasto se eliminó correctamente');

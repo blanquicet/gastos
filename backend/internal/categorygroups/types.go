@@ -92,6 +92,7 @@ type Repository interface {
 	Update(ctx context.Context, id string, input *UpdateCategoryGroupInput) (*CategoryGroup, error)
 	Delete(ctx context.Context, id string) error
 	HasCategories(ctx context.Context, id string) (bool, error)
+	FindOrCreateByName(ctx context.Context, householdID, name, icon string) (string, error)
 }
 
 // Service defines the interface for category_groups business logic

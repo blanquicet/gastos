@@ -20,11 +20,10 @@ let categoryGroupsData = null;
 let pocketDetailData = null;
 let transactionsData = null;
 let popstateHandler = null;
-let activeTab = 'movimientos'; // 'movimientos' | 'configuracion'
+let fabMenuOpen = false;
 
 // ── Presets ─────────────────────────────────────────────────────────
 const ICON_PRESETS = ['💰','🏖️','🏠','🎓','🚗','💊','🎁','🛡️','🎯','✈️','🏋️','💻','📱','🎮','🐶','👶','🎵','📚','🔧','💍'];
-const COLOR_PRESETS = ['#6366f1','#8b5cf6','#ec4899','#f43f5e','#f97316','#eab308','#22c55e','#06b6d4','#3b82f6','#a855f7'];
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -53,14 +52,59 @@ function todayISO() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+// Known backend error messages → user-friendly Spanish translations
+const ERROR_MESSAGES = {
+  'insufficient pocket balance': 'Saldo insuficiente en el bolsillo',
+  'pocket not found': 'Bolsillo no encontrado',
+  'pocket name already exists in household': 'Ya existe un bolsillo con ese nombre',
+  'pocket is not active': 'Este bolsillo ya no está activo',
+  'not authorized': 'No tienes permiso para esta acción',
+  'maximum number of pockets reached (20)': 'Máximo 20 bolsillos permitidos',
+  'pocket has remaining balance': 'El bolsillo aún tiene saldo',
+  'pocket transaction not found': 'Transacción no encontrada',
+  'deleting this deposit would cause negative balance': 'Eliminar este depósito dejaría el saldo en negativo',
+  'amount must be positive': 'El monto debe ser positivo',
+  'pocket name is required': 'El nombre del bolsillo es requerido',
+  'pocket name cannot be empty': 'El nombre del bolsillo no puede estar vacío',
+  'source account is required': 'Selecciona una cuenta origen',
+  'destination account is required': 'Selecciona una cuenta destino',
+};
+
+function friendlyError(raw) {
+  try {
+    const parsed = JSON.parse(raw);
+    const msg = parsed.error || parsed.message || raw;
+    return ERROR_MESSAGES[msg] || msg;
+  } catch {
+    return ERROR_MESSAGES[raw] || raw;
+  }
+}
+
 async function apiFetch(path, opts = {}) {
   const res = await fetch(API_URL + path, { credentials: 'include', ...opts });
   if (!res.ok) {
     const body = await res.text();
-    throw new Error(body || `HTTP ${res.status}`);
+    throw new Error(friendlyError(body || `HTTP ${res.status}`));
   }
   if (res.status === 204) return null;
   return res.json();
+}
+
+function showErrorModal(message) {
+  const overlay = document.createElement('div');
+  overlay.className = 'pocket-modal-overlay';
+  overlay.innerHTML = `
+    <div class="pocket-modal pocket-modal-sm">
+      <h2>Error</h2>
+      <p>${escapeHTML(message)}</p>
+      <div class="pocket-modal-actions">
+        <button type="button" class="pocket-btn-primary" id="pocket-err-ok">Aceptar</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.querySelector('#pocket-err-ok').addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
 }
 
 // ── Render / Setup (called by app.js) ───────────────────────────────
@@ -70,9 +114,9 @@ export function render(user) {
   return `
     <main class="card">
       <header class="header">
-        <div class="header-row">
-          <h1>Ahorros</h1>
-          ${Navbar.render(user, '/ahorros')}
+        <div class="header-row header-bordered" id="ahorros-header-row">
+          <h1><span class="header-back-btn" id="header-back-btn" style="display:none">‹</span><span id="header-title"> Ahorros</span></h1>
+          <span id="header-navbar">${Navbar.render(user, '/ahorros')}</span>
         </div>
       </header>
       <div id="pockets-content"></div>
@@ -86,7 +130,6 @@ export async function setup() {
   // Read URL to decide list vs detail
   const params = new URLSearchParams(window.location.search);
   currentPocketId = params.get('pocket');
-  activeTab = 'movimientos';
 
   // Fetch supporting data in parallel
   const [accounts, catGroups] = await Promise.all([
@@ -102,7 +145,6 @@ export async function setup() {
     if (window.location.pathname !== '/ahorros') return; // let router handle
     const p = new URLSearchParams(window.location.search);
     currentPocketId = p.get('pocket');
-    activeTab = 'movimientos';
     renderCurrentView();
   };
   window.addEventListener('popstate', popstateHandler);
@@ -115,16 +157,29 @@ export async function setup() {
 async function renderCurrentView() {
   const container = document.getElementById('pockets-content');
   if (!container) return;
+
+  const backBtn = document.getElementById('header-back-btn');
+  const title = document.getElementById('header-title');
+  const navbar = document.getElementById('header-navbar');
+  const headerRow = document.getElementById('ahorros-header-row');
+
   if (currentPocketId) {
+    if (backBtn) { backBtn.style.display = 'inline'; backBtn.onclick = () => navigateToList(); }
+    if (title) title.style.display = 'none';
+    if (navbar) navbar.style.display = 'none';
+    if (headerRow) headerRow.classList.remove('header-bordered');
     await renderDetailView(container);
   } else {
+    if (backBtn) backBtn.style.display = 'none';
+    if (title) title.style.display = 'inline';
+    if (navbar) navbar.style.display = 'inline';
+    if (headerRow) headerRow.classList.add('header-bordered');
     await renderListView(container);
   }
 }
 
 function navigateToPocket(pocketId) {
   currentPocketId = pocketId;
-  activeTab = 'movimientos';
   window.history.pushState({}, '', `/ahorros?pocket=${pocketId}`);
   renderCurrentView();
 }
@@ -156,7 +211,6 @@ async function renderListView(container) {
       <div class="pockets-total-card">
         <div class="pockets-total-label">Total ahorrado</div>
         <div class="pockets-total-amount">${formatCurrency(total_balance)}</div>
-        <div class="pockets-total-count">${pocket_count} bolsillo${pocket_count !== 1 ? 's' : ''}</div>
       </div>
   `;
 
@@ -200,7 +254,9 @@ async function renderListView(container) {
   html += '</div>'; // close wrapper
 
   // FAB
-  html += '<button class="pocket-fab" id="pocket-fab-btn" title="Crear bolsillo">+</button>';
+  html += '<div class="floating-actions">';
+  html += '  <button class="btn-add-floating" id="pocket-fab-btn" title="Crear bolsillo">+</button>';
+  html += '</div>';
 
   container.innerHTML = html;
 
@@ -223,7 +279,6 @@ async function renderListView(container) {
 
 function openCreatePocketModal() {
   let selectedIcon = ICON_PRESETS[0];
-  let selectedColor = COLOR_PRESETS[0];
 
   const overlay = document.createElement('div');
   overlay.className = 'pocket-modal-overlay';
@@ -235,20 +290,18 @@ function openCreatePocketModal() {
         <input type="text" id="pocket-create-name" maxlength="100" placeholder="Ej: Vacaciones" />
       </div>
       <div class="pocket-modal-field">
-        <label>Ícono</label>
-        <div class="pocket-icon-grid">
-          ${ICON_PRESETS.map(ic => `<button type="button" class="pocket-icon-btn${ic === selectedIcon ? ' selected' : ''}" data-icon="${ic}">${ic}</button>`).join('')}
-        </div>
-      </div>
-      <div class="pocket-modal-field">
-        <label>Color</label>
-        <div class="pocket-color-row">
-          ${COLOR_PRESETS.map(c => `<button type="button" class="pocket-color-btn${c === selectedColor ? ' selected' : ''}" data-color="${c}" style="background:${c}"></button>`).join('')}
-        </div>
+        <label>Nota (opcional)</label>
+        <input type="text" id="pocket-create-note" maxlength="200" placeholder="Ej: Bolsillo Nu: Casa" />
       </div>
       <div class="pocket-modal-field">
         <label>Meta de ahorro (opcional)</label>
         <input type="number" id="pocket-create-goal" min="0" placeholder="Ej: 5000000" />
+      </div>
+      <div class="pocket-modal-field">
+        <label>Ícono</label>
+        <div class="pocket-icon-grid">
+          ${ICON_PRESETS.map(ic => `<button type="button" class="pocket-icon-btn${ic === selectedIcon ? ' selected' : ''}" data-icon="${ic}">${ic}</button>`).join('')}
+        </div>
       </div>
       <div class="pocket-modal-actions">
         <button type="button" class="pocket-btn-cancel" id="pocket-create-cancel">Cancelar</button>
@@ -268,15 +321,6 @@ function openCreatePocketModal() {
     });
   });
 
-  // Color picker
-  overlay.querySelectorAll('.pocket-color-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      overlay.querySelectorAll('.pocket-color-btn').forEach(b => b.classList.remove('selected'));
-      btn.classList.add('selected');
-      selectedColor = btn.dataset.color;
-    });
-  });
-
   // Cancel
   overlay.querySelector('#pocket-create-cancel').addEventListener('click', () => overlay.remove());
   overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
@@ -290,14 +334,16 @@ function openCreatePocketModal() {
     }
     const goalStr = overlay.querySelector('#pocket-create-goal').value;
     const goal = goalStr ? parseFloat(goalStr) : null;
+    const note = overlay.querySelector('#pocket-create-note').value.trim();
 
     const submitBtn = overlay.querySelector('#pocket-create-submit');
     submitBtn.disabled = true;
     submitBtn.textContent = 'Creando...';
 
     try {
-      const body = { name, icon: selectedIcon, color: selectedColor, owner_id: currentUser.id };
+      const body = { name, icon: selectedIcon, owner_id: currentUser.id };
       if (goal !== null && goal > 0) body.goal_amount = goal;
+      if (note) body.note = note;
       await apiFetch('/api/pockets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -308,7 +354,7 @@ function openCreatePocketModal() {
     } catch (e) {
       submitBtn.disabled = false;
       submitBtn.textContent = 'Crear';
-      alert('Error al crear bolsillo: ' + e.message);
+      showErrorModal(e.message);
     }
   });
 }
@@ -341,41 +387,41 @@ async function renderDetailView(container) {
 
   let html = `
     <div class="pocket-detail-wrapper">
-      <button class="pocket-back-btn" id="pocket-back-btn">← Ahorros</button>
-
-      <div class="pocket-detail-header">
-        <span class="pocket-detail-icon">${p.icon || '💰'}</span>
-        <div class="pocket-detail-info">
-          <h1 class="pocket-detail-name">${escapeHTML(p.name)}</h1>
-          <div class="pocket-detail-balance">${formatCurrency(p.balance)}</div>
-        </div>
-      </div>
-
-      ${rawPct !== null ? `
-        <div class="pocket-progress-card">
-          <div class="pocket-progress-bar pocket-progress-bar-lg">
-            <div class="pocket-progress-fill" style="width:${pctDisplay}%"></div>
-          </div>
-          <div class="pocket-progress-info">
-            <span>${pctLabel}% de ${formatCurrency(p.goal_amount)}</span>
-            ${pct >= 100 ? '<span class="pocket-goal-badge">🎉 ¡Meta alcanzada!</span>' : ''}
+      <div class="pocket-detail-card">
+        <div class="pocket-detail-header">
+          <span class="pocket-detail-icon">${p.icon || '💰'}</span>
+          <div class="pocket-detail-info">
+            <h1 class="pocket-detail-name">${escapeHTML(p.name)}</h1>
+            ${p.note ? `<div class="pocket-detail-note">${escapeHTML(p.note)}</div>` : ''}
+            <div class="pocket-detail-balance">${formatCurrency(p.balance)}</div>
           </div>
         </div>
-      ` : ''}
-
-      <div class="pocket-actions">
-        <button class="pocket-btn-deposit" id="pocket-deposit-btn" ${!hasAccounts ? 'disabled' : ''}>Depositar</button>
-        <button class="pocket-btn-withdraw" id="pocket-withdraw-btn" ${!hasAccounts ? 'disabled' : ''}>Retirar</button>
+        ${rawPct !== null ? `
+          <div class="pocket-progress-section">
+            <div class="pocket-progress-bar pocket-progress-bar-lg">
+              <div class="pocket-progress-fill" style="width:${pctDisplay}%"></div>
+            </div>
+            <div class="pocket-progress-info">
+              <span>${pctLabel}% de ${formatCurrency(p.goal_amount)}</span>
+              ${pct >= 100 ? '<span class="pocket-goal-badge">🎉 ¡Meta alcanzada!</span>' : ''}
+            </div>
+          </div>
+        ` : ''}
       </div>
+
       ${!hasAccounts ? '<p class="pocket-no-accounts-msg">Primero crea una cuenta bancaria</p>' : ''}
 
-      <div class="pocket-tabs">
-        <button class="pocket-tab ${activeTab === 'movimientos' ? 'active' : ''}" data-tab="movimientos">Movimientos</button>
-        <button class="pocket-tab ${activeTab === 'configuracion' ? 'active' : ''}" data-tab="configuracion">Configuración</button>
-      </div>
+      ${renderTransactionsTab()}
 
-      <div id="pocket-tab-content">
-        ${activeTab === 'movimientos' ? renderTransactionsTab() : renderConfigTab()}
+      <div class="floating-actions">
+        <button class="btn-config-floating" id="pocket-fab-config" title="Configuración">⚙️</button>
+        <div class="pocket-fab-add-wrapper">
+          <div class="pocket-fab-menu" id="pocket-fab-menu">
+            <button class="pocket-fab-menu-item pocket-fab-menu-deposit" id="pocket-fab-deposit">↓ Depositar</button>
+            <button class="pocket-fab-menu-item pocket-fab-menu-withdraw" id="pocket-fab-withdraw">↑ Retirar</button>
+          </div>
+          <button class="btn-add-floating" id="pocket-fab-add" title="Depositar o retirar" ${!hasAccounts ? 'disabled' : ''}>+</button>
+        </div>
       </div>
     </div>
   `;
@@ -392,23 +438,28 @@ function renderTransactionsTab() {
   let html = '<div class="pocket-tx-list">';
   for (const tx of transactionsData) {
     const isDeposit = tx.type === 'DEPOSIT';
-    const icon = isDeposit ? '⬆️' : '⬇️';
     const sign = isDeposit ? '+' : '-';
     const colorClass = isDeposit ? 'pocket-tx-positive' : 'pocket-tx-negative';
+    const typeLabel = isDeposit ? 'Depósito' : 'Retiro';
+    const txIcon = isDeposit ? '↓' : '↑';
+    const iconClass = isDeposit ? 'pocket-tx-icon-deposit' : 'pocket-tx-icon-withdraw';
 
     html += `
-      <div class="pocket-tx-item" data-tx-id="${tx.id}">
-        <div class="pocket-tx-main">
-          <span class="pocket-tx-icon">${icon}</span>
-          <div class="pocket-tx-details">
-            <span class="pocket-tx-desc">${escapeHTML(tx.description || (isDeposit ? 'Depósito' : 'Retiro'))}</span>
-            <span class="pocket-tx-date">${formatDate(tx.transaction_date)}</span>
-          </div>
-          <span class="pocket-tx-amount ${colorClass}">${sign}${formatCurrency(tx.amount)}</span>
+      <div class="movement-detail-entry" data-tx-id="${tx.id}">
+        <div class="pocket-tx-icon-container ${iconClass}">
+          <span class="pocket-tx-icon">${txIcon}</span>
         </div>
-        <div class="pocket-tx-actions">
-          <button class="pocket-tx-edit-btn" data-tx-id="${tx.id}" title="Editar">✏️</button>
-          <button class="pocket-tx-delete-btn" data-tx-id="${tx.id}" title="Eliminar">🗑️</button>
+        <div class="entry-info">
+          <span class="entry-description">${escapeHTML(tx.description || typeLabel)}</span>
+          <span class="entry-amount ${colorClass}">${sign}${formatCurrency(tx.amount)}</span>
+          <div class="entry-date">${formatDate(tx.transaction_date)}</div>
+        </div>
+        <div class="entry-actions">
+          <button class="three-dots-btn" data-tx-id="${tx.id}">⋮</button>
+          <div class="three-dots-menu" id="tx-menu-${tx.id}">
+            <button class="menu-item" data-action="edit" data-tx-id="${tx.id}">Editar</button>
+            <button class="menu-item" data-action="delete" data-tx-id="${tx.id}">Eliminar</button>
+          </div>
         </div>
       </div>
     `;
@@ -417,15 +468,121 @@ function renderTransactionsTab() {
   return html;
 }
 
-function renderConfigTab() {
+function setupDetailListeners(container) {
+  // FAB "+" toggle menu
+  const fabAdd = document.getElementById('pocket-fab-add');
+  const fabMenu = document.getElementById('pocket-fab-menu');
+  if (fabAdd && fabMenu) {
+    fabAdd.addEventListener('click', e => {
+      e.stopPropagation();
+      fabMenuOpen = !fabMenuOpen;
+      fabMenu.classList.toggle('open', fabMenuOpen);
+      fabAdd.classList.toggle('open', fabMenuOpen);
+    });
+  }
+
+  // FAB menu: Deposit
+  document.getElementById('pocket-fab-deposit')?.addEventListener('click', () => {
+    closeFabMenu();
+    openDepositModal();
+  });
+
+  // FAB menu: Withdraw
+  document.getElementById('pocket-fab-withdraw')?.addEventListener('click', () => {
+    closeFabMenu();
+    openWithdrawModal();
+  });
+
+  // FAB config: open config modal
+  document.getElementById('pocket-fab-config')?.addEventListener('click', () => {
+    openConfigModal();
+  });
+
+  // Close FAB menu when clicking outside
+  document.addEventListener('click', e => {
+    if (fabMenuOpen && !e.target.closest('.floating-actions')) {
+      closeFabMenu();
+    }
+  });
+
+  // Transaction listeners
+  setupTransactionListeners();
+}
+
+function closeFabMenu() {
+  fabMenuOpen = false;
+  const fabMenu = document.getElementById('pocket-fab-menu');
+  const fabAdd = document.getElementById('pocket-fab-add');
+  if (fabMenu) fabMenu.classList.remove('open');
+  if (fabAdd) fabAdd.classList.remove('open');
+}
+
+function setupTransactionListeners() {
+  // Three-dots menu toggle
+  document.querySelectorAll('.three-dots-btn[data-tx-id]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const txId = btn.dataset.txId;
+      const menu = document.getElementById(`tx-menu-${txId}`);
+      const isVisible = menu?.style.display === 'block';
+
+      // Close all menus first
+      document.querySelectorAll('.three-dots-menu').forEach(m => m.style.display = 'none');
+
+      if (!isVisible && menu) {
+        menu.style.display = 'block';
+      }
+    });
+  });
+
+  // Menu action items
+  document.querySelectorAll('.three-dots-menu .menu-item[data-tx-id]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const txId = btn.dataset.txId;
+      const action = btn.dataset.action;
+      const tx = transactionsData.find(t => String(t.id) === txId);
+
+      // Close menu
+      document.querySelectorAll('.three-dots-menu').forEach(m => m.style.display = 'none');
+
+      if (!tx) return;
+      if (action === 'edit') openEditTransactionModal(tx);
+      if (action === 'delete') confirmDeleteTransaction(tx);
+    });
+  });
+
+  // Close menus when clicking outside
+  document.addEventListener('click', function closeTxMenus(e) {
+    if (!e.target.closest('.entry-actions') && !e.target.closest('.three-dots-menu')) {
+      document.querySelectorAll('.three-dots-menu').forEach(m => m.style.display = 'none');
+    }
+  }, { once: false });
+}
+
+// ── Config Modal ─────────────────────────────────────────────────
+
+function openConfigModal() {
   const p = pocketDetailData;
   const hasGoal = p.goal_amount > 0;
+  let selectedIcon = p.icon || '💰';
 
-  return `
-    <div class="pocket-config-form">
+  const overlay = document.createElement('div');
+  overlay.className = 'pocket-modal-overlay';
+  overlay.innerHTML = `
+    <div class="pocket-modal">
+      <h2>Configuración</h2>
       <div class="pocket-modal-field">
-        <label>Nombre</label>
+        <label>Nombre <span class="pocket-required">*</span></label>
         <input type="text" id="pocket-cfg-name" maxlength="100" value="${escapeAttr(p.name)}" />
+      </div>
+      <div class="pocket-modal-field">
+        <label>Nota (opcional)</label>
+        <input type="text" id="pocket-cfg-note" maxlength="200" value="${escapeAttr(p.note || '')}" placeholder="Ej: Bolsillo Nu: Casa" />
+      </div>
+      <div class="pocket-modal-field">
+        <label>Meta de ahorro (opcional)</label>
+        <input type="number" id="pocket-cfg-goal" min="0" value="${hasGoal ? p.goal_amount : ''}" placeholder="Dejar vacío para sin meta" />
       </div>
       <div class="pocket-modal-field">
         <label>Ícono</label>
@@ -433,21 +590,10 @@ function renderConfigTab() {
           ${ICON_PRESETS.map(ic => `<button type="button" class="pocket-icon-btn${ic === p.icon ? ' selected' : ''}" data-icon="${ic}">${ic}</button>`).join('')}
         </div>
       </div>
-      <div class="pocket-modal-field">
-        <label>Color</label>
-        <div class="pocket-color-row" id="pocket-cfg-colors">
-          ${COLOR_PRESETS.map(c => `<button type="button" class="pocket-color-btn${c === p.color ? ' selected' : ''}" data-color="${c}" style="background:${c}"></button>`).join('')}
-        </div>
+      <div class="pocket-modal-actions">
+        <button type="button" class="pocket-btn-cancel" id="pocket-cfg-cancel">Cancelar</button>
+        <button type="button" class="pocket-btn-primary" id="pocket-cfg-save">Guardar cambios</button>
       </div>
-      <div class="pocket-modal-field">
-        <label>Meta de ahorro</label>
-        <input type="number" id="pocket-cfg-goal" min="0" value="${hasGoal ? p.goal_amount : ''}" placeholder="Ej: 5000000" />
-        <label class="pocket-checkbox-label">
-          <input type="checkbox" id="pocket-cfg-no-goal" ${!hasGoal ? 'checked' : ''} />
-          <span>Sin meta</span>
-        </label>
-      </div>
-      <button class="pocket-btn-primary pocket-save-cfg" id="pocket-cfg-save">Guardar cambios</button>
 
       <div class="pocket-danger-zone">
         <h3>Zona peligrosa</h3>
@@ -456,107 +602,44 @@ function renderConfigTab() {
       </div>
     </div>
   `;
-}
 
-function setupDetailListeners(container) {
-  // Back
-  container.querySelector('#pocket-back-btn')?.addEventListener('click', () => navigateToList());
+  document.body.appendChild(overlay);
 
-  // Deposit / Withdraw
-  container.querySelector('#pocket-deposit-btn')?.addEventListener('click', () => openDepositModal());
-  container.querySelector('#pocket-withdraw-btn')?.addEventListener('click', () => openWithdrawModal());
+  // Close
+  overlay.querySelector('#pocket-cfg-cancel').addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
 
-  // Tabs
-  container.querySelectorAll('.pocket-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      activeTab = tab.dataset.tab;
-      container.querySelectorAll('.pocket-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === activeTab));
-      const tabContent = document.getElementById('pocket-tab-content');
-      if (tabContent) {
-        tabContent.innerHTML = activeTab === 'movimientos' ? renderTransactionsTab() : renderConfigTab();
-        if (activeTab === 'movimientos') setupTransactionListeners();
-        else setupConfigListeners();
-      }
-    });
-  });
-
-  // Initial tab listeners
-  if (activeTab === 'movimientos') setupTransactionListeners();
-  else setupConfigListeners();
-}
-
-function setupTransactionListeners() {
-  document.querySelectorAll('.pocket-tx-edit-btn').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      const txId = btn.dataset.txId;
-      const tx = transactionsData.find(t => String(t.id) === txId);
-      if (tx) openEditTransactionModal(tx);
-    });
-  });
-
-  document.querySelectorAll('.pocket-tx-delete-btn').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      const txId = btn.dataset.txId;
-      const tx = transactionsData.find(t => String(t.id) === txId);
-      if (tx) confirmDeleteTransaction(tx);
-    });
-  });
-}
-
-function setupConfigListeners() {
   // Icon picker
-  const iconsContainer = document.getElementById('pocket-cfg-icons');
-  if (iconsContainer) {
-    iconsContainer.querySelectorAll('.pocket-icon-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        iconsContainer.querySelectorAll('.pocket-icon-btn').forEach(b => b.classList.remove('selected'));
-        btn.classList.add('selected');
-      });
+  overlay.querySelectorAll('#pocket-cfg-icons .pocket-icon-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      overlay.querySelectorAll('#pocket-cfg-icons .pocket-icon-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      selectedIcon = btn.dataset.icon;
     });
-  }
+  });
 
-  // Color picker
-  const colorsContainer = document.getElementById('pocket-cfg-colors');
-  if (colorsContainer) {
-    colorsContainer.querySelectorAll('.pocket-color-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        colorsContainer.querySelectorAll('.pocket-color-btn').forEach(b => b.classList.remove('selected'));
-        btn.classList.add('selected');
-      });
-    });
-  }
-
-  // No goal checkbox
-  const noGoalCb = document.getElementById('pocket-cfg-no-goal');
-  const goalInput = document.getElementById('pocket-cfg-goal');
-  if (noGoalCb && goalInput) {
-    noGoalCb.addEventListener('change', () => {
-      goalInput.disabled = noGoalCb.checked;
-      if (noGoalCb.checked) goalInput.value = '';
-    });
-    goalInput.disabled = noGoalCb.checked;
-  }
-
-  // Save config
-  document.getElementById('pocket-cfg-save')?.addEventListener('click', async () => {
-    const name = document.getElementById('pocket-cfg-name')?.value.trim();
+  // Save
+  overlay.querySelector('#pocket-cfg-save').addEventListener('click', async () => {
+    const name = overlay.querySelector('#pocket-cfg-name')?.value.trim();
     if (!name) return;
 
-    const selectedIcon = document.querySelector('#pocket-cfg-icons .pocket-icon-btn.selected')?.dataset.icon || pocketDetailData.icon;
-    const selectedColor = document.querySelector('#pocket-cfg-colors .pocket-color-btn.selected')?.dataset.color || pocketDetailData.color;
-    const noGoal = document.getElementById('pocket-cfg-no-goal')?.checked;
-    const goalStr = document.getElementById('pocket-cfg-goal')?.value;
+    const goalStr = overlay.querySelector('#pocket-cfg-goal')?.value;
+    const goal = goalStr ? parseFloat(goalStr) : 0;
+    const note = overlay.querySelector('#pocket-cfg-note')?.value.trim();
 
-    const body = { name, icon: selectedIcon, color: selectedColor };
-    if (noGoal) {
+    const body = { name, icon: selectedIcon };
+    if (goal > 0) {
+      body.goal_amount = goal;
+    } else {
       body.clear_goal = true;
-    } else if (goalStr) {
-      body.goal_amount = parseFloat(goalStr);
+    }
+    if (note) {
+      body.note = note;
+    } else {
+      body.clear_note = true;
     }
 
-    const saveBtn = document.getElementById('pocket-cfg-save');
+    const saveBtn = overlay.querySelector('#pocket-cfg-save');
     saveBtn.disabled = true;
     saveBtn.textContent = 'Guardando...';
 
@@ -566,19 +649,21 @@ function setupConfigListeners() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
-      // Re-render detail to show updated data
+      overlay.remove();
       const container = document.getElementById('pockets-content');
-      activeTab = 'configuracion';
       await renderDetailView(container);
     } catch (e) {
       saveBtn.disabled = false;
       saveBtn.textContent = 'Guardar cambios';
-      alert('Error: ' + e.message);
+      showErrorModal(e.message);
     }
   });
 
   // Delete pocket
-  document.getElementById('pocket-delete-btn')?.addEventListener('click', () => confirmDeletePocket());
+  overlay.querySelector('#pocket-delete-btn')?.addEventListener('click', () => {
+    overlay.remove();
+    confirmDeletePocket();
+  });
 }
 
 // ── Deposit Modal ───────────────────────────────────────────────────
@@ -605,23 +690,12 @@ function openDepositModal() {
         </select>
       </div>
       <div class="pocket-modal-field">
-        <label>Categoría <span class="pocket-required">*</span></label>
-        <select id="pocket-dep-category">
-          <option value="">Seleccionar...</option>
-          ${categoryGroupsData.map(g => `
-            <optgroup label="${escapeHTML(g.name)}">
-              ${(g.categories || []).map(c => `<option value="${c.id}">${escapeHTML(c.name)}</option>`).join('')}
-            </optgroup>
-          `).join('')}
-        </select>
-      </div>
-      <div class="pocket-modal-field">
-        <label>Descripción</label>
+        <label>Descripción (opcional)</label>
         <input type="text" id="pocket-dep-desc" placeholder="Ej: Ahorro mensual" />
       </div>
       <div class="pocket-modal-actions">
         <button type="button" class="pocket-btn-cancel" id="pocket-dep-cancel">Cancelar</button>
-        <button type="button" class="pocket-btn-deposit" id="pocket-dep-submit">Depositar</button>
+        <button type="button" class="pocket-btn-primary" id="pocket-dep-submit">Depositar</button>
       </div>
     </div>
   `;
@@ -633,12 +707,11 @@ function openDepositModal() {
   overlay.querySelector('#pocket-dep-submit').addEventListener('click', async () => {
     const amount = parseFloat(overlay.querySelector('#pocket-dep-amount').value);
     const accountId = overlay.querySelector('#pocket-dep-account').value;
-    const categoryId = overlay.querySelector('#pocket-dep-category').value;
     const date = overlay.querySelector('#pocket-dep-date').value;
     const desc = overlay.querySelector('#pocket-dep-desc').value.trim();
 
-    if (!amount || amount <= 0 || !accountId || !categoryId || !date) {
-      alert('Completa los campos obligatorios');
+    if (!amount || amount <= 0 || !accountId || !date) {
+      showErrorModal('Completa los campos obligatorios');
       return;
     }
 
@@ -651,22 +724,26 @@ function openDepositModal() {
         amount,
         description: desc || 'Depósito',
         transaction_date: date,
-        category_id: categoryId,
         source_account_id: accountId
       };
-      await apiFetch(`/api/pockets/${currentPocketId}/deposit`, {
+      const result = await apiFetch(`/api/pockets/${currentPocketId}/deposit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
       overlay.remove();
+
+      // Show notification if a new category was auto-created
+      if (result && result.category_created) {
+        showCategoryCreatedNotification(pocketDetailData?.name || '');
+      }
+
       const container = document.getElementById('pockets-content');
-      activeTab = 'movimientos';
       await renderDetailView(container);
     } catch (e) {
       submitBtn.disabled = false;
       submitBtn.textContent = 'Depositar';
-      alert('Error: ' + e.message);
+      showErrorModal(e.message);
     }
   });
 }
@@ -697,12 +774,12 @@ function openWithdrawModal() {
         </select>
       </div>
       <div class="pocket-modal-field">
-        <label>Descripción</label>
+        <label>Descripción (opcional)</label>
         <input type="text" id="pocket-wdr-desc" placeholder="Ej: Retiro para compra" />
       </div>
       <div class="pocket-modal-actions">
         <button type="button" class="pocket-btn-cancel" id="pocket-wdr-cancel">Cancelar</button>
-        <button type="button" class="pocket-btn-withdraw-submit" id="pocket-wdr-submit">Retirar</button>
+        <button type="button" class="pocket-btn-primary" id="pocket-wdr-submit">Retirar</button>
       </div>
     </div>
   `;
@@ -718,7 +795,7 @@ function openWithdrawModal() {
     const desc = overlay.querySelector('#pocket-wdr-desc').value.trim();
 
     if (!amount || amount <= 0 || !accountId || !date) {
-      alert('Completa los campos obligatorios');
+      showErrorModal('Completa los campos obligatorios');
       return;
     }
 
@@ -740,12 +817,11 @@ function openWithdrawModal() {
       });
       overlay.remove();
       const container = document.getElementById('pockets-content');
-      activeTab = 'movimientos';
       await renderDetailView(container);
     } catch (e) {
       submitBtn.disabled = false;
       submitBtn.textContent = 'Retirar';
-      alert('Error: ' + e.message);
+      showErrorModal(e.message);
     }
   });
 }
@@ -762,31 +838,17 @@ function openEditTransactionModal(tx) {
     <div class="pocket-modal">
       <h2>Editar ${isDeposit ? 'depósito' : 'retiro'}</h2>
       <div class="pocket-modal-field">
-        <label>Monto <span class="pocket-required">*</span></label>
-        <input type="number" id="pocket-edit-amount" min="1" value="${tx.amount}" />
-      </div>
-      <div class="pocket-modal-field">
-        <label>Descripción</label>
-        <input type="text" id="pocket-edit-desc" value="${escapeAttr(tx.description || '')}" />
-      </div>
-      <div class="pocket-modal-field">
         <label>Fecha <span class="pocket-required">*</span></label>
         <input type="date" id="pocket-edit-date" value="${txDate}" />
       </div>
+      <div class="pocket-modal-field">
+        <label>Monto <span class="pocket-required">*</span></label>
+        <input type="number" id="pocket-edit-amount" min="1" value="${tx.amount}" />
+      </div>
+
       ${isDeposit ? `
         <div class="pocket-modal-field">
-          <label>Categoría</label>
-          <select id="pocket-edit-category">
-            <option value="">Seleccionar...</option>
-            ${categoryGroupsData.map(g => `
-              <optgroup label="${escapeHTML(g.name)}">
-                ${(g.categories || []).map(c => `<option value="${c.id}" ${c.name === tx.category_name ? 'selected' : ''}>${escapeHTML(c.name)}</option>`).join('')}
-              </optgroup>
-            `).join('')}
-          </select>
-        </div>
-        <div class="pocket-modal-field">
-          <label>Cuenta origen</label>
+          <label>Cuenta origen <span class="pocket-required">*</span></label>
           <select id="pocket-edit-source-account">
             <option value="">Seleccionar...</option>
             ${accountsData.map(a => `<option value="${a.id}" ${a.name === tx.source_account_name ? 'selected' : ''}>${escapeHTML(a.name)}</option>`).join('')}
@@ -794,13 +856,19 @@ function openEditTransactionModal(tx) {
         </div>
       ` : `
         <div class="pocket-modal-field">
-          <label>Cuenta destino</label>
+          <label>Cuenta destino <span class="pocket-required">*</span></label>
           <select id="pocket-edit-dest-account">
             <option value="">Seleccionar...</option>
             ${accountsData.map(a => `<option value="${a.id}" ${a.name === tx.destination_account_name ? 'selected' : ''}>${escapeHTML(a.name)}</option>`).join('')}
           </select>
         </div>
       `}
+
+      <div class="pocket-modal-field">
+        <label>Descripción (opcional)</label>
+        <input type="text" id="pocket-edit-desc" value="${escapeAttr(tx.description || '')}" />
+      </div>
+
       <div class="pocket-modal-actions">
         <button type="button" class="pocket-btn-cancel" id="pocket-edit-cancel">Cancelar</button>
         <button type="button" class="pocket-btn-primary" id="pocket-edit-submit">Guardar</button>
@@ -818,7 +886,7 @@ function openEditTransactionModal(tx) {
     const date = overlay.querySelector('#pocket-edit-date').value;
 
     if (!amount || amount <= 0 || !date) {
-      alert('Completa los campos obligatorios');
+      showErrorModal('Completa los campos obligatorios');
       return;
     }
 
@@ -829,9 +897,7 @@ function openEditTransactionModal(tx) {
     };
 
     if (isDeposit) {
-      const catId = overlay.querySelector('#pocket-edit-category')?.value;
       const srcAccId = overlay.querySelector('#pocket-edit-source-account')?.value;
-      if (catId) body.category_id = catId;
       if (srcAccId) body.source_account_id = srcAccId;
     } else {
       const destAccId = overlay.querySelector('#pocket-edit-dest-account')?.value;
@@ -850,12 +916,11 @@ function openEditTransactionModal(tx) {
       });
       overlay.remove();
       const container = document.getElementById('pockets-content');
-      activeTab = 'movimientos';
       await renderDetailView(container);
     } catch (e) {
       submitBtn.disabled = false;
       submitBtn.textContent = 'Guardar';
-      alert('Error: ' + e.message);
+      showErrorModal(e.message);
     }
   });
 }
@@ -894,12 +959,11 @@ function confirmDeleteTransaction(tx) {
       await apiFetch(`/api/pocket-transactions/${tx.id}`, { method: 'DELETE' });
       overlay.remove();
       const container = document.getElementById('pockets-content');
-      activeTab = 'movimientos';
       await renderDetailView(container);
     } catch (e) {
       btn.disabled = false;
       btn.textContent = 'Eliminar';
-      alert('Error: ' + e.message);
+      showErrorModal(e.message);
     }
   });
 }
@@ -941,8 +1005,35 @@ function confirmDeletePocket() {
     } catch (e) {
       btn.disabled = false;
       btn.textContent = 'Eliminar';
-      alert('Error: ' + e.message);
+      showErrorModal(e.message);
     }
+  });
+}
+
+// ── Category Created Notification ────────────────────────────────────
+
+function showCategoryCreatedNotification(pocketName) {
+  const toast = document.createElement('div');
+  toast.className = 'pocket-toast';
+  toast.innerHTML = `
+    <span class="pocket-toast-icon">📂</span>
+    <span>Se ha creado la categoría <strong>${escapeHTML(pocketName)}</strong> en el grupo <strong>Ahorros</strong> para rastrear los depósitos de este bolsillo en los gastos del mes.</span>
+  `;
+  document.body.appendChild(toast);
+
+  // Trigger animation
+  requestAnimationFrame(() => toast.classList.add('visible'));
+
+  // Auto-dismiss after 6 seconds
+  setTimeout(() => {
+    toast.classList.remove('visible');
+    setTimeout(() => toast.remove(), 400);
+  }, 6000);
+
+  // Dismiss on click
+  toast.addEventListener('click', () => {
+    toast.classList.remove('visible');
+    setTimeout(() => toast.remove(), 400);
   });
 }
 

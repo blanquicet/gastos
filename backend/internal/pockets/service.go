@@ -13,12 +13,14 @@ import (
 
 // Service handles pocket business logic
 type Service struct {
-	repo          Repository
-	movementsRepo movements.Repository
-	accountsRepo  accounts.Repository
-	householdRepo households.HouseholdRepository
-	auditService  audit.Service
-	logger        *slog.Logger
+	repo             Repository
+	movementsRepo    movements.Repository
+	accountsRepo     accounts.Repository
+	householdRepo    households.HouseholdRepository
+	categoryGroupRepo CategoryGroupRepo
+	categoryRepo     CategoryRepo
+	auditService     audit.Service
+	logger           *slog.Logger
 }
 
 // NewService creates a new pocket service
@@ -27,16 +29,20 @@ func NewService(
 	movementsRepo movements.Repository,
 	accountsRepo accounts.Repository,
 	householdRepo households.HouseholdRepository,
+	categoryGroupRepo CategoryGroupRepo,
+	categoryRepo CategoryRepo,
 	auditService audit.Service,
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
-		repo:          repo,
-		movementsRepo: movementsRepo,
-		accountsRepo:  accountsRepo,
-		householdRepo: householdRepo,
-		auditService:  auditService,
-		logger:        logger,
+		repo:             repo,
+		movementsRepo:    movementsRepo,
+		accountsRepo:     accountsRepo,
+		householdRepo:    householdRepo,
+		categoryGroupRepo: categoryGroupRepo,
+		categoryRepo:     categoryRepo,
+		auditService:     auditService,
+		logger:           logger,
 	}
 }
 
@@ -80,8 +86,8 @@ func (s *Service) Create(ctx context.Context, input *CreatePocketInput) (*Pocket
 		OwnerID:     input.OwnerID,
 		Name:        input.Name,
 		Icon:        input.Icon,
-		Color:       input.Color,
 		GoalAmount:  input.GoalAmount,
+		Note:        input.Note,
 	}
 
 	pocket, err = s.repo.Create(ctx, pocket)
@@ -191,14 +197,12 @@ func (s *Service) Update(ctx context.Context, userID, householdID string, input 
 	}
 
 	// Apply updates
+	oldName := pocket.Name
 	if input.Name != nil {
 		pocket.Name = *input.Name
 	}
 	if input.Icon != nil {
 		pocket.Icon = *input.Icon
-	}
-	if input.Color != nil {
-		pocket.Color = *input.Color
 	}
 	if input.GoalAmount != nil {
 		pocket.GoalAmount = input.GoalAmount
@@ -206,11 +210,31 @@ func (s *Service) Update(ctx context.Context, userID, householdID string, input 
 	if input.ClearGoal {
 		pocket.GoalAmount = nil
 	}
+	if input.Note != nil {
+		pocket.Note = input.Note
+	}
+	if input.ClearNote {
+		pocket.Note = nil
+	}
 
 	// Persist
 	pocket, err = s.repo.Update(ctx, pocket)
 	if err != nil {
 		return nil, fmt.Errorf("updating pocket: %w", err)
+	}
+
+	// If name changed, rename the matching category in "Ahorros" group (best-effort)
+	if input.Name != nil && *input.Name != oldName {
+		groupID, grpErr := s.categoryGroupRepo.FindOrCreateByName(ctx, householdID, ahorrosGroupName, ahorrosGroupIcon)
+		if grpErr == nil {
+			if renameErr := s.categoryRepo.RenameByGroupAndName(ctx, householdID, groupID, oldName, *input.Name); renameErr != nil {
+				s.logger.Warn("failed to rename pocket category",
+					"old_name", oldName,
+					"new_name", *input.Name,
+					"error", renameErr,
+				)
+			}
+		}
 	}
 
 	// Audit log
@@ -304,12 +328,33 @@ func (s *Service) Deposit(ctx context.Context, input *DepositInput) (*PocketTran
 		return nil, ErrNotAuthorized
 	}
 
+	// Resolve category: use cached pocket.CategoryID or find/create it
+	var categoryID string
+	var categoryCreated bool
+	if pocket.CategoryID != nil {
+		categoryID = *pocket.CategoryID
+	} else {
+		categoryID, categoryCreated, err = s.resolvePocketCategory(ctx, pocket.HouseholdID, pocket.Name)
+		if err != nil {
+			return nil, fmt.Errorf("resolving pocket category: %w", err)
+		}
+		// Persist the resolved category_id on the pocket
+		pocket.CategoryID = &categoryID
+		if _, updateErr := s.repo.Update(ctx, pocket); updateErr != nil {
+			s.logger.Warn("failed to persist category_id on pocket",
+				"pocket_id", pocket.ID,
+				"category_id", categoryID,
+				"error", updateErr,
+			)
+		}
+	}
+
 	// Create the linked HOUSEHOLD movement first (auto-commits via its own repo)
 	movementInput := &movements.CreateMovementInput{
 		Type:           movements.TypeHousehold,
-		Description:    fmt.Sprintf("Depósito a %s: %s", pocket.Name, input.Description),
+		Description:    buildDepositDescription(pocket.Name, input.Description),
 		Amount:         input.Amount,
-		CategoryID:     &input.CategoryID,
+		CategoryID:     &categoryID,
 		MovementDate:   input.TransactionDate,
 		PayerUserID:    &input.CreatedBy,
 		SourcePocketID: &input.PocketID,
@@ -333,7 +378,6 @@ func (s *Service) Deposit(ctx context.Context, input *DepositInput) (*PocketTran
 		Amount:           input.Amount,
 		Description:      &input.Description,
 		TransactionDate:  input.TransactionDate,
-		CategoryID:       &input.CategoryID,
 		SourceAccountID:  &input.SourceAccountID,
 		LinkedMovementID: &movement.ID,
 		CreatedBy:        input.CreatedBy,
@@ -377,7 +421,37 @@ func (s *Service) Deposit(ctx context.Context, input *DepositInput) (*PocketTran
 		Success:      true,
 	})
 
+	result.CategoryCreated = categoryCreated
 	return result, nil
+}
+
+// ahorrosGroupName is the well-known name for the auto-created savings category group
+const ahorrosGroupName = "Ahorros"
+const ahorrosGroupIcon = "💰"
+
+// buildDepositDescription returns the movement description for a pocket deposit.
+// If the user provided a description, it appends it; otherwise just "Depósito a <name>".
+func buildDepositDescription(pocketName, userDesc string) string {
+	if userDesc == "" || userDesc == "Depósito" {
+		return fmt.Sprintf("Depósito a %s", pocketName)
+	}
+	return fmt.Sprintf("Depósito a %s: %s", pocketName, userDesc)
+}
+
+// resolvePocketCategory finds or creates the "Ahorros" category group and a category
+// matching the pocket name. Returns the category ID and whether the category was just created.
+func (s *Service) resolvePocketCategory(ctx context.Context, householdID, pocketName string) (string, bool, error) {
+	groupID, err := s.categoryGroupRepo.FindOrCreateByName(ctx, householdID, ahorrosGroupName, ahorrosGroupIcon)
+	if err != nil {
+		return "", false, fmt.Errorf("finding/creating Ahorros group: %w", err)
+	}
+
+	categoryID, created, err := s.categoryRepo.FindOrCreateByName(ctx, householdID, groupID, pocketName)
+	if err != nil {
+		return "", false, fmt.Errorf("finding/creating category %q: %w", pocketName, err)
+	}
+
+	return categoryID, created, nil
 }
 
 // Withdraw creates a withdrawal transaction for a pocket
@@ -496,15 +570,28 @@ func (s *Service) EditTransaction(ctx context.Context, userID, householdID strin
 		return nil, ErrNotAuthorized
 	}
 
-	// If withdrawal and amount is increasing, check balance
-	if existing.Type == TransactionTypeWithdrawal && input.Amount != nil && *input.Amount > existing.Amount {
-		currentBalance, err := s.repo.GetBalance(ctx, pocket.ID)
-		if err != nil {
-			return nil, fmt.Errorf("getting pocket balance: %w", err)
-		}
-		extraNeeded := *input.Amount - existing.Amount
-		if currentBalance < extraNeeded {
-			return nil, ErrInsufficientBalance
+	// Balance check: reject edits that would cause negative balance
+	if input.Amount != nil {
+		if existing.Type == TransactionTypeWithdrawal && *input.Amount > existing.Amount {
+			// Withdrawal increasing: need extra funds
+			currentBalance, err := s.repo.GetBalance(ctx, pocket.ID)
+			if err != nil {
+				return nil, fmt.Errorf("getting pocket balance: %w", err)
+			}
+			extraNeeded := *input.Amount - existing.Amount
+			if currentBalance < extraNeeded {
+				return nil, ErrInsufficientBalance
+			}
+		} else if existing.Type == TransactionTypeDeposit && *input.Amount < existing.Amount {
+			// Deposit decreasing: check resulting balance stays ≥ 0
+			currentBalance, err := s.repo.GetBalance(ctx, pocket.ID)
+			if err != nil {
+				return nil, fmt.Errorf("getting pocket balance: %w", err)
+			}
+			reduction := existing.Amount - *input.Amount
+			if currentBalance < reduction {
+				return nil, ErrInsufficientBalance
+			}
 		}
 	}
 
@@ -523,16 +610,12 @@ func (s *Service) EditTransaction(ctx context.Context, userID, householdID strin
 			movUpdate.Amount = input.Amount
 			hasChanges = true
 		}
-		if input.CategoryID != nil {
-			movUpdate.CategoryID = input.CategoryID
-			hasChanges = true
-		}
 		if input.TransactionDate != nil {
 			movUpdate.MovementDate = input.TransactionDate
 			hasChanges = true
 		}
 		if input.Description != nil {
-			newDesc := fmt.Sprintf("Depósito a %s: %s", pocket.Name, *input.Description)
+			newDesc := buildDepositDescription(pocket.Name, *input.Description)
 			movUpdate.Description = &newDesc
 			hasChanges = true
 		}

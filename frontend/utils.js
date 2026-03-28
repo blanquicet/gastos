@@ -262,10 +262,10 @@ export function showError(titleOrMessage, message) {
     
     modal.innerHTML = `
       <div class="modal-header">
-        <h3>⚠ ${title}</h3>
+        <h3>⚠️ ${title}</h3>
       </div>
       <div class="modal-body">
-        <p style="color: #dc2626;">${errorMessage}</p>
+        <p>${errorMessage}</p>
       </div>
       <div class="modal-footer">
         <button id="modal-ok" class="btn-secondary">OK</button>

@@ -320,7 +320,65 @@ func (r *PostgresRepository) Reorder(ctx context.Context, householdID string, ca
 	return tx.Commit(ctx)
 }
 
-// CreateDefaultCategories creates the default category groups and categories for a new household
+// FindOrCreateByName finds a category by name in a group, or creates it if it doesn't exist.
+// Returns the category ID and whether it was just created.
+func (r *PostgresRepository) FindOrCreateByName(ctx context.Context, householdID, groupID, name string) (string, bool, error) {
+	// Try to find existing
+	var id string
+	err := r.pool.QueryRow(ctx, `
+		SELECT id FROM categories
+		WHERE household_id = $1 AND category_group_id = $2 AND name = $3
+	`, householdID, groupID, name).Scan(&id)
+	if err == nil {
+		return id, false, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return "", false, err
+	}
+
+	// Get max display_order
+	var maxOrder int
+	err = r.pool.QueryRow(ctx, `
+		SELECT COALESCE(MAX(display_order), 0) FROM categories WHERE household_id = $1
+	`, householdID).Scan(&maxOrder)
+	if err != nil {
+		return "", false, err
+	}
+
+	// Create new category
+	err = r.pool.QueryRow(ctx, `
+		INSERT INTO categories (household_id, name, category_group_id, display_order)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id
+	`, householdID, name, groupID, maxOrder+1).Scan(&id)
+	if err != nil {
+		// Handle race condition
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			err2 := r.pool.QueryRow(ctx, `
+				SELECT id FROM categories
+				WHERE household_id = $1 AND category_group_id = $2 AND name = $3
+			`, householdID, groupID, name).Scan(&id)
+			if err2 != nil {
+				return "", false, err2
+			}
+			return id, false, nil
+		}
+		return "", false, err
+	}
+
+	return id, true, nil
+}
+
+// RenameByGroupAndName renames a category identified by group + old name to a new name.
+// No-op if the category doesn't exist (the pocket may have never had a deposit).
+func (r *PostgresRepository) RenameByGroupAndName(ctx context.Context, householdID, groupID, oldName, newName string) error {
+	_, err := r.pool.Exec(ctx, `
+		UPDATE categories SET name = $1, updated_at = NOW()
+		WHERE household_id = $2 AND category_group_id = $3 AND name = $4
+	`, newName, householdID, groupID, oldName)
+	return err
+}
 func (r *PostgresRepository) CreateDefaultCategories(ctx context.Context, householdID string) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
