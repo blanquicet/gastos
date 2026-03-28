@@ -5403,7 +5403,11 @@ input[type="number"] {
 
 .pocket-empty-state {
   text-align: center;
-  padding: 60px 20px;
+  padding: 48px 20px;
+  background: #f9fafb;
+  border-radius: 10px;
+  border: 2px dashed #e5e7eb;
+  margin-top: 16px;
 }
 
 .pocket-empty-icon {
