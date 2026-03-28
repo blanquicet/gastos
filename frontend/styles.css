@@ -5563,18 +5563,18 @@ input[type="number"] {
 /* ── Icon grid ───────────────────────────────────────────────────── */
 
 .pocket-icon-grid {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .pocket-icon-btn {
-  width: 100%;
-  aspect-ratio: 1;
-  font-size: 22px;
+  width: 36px;
+  height: 36px;
+  font-size: 20px;
   background: #f3f4f6;
   border: 2px solid transparent;
-  border-radius: 10px;
+  border-radius: 8px;
   cursor: pointer;
   display: flex;
   align-items: center;
