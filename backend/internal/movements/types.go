@@ -82,7 +82,11 @@ type Movement struct {
 	
 	// Recurring template reference (if auto-generated)
 	GeneratedFromTemplateID *string `json:"generated_from_template_id,omitempty"`
-	
+
+	// Source pocket (when movement was created from a pocket deposit/spend)
+	SourcePocketID   *string `json:"source_pocket_id,omitempty"`
+	SourcePocketName *string `json:"source_pocket_name,omitempty"` // Populated from join
+
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -128,6 +132,9 @@ type CreateMovementInput struct {
 	
 	// Generated from template (set when movement is created from a recurring template)
 	GeneratedFromTemplateID *string `json:"generated_from_template_id,omitempty"`
+
+	// Source pocket (set when movement is created from a pocket transaction)
+	SourcePocketID *string `json:"source_pocket_id,omitempty"`
 }
 
 // ParticipantInput represents input for a participant
@@ -175,8 +182,8 @@ func (i *CreateMovementInput) Validate() error {
 		if (i.Category == nil || *i.Category == "") && (i.CategoryID == nil || *i.CategoryID == "") {
 			return ErrCategoryRequired
 		}
-		// Payment method required
-		if i.PaymentMethodID == nil || *i.PaymentMethodID == "" {
+		// Payment method required (unless linked to a pocket)
+		if (i.PaymentMethodID == nil || *i.PaymentMethodID == "") && (i.SourcePocketID == nil || *i.SourcePocketID == "") {
 			return ErrPaymentMethodRequired
 		}
 		// No counterparty allowed

@@ -76,6 +76,14 @@ ActionBudgetDeleted Action = "BUDGET_DELETED"
 // Credit Card Payments
 ActionCreditCardPaymentCreated Action = "CREDIT_CARD_PAYMENT_CREATED"
 ActionCreditCardPaymentDeleted Action = "CREDIT_CARD_PAYMENT_DELETED"
+
+	// Pockets
+	ActionPocketCreated            Action = "POCKET_CREATED"
+	ActionPocketUpdated            Action = "POCKET_UPDATED"
+	ActionPocketDeactivated        Action = "POCKET_DEACTIVATED"
+	ActionPocketTransactionCreated Action = "POCKET_TRANSACTION_CREATED"
+	ActionPocketTransactionUpdated Action = "POCKET_TRANSACTION_UPDATED"
+	ActionPocketTransactionDeleted Action = "POCKET_TRANSACTION_DELETED"
 )
 
 // AuditLog represents a single audit log entry
