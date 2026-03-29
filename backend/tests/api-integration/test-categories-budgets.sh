@@ -207,8 +207,9 @@ TEST_CATEGORY_ID=$(echo "$CATEGORIES_LIST" | jq -r '.categories[0].id')
 TEST_CATEGORY_NAME=$(echo "$CATEGORIES_LIST" | jq -r '.categories[0].name')
 echo -e "${CYAN}Using category: $TEST_CATEGORY_NAME (ID: $TEST_CATEGORY_ID)${NC}\n"
 
-CURRENT_MONTH=$(date +"%Y-%m")
-NEXT_MONTH=$(date -d "+1 month" +"%Y-%m")
+# Use fixed months to avoid GNU date arithmetic issues on 29th-31st
+CURRENT_MONTH="2025-07"
+NEXT_MONTH="2025-08"
 
 run_test "Get Budgets for Current Month (should be empty initially)"
 BUDGETS_CURRENT=$(api_call $CURL_FLAGS -X GET "$BASE_URL/budgets/$CURRENT_MONTH" \

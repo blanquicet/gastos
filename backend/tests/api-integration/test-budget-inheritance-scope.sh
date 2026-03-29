@@ -110,11 +110,11 @@ CAT_B_RESPONSE=$(api_call $CURL_FLAGS -X POST $BASE_URL/categories \
 CAT_B_ID=$(echo "$CAT_B_RESPONSE" | jq -r '.id')
 echo -e "${GREEN}✓ Category B created (ID: $CAT_B_ID)${NC}\n"
 
-# Compute months
-CURRENT_MONTH=$(date +"%Y-%m")
-NEXT_MONTH=$(date -d "+1 month" +"%Y-%m")
-MONTH_AFTER_NEXT=$(date -d "+2 months" +"%Y-%m")
-PREV_MONTH=$(date -d "-1 month" +"%Y-%m")
+# Use fixed months to avoid GNU date arithmetic issues (e.g., March 31 - 1 month = March 3)
+PREV_MONTH="2025-06"
+CURRENT_MONTH="2025-07"
+NEXT_MONTH="2025-08"
+MONTH_AFTER_NEXT="2025-09"
 
 echo -e "${CYAN}Months: prev=$PREV_MONTH current=$CURRENT_MONTH next=$NEXT_MONTH after=$MONTH_AFTER_NEXT${NC}\n"
 
@@ -341,6 +341,10 @@ fi
 # TEMPLATE DELETE SCOPE TESTS
 # ═══════════════════════════════════════════════════════════
 
+# Template tests need the real current month because the auto-generator
+# creates movements dated in the actual current calendar month
+REAL_CURRENT_MONTH=$(date +"%Y-%m")
+
 echo -e "${BLUE}═══════════════════════════════════════════════════════════${NC}"
 echo -e "${BLUE}Template Delete Scope (THIS / ALL)${NC}"
 echo -e "${BLUE}═══════════════════════════════════════════════════════════${NC}\n"
@@ -367,7 +371,7 @@ TEMPLATE_THIS=$(api_call $CURL_FLAGS -X POST "$BASE_URL/api/recurring-movements"
     \"auto_generate\": true,
     \"recurrence_pattern\": \"MONTHLY\",
     \"day_of_month\": 15,
-    \"start_date\": \"$(date -d '-1 month' +%Y-%m-%d)\",
+    \"start_date\": \"2025-01-01\",
     \"payer_contact_id\": \"$CONTACT_ID\",
     \"participants\": [{\"participant_user_id\": \"$USER_ID\", \"percentage\": 1.0}]
   }")
@@ -380,7 +384,7 @@ api_call $CURL_FLAGS -X POST "$BASE_URL/api/recurring-movements/generate" \
 echo -e "${GREEN}✓ Generator triggered${NC}\n"
 
 run_test "Verify auto-generated movement exists"
-MOVEMENTS=$(api_call $CURL_FLAGS -X GET "$BASE_URL/movements?type=SPLIT&month=$CURRENT_MONTH" \
+MOVEMENTS=$(api_call $CURL_FLAGS -X GET "$BASE_URL/movements?type=SPLIT&month=$REAL_CURRENT_MONTH" \
   -b $COOKIES_FILE)
 GENERATED_COUNT=$(echo "$MOVEMENTS" | jq "[.movements[] | select(.generated_from_template_id == \"$TEMPLATE_THIS_ID\")] | length")
 if [ "$GENERATED_COUNT" -ge "1" ]; then
@@ -416,7 +420,7 @@ else
 fi
 
 run_test "Verify auto-generated movement still exists (scope=THIS keeps movements)"
-MOVEMENTS=$(api_call $CURL_FLAGS -X GET "$BASE_URL/movements?type=SPLIT&month=$CURRENT_MONTH" \
+MOVEMENTS=$(api_call $CURL_FLAGS -X GET "$BASE_URL/movements?type=SPLIT&month=$REAL_CURRENT_MONTH" \
   -b $COOKIES_FILE)
 STILL_EXISTS=$(echo "$MOVEMENTS" | jq "[.movements[] | select(.id == \"$GENERATED_MOVEMENT_ID\")] | length")
 if [ "$STILL_EXISTS" -ge "1" ]; then
@@ -439,7 +443,7 @@ TEMPLATE_ALL=$(api_call $CURL_FLAGS -X POST "$BASE_URL/api/recurring-movements" 
     \"auto_generate\": true,
     \"recurrence_pattern\": \"MONTHLY\",
     \"day_of_month\": 20,
-    \"start_date\": \"$(date -d '-1 month' +%Y-%m-%d)\",
+    \"start_date\": \"2025-01-01\",
     \"payer_contact_id\": \"$CONTACT_ID\",
     \"participants\": [{\"participant_user_id\": \"$USER_ID\", \"percentage\": 1.0}]
   }")
@@ -452,7 +456,7 @@ api_call $CURL_FLAGS -X POST "$BASE_URL/api/recurring-movements/generate" \
 echo -e "${GREEN}✓ Generator triggered${NC}\n"
 
 run_test "Verify auto-generated movement exists for ALL template"
-MOVEMENTS=$(api_call $CURL_FLAGS -X GET "$BASE_URL/movements?type=SPLIT&month=$CURRENT_MONTH" \
+MOVEMENTS=$(api_call $CURL_FLAGS -X GET "$BASE_URL/movements?type=SPLIT&month=$REAL_CURRENT_MONTH" \
   -b $COOKIES_FILE)
 GENERATED_ALL_COUNT=$(echo "$MOVEMENTS" | jq "[.movements[] | select(.generated_from_template_id == \"$TEMPLATE_ALL_ID\")] | length")
 if [ "$GENERATED_ALL_COUNT" -ge "1" ]; then
@@ -487,7 +491,7 @@ else
 fi
 
 run_test "Verify auto-generated movements were deleted (scope=ALL)"
-MOVEMENTS=$(api_call $CURL_FLAGS -X GET "$BASE_URL/movements?type=SPLIT&month=$CURRENT_MONTH" \
+MOVEMENTS=$(api_call $CURL_FLAGS -X GET "$BASE_URL/movements?type=SPLIT&month=$REAL_CURRENT_MONTH" \
   -b $COOKIES_FILE)
 REMAINING=$(echo "$MOVEMENTS" | jq "[.movements[] | select(.generated_from_template_id == \"$TEMPLATE_ALL_ID\")] | length")
 if [ "$REMAINING" = "0" ]; then
@@ -584,7 +588,7 @@ EDIT_THIS_TEMPLATE=$(api_call $CURL_FLAGS -X POST "$BASE_URL/api/recurring-movem
     \"auto_generate\": true,
     \"recurrence_pattern\": \"MONTHLY\",
     \"day_of_month\": 15,
-    \"start_date\": \"$(date -d '-1 month' +%Y-%m-%d)\",
+    \"start_date\": \"2025-01-01\",
     \"payer_contact_id\": \"$CONTACT_ID\",
     \"participants\": [{\"participant_user_id\": \"$USER_ID\", \"percentage\": 1.0}]
   }")
@@ -596,7 +600,7 @@ api_call $CURL_FLAGS -X POST "$BASE_URL/api/recurring-movements/generate" -b $CO
 echo -e "${GREEN}✓ Auto-generation triggered${NC}\n"
 
 run_test "Verify movement exists before edit"
-MOVEMENTS=$(api_call $CURL_FLAGS -X GET "$BASE_URL/movements?type=SPLIT&month=$CURRENT_MONTH" -b $COOKIES_FILE)
+MOVEMENTS=$(api_call $CURL_FLAGS -X GET "$BASE_URL/movements?type=SPLIT&month=$REAL_CURRENT_MONTH" -b $COOKIES_FILE)
 EDIT_THIS_MOVEMENT_ID=$(echo "$MOVEMENTS" | jq -r "[.movements[] | select(.generated_from_template_id == \"$EDIT_THIS_ID\")][0].id")
 EDIT_THIS_MOVEMENT_AMOUNT=$(echo "$MOVEMENTS" | jq -r "[.movements[] | select(.generated_from_template_id == \"$EDIT_THIS_ID\")][0].amount")
 if [ "$EDIT_THIS_MOVEMENT_ID" != "null" ] && [ -n "$EDIT_THIS_MOVEMENT_ID" ]; then
