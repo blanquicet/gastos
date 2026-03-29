@@ -291,7 +291,7 @@ function openCreatePocketModal() {
       </div>
       <div class="pocket-modal-field">
         <label>Nota (opcional)</label>
-        <input type="text" id="pocket-create-note" maxlength="200" placeholder="Ej: Bolsillo Nu: Casa" />
+        <input type="text" id="pocket-create-note" maxlength="200" placeholder="Ej: Cajita Nu - Casa, Fiducuenta, etc." />
       </div>
       <div class="pocket-modal-field">
         <label>Meta de ahorro (opcional)</label>
@@ -578,7 +578,7 @@ function openConfigModal() {
       </div>
       <div class="pocket-modal-field">
         <label>Nota (opcional)</label>
-        <input type="text" id="pocket-cfg-note" maxlength="200" value="${escapeAttr(p.note || '')}" placeholder="Ej: Bolsillo Nu: Casa" />
+        <input type="text" id="pocket-cfg-note" maxlength="200" value="${escapeAttr(p.note || '')}" placeholder="Ej: Cajita Nu - Casa, Fiducuenta, etc." />
       </div>
       <div class="pocket-modal-field">
         <label>Meta de ahorro (opcional)</label>
