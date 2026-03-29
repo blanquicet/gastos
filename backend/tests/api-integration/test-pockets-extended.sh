@@ -279,7 +279,7 @@ echo -e "${GREEN}✓ Pocket balance = $CD_BALANCE (expected 0)${NC}\n"
 # 9. NON-OWNER CANNOT DEPOSIT/WITHDRAW/UPDATE/DELETE
 # ═══════════════════════════════════════════════════════════
 
-echo -e "\n${BLUE}═══ NON-OWNER AUTHORIZATION ═══${NC}\n"
+echo -e "\n${BLUE}═══ HOUSEHOLD MEMBER AUTHORIZATION ═══${NC}\n"
 
 run_test "Register User 2 (Member)"
 REGISTER2_RESPONSE=$(api_call $CURL_FLAGS -X POST $BASE_URL/auth/register \
@@ -303,7 +303,7 @@ ADD_MEMBER=$(api_call $CURL_FLAGS -X POST $BASE_URL/households/$HOUSEHOLD_ID/mem
 echo "$ADD_MEMBER" | jq -e '.id' > /dev/null
 echo -e "${GREEN}✓ User 2 added to household as member${NC}\n"
 
-# Create a pocket owned by User 1 for authorization tests
+# Create a pocket owned by User 1 for member access tests
 run_test "Create Pocket Owned by User 1 for Auth Tests"
 POCKET_AUTH_RESPONSE=$(api_call $CURL_FLAGS -X POST $BASE_URL/api/pockets \
   -H "Content-Type: application/json" \
@@ -313,17 +313,7 @@ POCKET_AUTH_ID=$(echo "$POCKET_AUTH_RESPONSE" | jq -r '.id')
 [ "$POCKET_AUTH_ID" != "null" ] && [ -n "$POCKET_AUTH_ID" ]
 echo -e "${GREEN}✓ Pocket created by User 1: $POCKET_AUTH_ID${NC}\n"
 
-# Deposit some funds so we can test withdrawal auth too
-run_test "Deposit 50000 into Auth Test Pocket (as User 1)"
-DEP_AUTH_RESPONSE=$(api_call $CURL_FLAGS -X POST $BASE_URL/api/pockets/$POCKET_AUTH_ID/deposit \
-  -H "Content-Type: application/json" \
-  -b $COOKIES_FILE \
-  -d "{\"amount\":50000,\"description\":\"Auth test deposit\",\"transaction_date\":\"$TODAY\",\"source_account_id\":\"$ACCOUNT_ID\"}")
-DEP_AUTH_ID=$(echo "$DEP_AUTH_RESPONSE" | jq -r '.id')
-[ "$DEP_AUTH_ID" != "null" ] && [ -n "$DEP_AUTH_ID" ]
-echo -e "${GREEN}✓ Deposit created by User 1${NC}\n"
-
-# User 2 needs an account in the household to attempt operations
+# User 2 needs an account in the household
 run_test "Create Account for User 2"
 ACCOUNT2_RESPONSE=$(api_call $CURL_FLAGS -X POST $BASE_URL/accounts \
   -H "Content-Type: application/json" \
@@ -333,36 +323,36 @@ ACCOUNT2_ID=$(echo "$ACCOUNT2_RESPONSE" | jq -r '.id')
 [ "$ACCOUNT2_ID" != "null" ] && [ -n "$ACCOUNT2_ID" ]
 echo -e "${GREEN}✓ Account for User 2: $ACCOUNT2_ID${NC}\n"
 
-run_test "User 2: Deposit to User 1's Pocket → 403"
+run_test "User 2: Deposit to User 1's Pocket → 200 (household member allowed)"
 AUTH_DEP_CODE=$(curl $CURL_FLAGS -o /dev/null -w "%{http_code}" -X POST $BASE_URL/api/pockets/$POCKET_AUTH_ID/deposit \
   -H "Content-Type: application/json" \
   -b $COOKIES_FILE_2 \
-  -d "{\"amount\":10000,\"description\":\"Unauthorized deposit\",\"transaction_date\":\"$TODAY\",\"source_account_id\":\"$ACCOUNT2_ID\"}")
-[ "$AUTH_DEP_CODE" = "403" ]
-echo -e "${GREEN}✓ User 2 deposit correctly rejected (HTTP $AUTH_DEP_CODE)${NC}\n"
+  -d "{\"amount\":10000,\"description\":\"Member deposit\",\"transaction_date\":\"$TODAY\",\"source_account_id\":\"$ACCOUNT2_ID\"}")
+[ "$AUTH_DEP_CODE" = "201" ]
+echo -e "${GREEN}✓ User 2 deposit allowed (HTTP $AUTH_DEP_CODE)${NC}\n"
 
-run_test "User 2: Withdraw from User 1's Pocket → 403"
+run_test "User 2: Withdraw from User 1's Pocket → 200 (household member allowed)"
 AUTH_WD_CODE=$(curl $CURL_FLAGS -o /dev/null -w "%{http_code}" -X POST $BASE_URL/api/pockets/$POCKET_AUTH_ID/withdraw \
   -H "Content-Type: application/json" \
   -b $COOKIES_FILE_2 \
-  -d "{\"amount\":10000,\"description\":\"Unauthorized withdrawal\",\"transaction_date\":\"$TODAY\",\"destination_account_id\":\"$ACCOUNT2_ID\"}")
-[ "$AUTH_WD_CODE" = "403" ]
-echo -e "${GREEN}✓ User 2 withdrawal correctly rejected (HTTP $AUTH_WD_CODE)${NC}\n"
+  -d "{\"amount\":5000,\"description\":\"Member withdrawal\",\"transaction_date\":\"$TODAY\",\"destination_account_id\":\"$ACCOUNT2_ID\"}")
+[ "$AUTH_WD_CODE" = "201" ]
+echo -e "${GREEN}✓ User 2 withdrawal allowed (HTTP $AUTH_WD_CODE)${NC}\n"
 
-run_test "User 2: Update User 1's Pocket → 403"
+run_test "User 2: Update User 1's Pocket → 200 (household member allowed)"
 AUTH_UPD_CODE=$(curl $CURL_FLAGS -o /dev/null -w "%{http_code}" -X PATCH $BASE_URL/api/pockets/$POCKET_AUTH_ID \
   -H "Content-Type: application/json" \
   -b $COOKIES_FILE_2 \
-  -d '{"name":"Hacked Name"}')
-[ "$AUTH_UPD_CODE" = "403" ]
-echo -e "${GREEN}✓ User 2 update correctly rejected (HTTP $AUTH_UPD_CODE)${NC}\n"
+  -d '{"name":"Renamed By Member"}')
+[ "$AUTH_UPD_CODE" = "200" ]
+echo -e "${GREEN}✓ User 2 update allowed (HTTP $AUTH_UPD_CODE)${NC}\n"
 
-run_test "User 2: Delete User 1's Pocket → 403"
+run_test "User 2: Delete User 1's Pocket → 204 (household member allowed)"
 AUTH_DEL_CODE=$(curl $CURL_FLAGS -o /dev/null -w "%{http_code}" -X DELETE \
   "$BASE_URL/api/pockets/$POCKET_AUTH_ID?force=true" \
   -b $COOKIES_FILE_2)
-[ "$AUTH_DEL_CODE" = "403" ]
-echo -e "${GREEN}✓ User 2 delete correctly rejected (HTTP $AUTH_DEL_CODE)${NC}\n"
+[ "$AUTH_DEL_CODE" = "204" ]
+echo -e "${GREEN}✓ User 2 delete allowed (HTTP $AUTH_DEL_CODE)${NC}\n"
 
 # ═══════════════════════════════════════════════════════════
 # 10. DEPOSIT TO INACTIVE POCKET → 422
@@ -567,7 +557,7 @@ echo "  ✓ Linked movement properties (source_pocket_id, type, description, pay
 echo "  ✓ Withdrawal has no linked movement"
 echo "  ✓ Edit deposit description → linked movement description updated"
 echo "  ✓ Cascade delete from Gastos side"
-echo "  ✓ Non-owner authorization (deposit, withdraw, update, delete → 403)"
+echo "  ✓ Household member authorization (deposit, withdraw, update, delete → allowed)"
 echo "  ✓ Deposit/withdraw to inactive pocket → 422"
 echo "  ✓ Max 20 pockets limit → 422"
 echo "  ✓ Edit deposit reducing amount below withdrawal total → 422"

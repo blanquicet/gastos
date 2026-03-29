@@ -180,11 +180,6 @@ func (s *Service) Update(ctx context.Context, userID, householdID string, input 
 		return nil, ErrNotAuthorized
 	}
 
-	// Only owner can modify
-	if pocket.OwnerID != userID {
-		return nil, ErrNotAuthorized
-	}
-
 	// Check name uniqueness if name is being changed
 	if input.Name != nil && *input.Name != pocket.Name {
 		existing, err := s.repo.FindByName(ctx, householdID, *input.Name)
@@ -264,11 +259,6 @@ func (s *Service) Deactivate(ctx context.Context, id, userID, householdID string
 		return ErrNotAuthorized
 	}
 
-	// Only owner can deactivate
-	if pocket.OwnerID != userID {
-		return ErrNotAuthorized
-	}
-
 	// Check balance if not forcing
 	if !force {
 		balance, err := s.repo.GetBalance(ctx, id)
@@ -312,11 +302,6 @@ func (s *Service) Deposit(ctx context.Context, input *DepositInput) (*PocketTran
 	}
 	if !pocket.IsActive {
 		return nil, ErrPocketNotActive
-	}
-
-	// Only owner can deposit
-	if pocket.OwnerID != input.CreatedBy {
-		return nil, ErrNotAuthorized
 	}
 
 	// Verify source account belongs to household
@@ -470,11 +455,6 @@ func (s *Service) Withdraw(ctx context.Context, input *WithdrawInput) (*PocketTr
 		return nil, ErrPocketNotActive
 	}
 
-	// Only owner can withdraw
-	if pocket.OwnerID != input.CreatedBy {
-		return nil, ErrNotAuthorized
-	}
-
 	// Verify destination account belongs to household
 	account, err := s.accountsRepo.GetByID(ctx, input.DestinationAccountID)
 	if err != nil {
@@ -564,9 +544,6 @@ func (s *Service) EditTransaction(ctx context.Context, userID, householdID strin
 		return nil, err
 	}
 	if pocket.HouseholdID != householdID {
-		return nil, ErrNotAuthorized
-	}
-	if pocket.OwnerID != userID {
 		return nil, ErrNotAuthorized
 	}
 
@@ -662,9 +639,6 @@ func (s *Service) DeleteTransaction(ctx context.Context, transactionID, userID, 
 		return err
 	}
 	if pocket.HouseholdID != householdID {
-		return ErrNotAuthorized
-	}
-	if pocket.OwnerID != userID {
 		return ErrNotAuthorized
 	}
 

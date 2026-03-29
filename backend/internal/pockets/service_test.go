@@ -626,22 +626,6 @@ func TestUpdate(t *testing.T) {
 		}
 	})
 
-	t.Run("non-owner cannot update", func(t *testing.T) {
-		p := defaultPocket()
-		repo := &mockRepository{
-			getByIDFn: func(_ context.Context, _ string) (*Pocket, error) { return p, nil },
-		}
-		svc := defaultService(repo, &mockMovementsRepo{}, &mockAccountsRepo{}, &mockHouseholdRepo{})
-
-		newName := "Hacked"
-		_, err := svc.Update(context.Background(), "user-other", "household-1", &UpdatePocketInput{
-			ID: "pocket-1", Name: &newName,
-		})
-		if !errors.Is(err, ErrNotAuthorized) {
-			t.Errorf("expected ErrNotAuthorized, got %v", err)
-		}
-	})
-
 	t.Run("duplicate name on update", func(t *testing.T) {
 		p := defaultPocket()
 		repo := &mockRepository{
@@ -711,18 +695,6 @@ func TestDeactivate(t *testing.T) {
 		}
 	})
 
-	t.Run("non-owner cannot deactivate", func(t *testing.T) {
-		p := defaultPocket()
-		repo := &mockRepository{
-			getByIDFn: func(_ context.Context, _ string) (*Pocket, error) { return p, nil },
-		}
-		svc := defaultService(repo, &mockMovementsRepo{}, &mockAccountsRepo{}, &mockHouseholdRepo{})
-
-		err := svc.Deactivate(context.Background(), "pocket-1", "user-other", "household-1", false)
-		if !errors.Is(err, ErrNotAuthorized) {
-			t.Errorf("expected ErrNotAuthorized, got %v", err)
-		}
-	})
 }
 
 // ============================================================
@@ -799,22 +771,6 @@ func TestDeposit(t *testing.T) {
 		}
 	})
 
-	t.Run("non-owner cannot deposit", func(t *testing.T) {
-		p := defaultPocket()
-		repo := &mockRepository{
-			getByIDFn: func(_ context.Context, _ string) (*Pocket, error) { return p, nil },
-		}
-		svc := defaultService(repo, &mockMovementsRepo{}, &mockAccountsRepo{}, &mockHouseholdRepo{})
-
-		_, err := svc.Deposit(context.Background(), &DepositInput{
-			PocketID: "pocket-1", Amount: 100, Description: "x",
-			TransactionDate: validDate, SourceAccountID: "a1", CreatedBy: "user-other",
-		})
-		if !errors.Is(err, ErrNotAuthorized) {
-			t.Errorf("expected ErrNotAuthorized, got %v", err)
-		}
-	})
-
 	t.Run("account from different household → ErrNotAuthorized", func(t *testing.T) {
 		p := defaultPocket()
 		repo := &mockRepository{
@@ -884,21 +840,6 @@ func TestWithdraw(t *testing.T) {
 		}
 	})
 
-	t.Run("non-owner cannot withdraw", func(t *testing.T) {
-		p := defaultPocket()
-		repo := &mockRepository{
-			getByIDFn: func(_ context.Context, _ string) (*Pocket, error) { return p, nil },
-		}
-		svc := defaultService(repo, &mockMovementsRepo{}, &mockAccountsRepo{}, &mockHouseholdRepo{})
-
-		_, err := svc.Withdraw(context.Background(), &WithdrawInput{
-			PocketID: "pocket-1", Amount: 100, Description: "x",
-			TransactionDate: validDate, DestinationAccountID: "acc-1", CreatedBy: "user-other",
-		})
-		if !errors.Is(err, ErrNotAuthorized) {
-			t.Errorf("expected ErrNotAuthorized, got %v", err)
-		}
-	})
 }
 
 // ============================================================
@@ -1004,27 +945,6 @@ func TestEditTransaction(t *testing.T) {
 		})
 		if !errors.Is(err, ErrInsufficientBalance) {
 			t.Errorf("expected ErrInsufficientBalance, got %v", err)
-		}
-	})
-
-	t.Run("non-owner cannot edit", func(t *testing.T) {
-		p := defaultPocket()
-		existingTx := &PocketTransaction{
-			ID: "ptx-1", PocketID: "pocket-1", HouseholdID: "household-1",
-			Type: TransactionTypeDeposit, Amount: 100000, CreatedBy: "user-1",
-		}
-		repo := &mockRepository{
-			getByIDFn:            func(_ context.Context, _ string) (*Pocket, error) { return p, nil },
-			getTransactionByIDFn: func(_ context.Context, _ string) (*PocketTransaction, error) { return existingTx, nil },
-		}
-		svc := defaultService(repo, &mockMovementsRepo{}, &mockAccountsRepo{}, &mockHouseholdRepo{})
-
-		newAmt := 200000.0
-		_, err := svc.EditTransaction(context.Background(), "user-other", "household-1", &EditTransactionInput{
-			ID: "ptx-1", Amount: &newAmt,
-		})
-		if !errors.Is(err, ErrNotAuthorized) {
-			t.Errorf("expected ErrNotAuthorized, got %v", err)
 		}
 	})
 
@@ -1146,23 +1066,6 @@ func TestDeleteTransaction(t *testing.T) {
 		}
 	})
 
-	t.Run("non-owner cannot delete", func(t *testing.T) {
-		p := defaultPocket()
-		existingTx := &PocketTransaction{
-			ID: "ptx-1", PocketID: "pocket-1", HouseholdID: "household-1",
-			Type: TransactionTypeWithdrawal, Amount: 100, CreatedBy: "user-1",
-		}
-		repo := &mockRepository{
-			getByIDFn:            func(_ context.Context, _ string) (*Pocket, error) { return p, nil },
-			getTransactionByIDFn: func(_ context.Context, _ string) (*PocketTransaction, error) { return existingTx, nil },
-		}
-		svc := defaultService(repo, &mockMovementsRepo{}, &mockAccountsRepo{}, &mockHouseholdRepo{})
-
-		err := svc.DeleteTransaction(context.Background(), "ptx-1", "user-other", "household-1")
-		if !errors.Is(err, ErrNotAuthorized) {
-			t.Errorf("expected ErrNotAuthorized, got %v", err)
-		}
-	})
 }
 
 // ============================================================
